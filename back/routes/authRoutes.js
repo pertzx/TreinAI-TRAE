@@ -245,7 +245,8 @@ router.post('/logout', (req, res) => {
     res.clearCookie('authToken', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict'
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/'
     });
     res.json({ msg: 'Logout realizado com sucesso!' });
 });

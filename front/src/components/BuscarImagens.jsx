@@ -3,8 +3,8 @@ import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import api from '../Api';
 
-const API_KEY = import.meta.env.VITE_API_GOOGLE_SEARCH_IMAGES/* || 'AIzaSyB2tqMqFXuarJ6ZW761V64yRGGWTg_J_Bg' */;
-const CX = import.meta.env.VITE_CX/*  || 'f64c3a2a558e34696' */;
+const API_KEY = import.meta.env.VITE_API_GOOGLE_SEARCH_IMAGES;
+const CX = import.meta.env.VITE_CX;
 
 /**
  * BuscarImagem (com console.logs)
@@ -56,9 +56,12 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
     setError(null);
 
     const fetchImageFromGoogle = async (signal) => {
-      // if (!API_KEY || !CX) {
-      //   return null;
-      // }
+      // Verificar se as chaves da API estão configuradas
+      if (!API_KEY || !CX) {
+        console.warn('[BuscarImagem] Google API keys not configured, skipping Google Search');
+        return null;
+      }
+      
       try {
         const res = await axios.get('https://www.googleapis.com/customsearch/v1', {
           params: {
@@ -84,7 +87,15 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
         if (axios.isCancel(err)) {
           return null;
         }
-        console.warn('[BuscarImagem] Google Search error (will fallback):', err?.response?.data || err?.message || err);
+        
+        // Log mais detalhado do erro
+        if (err?.response?.status === 403) {
+          console.warn('[BuscarImagem] Google API quota exceeded or invalid key:', err?.response?.data);
+        } else if (err?.response?.status === 400) {
+          console.warn('[BuscarImagem] Google API bad request:', err?.response?.data);
+        } else {
+          console.warn('[BuscarImagem] Google Search error (will fallback):', err?.response?.data || err?.message || err);
+        }
         return null;
       }
     };
@@ -125,10 +136,31 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
           return;
         }
 
-        // 3) fallback to Unsplash (no key required)
-        const unsplash = `https://source.unsplash.com/800x600/?${encodeURIComponent(query)}`;
+        // 3) fallback to multiple sources
+        console.log('[BuscarImagem] Google API failed, using fallback sources');
+        
+        // Try different fallback sources based on query type
+        let fallbackUrl = null;
+        
+        // For profile/user related images
+        if (query.toLowerCase().includes('perfil') || query.toLowerCase().includes('usuario') || query.toLowerCase().includes('user')) {
+          fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(query)}&background=random&size=400`;
+        }
+        // For exercise/fitness related images
+        else if (query.toLowerCase().includes('exercicio') || query.toLowerCase().includes('treino') || query.toLowerCase().includes('fitness')) {
+          fallbackUrl = `https://source.unsplash.com/400x400/?fitness,exercise,${encodeURIComponent(query)}`;
+        }
+        // For food/nutrition related images
+        else if (query.toLowerCase().includes('comida') || query.toLowerCase().includes('alimento') || query.toLowerCase().includes('receita')) {
+          fallbackUrl = `https://source.unsplash.com/400x400/?food,healthy,${encodeURIComponent(query)}`;
+        }
+        // Generic fallback
+        else {
+          fallbackUrl = `https://source.unsplash.com/400x400/?${encodeURIComponent(query)}`;
+        }
+        
         if (!mountedRef.current) return;
-        setImg(unsplash);
+        setImg(fallbackUrl);
         setLoading(false);
       } catch (err) {
         if (err.name === 'CanceledError' || err.message === 'canceled') {
@@ -210,15 +242,30 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
 
   return (
     <div ref={wrapperRef} className={`relative inline-block ${className || ''}`}>
-      <img
-        src={img}
-        alt={alt || query}
-        className={`cursor-pointer ${className || ''}`}
-        onClick={handleImageClick}
-        onKeyDown={(e) => e.key === 'Enter' && handleImageClick(e)}
-        role="button"
-        tabIndex={0}
-      />
+
+      {
+        img.length !== 0 || img !== null ? (
+          <img
+            src={img}
+            alt={alt || query}
+            className={`cursor-pointer ${className || ''}`}
+            onClick={handleImageClick}
+            onKeyDown={(e) => e.key === 'Enter' && handleImageClick(e)}
+            role="button"
+            tabIndex={0}
+          />
+        ) : (
+          <img
+            src={'https://source.unsplash.com/800x600/?placeholder'}
+            alt={alt || query}
+            className={`cursor-pointer ${className || ''}`}
+            onClick={handleImageClick}
+            onKeyDown={(e) => e.key === 'Enter' && handleImageClick(e)}
+            role="button"
+            tabIndex={0}
+          />
+        )
+      }
 
       <div className="absolute right-3 top-3 pointer-events-none">
         <div className="text-xs bg-black/60 text-white rounded-full px-2 py-1">Imagem</div>
@@ -234,7 +281,8 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
             <button onClick={() => setShowReport(false)} className="text-xs opacity-60">Fechar</button>
           </div>
 
-          <textarea
+          <input
+            type='text'
             value={reportValue}
             onChange={(e) => setReportValue(e.target.value)}
             placeholder="Explique o problema (ex: imagem incorreta, conteúdo impróprio, etc.)"

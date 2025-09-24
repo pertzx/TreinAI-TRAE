@@ -21,12 +21,9 @@ export default function AdminUsuarios({ tema, user }) {
   const [sortBy, setSortBy] = useState('none') // none, tokens_desc, tokens_asc
 
   const fetchUsuarios = async () => {
-    const token = localStorage.getItem('token')
-    if (!token) return
     try {
-      const res = await api.post('/usuarios', { adminId: user._id }, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      // Buscar usuários usando apenas cookies httpOnly
+      const res = await api.post('/usuarios', { adminId: user._id })
       if (res.data?.users) setUsuarios(res.data.users)
       if (res.data?.msg) setMsg(res.data.msg)
       if (res.data?.erro) setErro(res.data.erro)

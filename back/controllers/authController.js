@@ -131,8 +131,9 @@ export const login = async (req, res) => {
     res.cookie('authToken', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Permite cross-origin em produção
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+      path: '/' // Garante que o cookie seja enviado para todas as rotas
     });
 
     return res.json({

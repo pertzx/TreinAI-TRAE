@@ -181,8 +181,8 @@ export const SessionPaymentSaldoDeImpressoes = async (req, res) => {
         },
         quantity: valorEmReais, // valorEmReais unidades de R$1
       }],
-      success_url: `${process.env.URL}success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.URL}cancel`,
+      success_url: `${process.env.FRONTEND_URL}success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}cancel`,
       metadata: {
         app: 'treinai',
         flow: 'saldo_impressoes',
@@ -338,8 +338,8 @@ export const CriarAssinaturaProLocal = async (req, res) => {
       mode: 'subscription',
       payment_method_types: pm === 'pix' ? ['pix'] : ['card'],
       line_items: [{ price: unitPrice, quantity: 1 }],
-      success_url: `${process.env.URL}success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.URL}cancel`,
+      success_url: `${process.env.FRONTEND_URL}success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}cancel`,
       metadata: { app: 'treinai', pendingUploadId: pendingUpload ? String(pendingUpload._id) : null, flow: 'publish_local' },
       subscription_data: {
         metadata: subscriptionMetadata
@@ -412,8 +412,8 @@ export const CreateCheckoutSession = async (req, res) => {
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.URL}success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.URL}cancel`,
+      success_url: `${process.env.FRONTEND_URL}success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}cancel`,
       metadata: {
         user_id: String(user._id),
         plan_type: plan,
@@ -656,7 +656,7 @@ export const StripeWebhook = async (req, res) => {
               }
 
               // montar imageUrl a partir de process.env.URL (webhook não tem req)
-              const baseUrl = (process.env.BASEURL || '').replace(/\/$/, '');
+              const baseUrl = (process.env.URL || '').replace(/\/$/, '');
               const imageUrl = pending.filename ? `${baseUrl}/uploads/image-local/${pending.filename}` : null;
 
               // checar duplicidade (por userId+localName+localType)

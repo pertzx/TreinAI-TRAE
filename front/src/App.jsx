@@ -16,27 +16,19 @@ function App() {
   const [needToPay, setNeedToPay] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-
-    if (token) {
-      api.get('/dashboard', {
-        headers: {
-          Authorization: `Bearer ${token}`,
+    // Verificar autenticação usando apenas cookies httpOnly
+    api.get('/dashboard')
+      .then((res) => {
+        if (res.data.user) {
+          console.log(res.data)
+          setLogado(true);
+          setNeedToPay(res.data.user.planInfos?.status !== 'ativo' && res.data.user.planInfos?.planType !== 'free');
         }
       })
-        .then((res) => {
-          if (res.data.user) {
-            console.log(res.data)
-            setLogado(true);
-            setNeedToPay(res.data.user.planInfos?.status !== 'ativo' && res.data.user.planInfos?.planType !== 'free');
-          }
-        })
-        .catch((err) => {
-          console.log('Token inválido ou expirado', err);
-          localStorage.removeItem('token');
-          setLogado(false);
-        });
-    }
+      .catch((err) => {
+        console.log('Usuário não autenticado ou sessão expirada', err);
+        setLogado(false);
+      });
   }, []);
 
   return (

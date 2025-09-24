@@ -51,13 +51,9 @@ const Dashboard = ({ needToPay, plano }) => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return navigate('/login');
-
       try {
-        const res = await api.get('/dashboard', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // Buscar dados do usuário usando apenas cookies httpOnly
+        const res = await api.get('/dashboard');
         if (res.data?.user) setUser(res.data.user);
         else navigate('/login');
       } catch (error){
@@ -65,7 +61,6 @@ const Dashboard = ({ needToPay, plano }) => {
         const errorMessage = handleError(error, setError);
         
         if (isAuthError(error)) {
-          localStorage.removeItem('token');
           navigate('/login');
         }
         

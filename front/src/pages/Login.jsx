@@ -87,7 +87,7 @@ function Login({ plano, setLogado, logado }) {
 
       // sucesso esperado: token presente
       if (response && response.data && response.data.token) {
-        localStorage.setItem("token", response.data.token);
+        // Não armazenar mais o token no localStorage - usar apenas cookies httpOnly
         setLogado(true);
         setMsg(response.data.msg ?? null);
         setLoading(false);
@@ -116,7 +116,7 @@ function Login({ plano, setLogado, logado }) {
       
       // Se for erro de autenticação, limpar tokens
       if (isAuthError(err)) {
-        localStorage.removeItem("token");
+        // Remover apenas tokens CSRF, JWT agora é gerenciado por cookies httpOnly
         clearToken();
       }
       

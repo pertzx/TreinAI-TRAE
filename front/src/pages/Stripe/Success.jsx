@@ -5,20 +5,18 @@ import api from '../../Api';
 const Success = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const updateSubscription = async () => {
       try {
-        const token = localStorage.getItem('token');
         const params = new URLSearchParams(window.location.search);
         const sessionId = params.get('session_id');
 
-        if (!token || !sessionId) return;
+        if (!sessionId) return;
 
-        // Consulta a sessão para confirmar status do pagamento
-        const res = await api.get(`/session-status?session_id=${sessionId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // Consulta a sessão para confirmar status do pagamento - usando cookies httpOnly
+        const res = await api.get(`/session-status?session_id=${sessionId}`);
 
         if (res.data.status === 'paid' || res.data.status === 'active') {
           console.warn('Pagamento realizado com sucesso! Seu plano foi ativado.');
@@ -33,6 +31,19 @@ const Success = () => {
     };
 
     updateSubscription();
+  }, []);
+
+  useEffect(() => {
+    // Verificar autenticação usando apenas cookies httpOnly
+    api.get('/dashboard')
+      .then((res) => {
+        if (res.data.user) {
+          setUser(res.data.user);
+        }
+      })
+      .catch((err) => {
+        console.log('Erro ao buscar dados do usuário', err);
+      });
   }, []);
 
   if (loading) return <div className="text-white p-4">Carregando...</div>;
