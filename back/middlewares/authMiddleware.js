@@ -31,3 +31,6 @@ export const verificarToken = (req, res, next) => {
         next();
     });
 };
+
+// Alias para compatibilidade
+export const authenticateToken = verificarToken;

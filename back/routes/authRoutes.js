@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { login, dashboard, signup, changeTheme, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser } from '../controllers/authController.js';
 import { verificarToken } from '../middlewares/authMiddleware.js';
 import { validateLogin, validateSignup, validateUpdateProfile, sanitizeInput } from '../middlewares/validationMiddleware.js';
+import { validateEmailReal, validateEmailBasic } from '../middlewares/emailValidation.js';
 import { loginRateLimit, signupRateLimit, uploadRateLimit, passwordResetRateLimit, adminRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { validateCSRF, validateCSRFAuth, getCSRFToken, provideCSRFToken } from '../middlewares/csrfMiddleware.js';
 import { adminSecurityHeaders, uploadSecurityHeaders } from '../middlewares/securityHeaders.js';
@@ -22,22 +23,32 @@ import { upload, uploadMidiaAnuncio } from '../controllers/multerConfig.js';
 import { aceitarAluno, editarProfissional, profissionais, publicarProfissional, queroSerAluno, removerAluno } from '../controllers/profissionais.js';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
-import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVistas, pegarChat, pegarChats, removerUsuario } from '../controllers/chatController.js';
+import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVistas, pegarChat, pegarChats, removerUsuario, editarMensagem, responderMensagem, marcarMensagensVistasV2, configurarChat, buscarHistorico } from '../controllers/chatController.js';
 import { conversarNutri } from '../controllers/NutriAI.js';
 import { editarLocal } from '../controllers/LocalController.js';
 import { getLocais } from '../controllers/LocalController.js';
 import { criarAnuncio, editarAnuncio, getAnuncios } from '../controllers/AnunciosController.js';
 import { deletarAnuncio } from '../controllers/AnunciosController.js';
-import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers } from '../controllers/AdminController.js';
+import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError, getDetailedAIAnalytics } from '../controllers/AdminController.js';
+import { 
+    getCacheDashboard,
+    performCacheMaintenance,
+    getCacheMonitoring,
+    configureCacheAlerts
+} from '../controllers/CacheAdminController.js';
 import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
+import { 
+  apiPerformanceMiddleware, 
+  aiSystemLogger 
+} from '../middleware/apiPerformanceMiddleware.js';
 
 const router = Router();
 
 // Rota para obter token CSRF
 router.get('/csrf-token', getCSRFToken);
 
-router.post('/login', loginRateLimit, validateCSRFAuth, sanitizeInput, validateLogin, login);
-router.post('/signup', signupRateLimit, validateCSRFAuth, sanitizeInput, validateSignup, signup);
+router.post('/login', loginRateLimit, validateCSRFAuth, sanitizeInput, validateEmailBasic, validateLogin, login);
+router.post('/signup', signupRateLimit, validateCSRFAuth, sanitizeInput, validateEmailReal, validateSignup, signup);
 router.get('/dashboard', verificarToken, dashboard);
 router.post('/create-checkout-session', CreateCheckoutSession);
 router.get('/session-status', SessionStatus); // verificar status
@@ -45,8 +56,17 @@ router.post('/change-theme', changeTheme)
 router.post('/complete-onboarding', completeOnboarding)
 router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, sanitizeInput, validateUpdateProfile, upload('uploads/image-perfil', 'avatar'), atualizarPerfil)
 router.post('/criar-meusTreinos', carregarTreinos);
-router.post('/gerar-exercicio-ia', criarExercicioIA);
-router.post('/gerar-treino-ia', criarTreinoIA);
+// IA routes with performance monitoring
+router.post('/gerar-exercicio-ia', 
+  apiPerformanceMiddleware('EXERCISE_GENERATION_AI'),
+  aiSystemLogger('EXERCISE_GENERATION_AI'),
+  criarExercicioIA
+);
+router.post('/gerar-treino-ia', 
+  apiPerformanceMiddleware('WORKOUT_GENERATION_AI'),
+  aiSystemLogger('WORKOUT_GENERATION_AI'),
+  criarTreinoIA
+);
 router.delete('/excluir-treino', async (req, res) => {
   const { email, treinoId } = req.query;
 
@@ -151,7 +171,12 @@ router.delete('/excluir-exercicio', async (req, res) => {
   }
 });
 router.put('/atualizar-meusTreinos', atualizarMeusTreinos)
-router.post('/conversar', conversar);
+// Chat and AI conversation routes with monitoring
+router.post('/conversar', 
+  apiPerformanceMiddleware('AI_CONVERSATION'),
+  aiSystemLogger('AI_CONVERSATION'),
+  conversar
+);
 router.post('/publicar-no-historico', publicarNoHistorico);
 router.post('/atualizar-plano', atualizarPlano)
 router.get('/procurar-exercicio', procurarExercicio);
@@ -174,8 +199,19 @@ router.post('/adicionar-usuario-chat', adicionarUsuario);
 router.post('/remover-usuario-chat', removerUsuario);
 router.post('/marcar-mensagens-vistas', marcarMensagensVistas);
 
+// Novas funcionalidades de chat
+router.post('/editar-mensagem', editarMensagem);
+router.post('/responder-mensagem', responderMensagem);
+router.post('/marcar-mensagens-vistas-v2', marcarMensagensVistasV2);
+router.post('/configurar-chat', configurarChat);
+router.get('/buscar-historico', buscarHistorico);
+
 // nutri
-router.post('/conversar-nutri', conversarNutri);
+router.post('/conversar-nutri', 
+  apiPerformanceMiddleware('NUTRI_AI_CONVERSATION'),
+  aiSystemLogger('NUTRI_AI_CONVERSATION'),
+  conversarNutri
+);
 
 // local
 // salva upload no tmp — só movemos para image-local quando invoice.paid confirmar
@@ -235,6 +271,20 @@ router.post('/alterar-status-anuncio', adminRateLimit, adminSecurityHeaders, alt
 router.get('/supports-by-admin', adminRateLimit, adminSecurityHeaders, getSupportsByAdmin) // body: adminId,
 router.post('/alterarVisibilidade-by-admin', adminRateLimit, adminSecurityHeaders, alterarVisibilidadeSuporte) // body: adminId, supportId, boolean
 router.post('/adicionarRespostaSuportAdmin', adminRateLimit, adminSecurityHeaders, adicionarRespostaSupport) // body: adminId, supportId, resposta
+
+// Rotas administrativas do sistema AI
+router.post('/admin/ai-dashboard', adminRateLimit, adminSecurityHeaders, getAIDashboard) // body: adminId (obrigatório)
+router.post('/admin/cache-management', adminRateLimit, adminSecurityHeaders, manageCacheRedis) // body: adminId, action, pattern (opcional)
+router.post('/admin/api-performance', adminRateLimit, adminSecurityHeaders, getAPIPerformanceMetrics) // body: adminId, timeRange (opcional)
+router.post('/admin/error-logs', adminRateLimit, adminSecurityHeaders, getAPIErrorLogs)
+router.post('/admin/resolve-error', adminRateLimit, adminSecurityHeaders, resolveAPIError)
+router.post('/admin/detailed-analytics', adminRateLimit, adminSecurityHeaders, getDetailedAIAnalytics)
+
+// Rotas administrativas avançadas do cache Redis
+router.get('/admin/cache-dashboard', adminRateLimit, adminSecurityHeaders, getCacheDashboard)
+router.post('/admin/cache-maintenance', adminRateLimit, adminSecurityHeaders, performCacheMaintenance) // body: operations[]
+router.get('/admin/cache-monitoring', adminRateLimit, adminSecurityHeaders, getCacheMonitoring) // query: interval
+router.post('/admin/cache-alerts', adminRateLimit, adminSecurityHeaders, configureCacheAlerts) // body: alerts{}
 
 // support
 router.get('/supports', getSupports) // body: adminId, anuncioId, novoStatus (obrigatórios)

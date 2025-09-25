@@ -36,6 +36,15 @@ const Chats = ({ user, tema }) => {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [editContent, setEditContent] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [showChatSettings, setShowChatSettings] = useState(false);
+  const [chatSettings, setChatSettings] = useState({
+    notificacoes: true,
+    arquivado: false,
+    fixado: false
+  });
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState(null);
@@ -345,6 +354,99 @@ const Chats = ({ user, tema }) => {
     }
   };
 
+  // editar mensagem
+  const editMessage = async () => {
+    if (!selectedChat || !editingMessage || !editContent.trim()) return;
+    const ChatId = selectedChat.ChatId || selectedChat._id;
+    if (!ChatId) return;
+
+    try {
+      await api.post('/editar-mensagem', {
+        chatId: ChatId,
+        mensagemId: editingMessage.mensagemId,
+        novoConteudo: editContent.trim(),
+        userId
+      });
+      setEditingMessage(null);
+      setEditContent('');
+      await fetchChatMessages(selectedChat);
+    } catch (err) {
+      console.error('editMessage error:', err);
+      setError('Erro ao editar mensagem.');
+    }
+  };
+
+  // responder mensagem
+  const replyToMessage = async () => {
+    if (!selectedChat || !replyingTo || !newMessage.trim()) return;
+    const ChatId = selectedChat.ChatId || selectedChat._id;
+    if (!ChatId) return;
+
+    try {
+      await api.post('/responder-mensagem', {
+        chatId: ChatId,
+        mensagemOriginalId: replyingTo.mensagemId,
+        conteudo: newMessage.trim(),
+        userId,
+        username,
+        respondendoA: {
+          mensagemId: replyingTo.mensagemId,
+          conteudo: replyingTo.conteudo.substring(0, 50) + (replyingTo.conteudo.length > 50 ? '...' : ''),
+          userId: replyingTo.userId
+        }
+      });
+      setNewMessage('');
+      setReplyingTo(null);
+      await fetchChatMessages(selectedChat);
+    } catch (err) {
+      console.error('replyToMessage error:', err);
+      setError('Erro ao responder mensagem.');
+    }
+  };
+
+  // configurar chat
+  const updateChatSettings = async (newSettings) => {
+    if (!selectedChat) return;
+    const ChatId = selectedChat.ChatId || selectedChat._id;
+    if (!ChatId) return;
+
+    try {
+      await api.post('/configurar-chat', {
+        chatId: ChatId,
+        userId,
+        configuracoes: newSettings
+      });
+      setChatSettings(newSettings);
+      setShowChatSettings(false);
+      await fetchChats();
+    } catch (err) {
+      console.error('updateChatSettings error:', err);
+      setError('Erro ao configurar chat.');
+    }
+  };
+
+  // iniciar edição de mensagem
+  const startEditMessage = (message) => {
+    setEditingMessage(message);
+    setEditContent(message.conteudo);
+  };
+
+  // cancelar edição
+  const cancelEdit = () => {
+    setEditingMessage(null);
+    setEditContent('');
+  };
+
+  // iniciar resposta
+  const startReply = (message) => {
+    setReplyingTo(message);
+  };
+
+  // cancelar resposta
+  const cancelReply = () => {
+    setReplyingTo(null);
+  };
+
   // ---------- effects / polling ----------
   useEffect(() => {
     // start polling when userId available
@@ -465,7 +567,35 @@ const Chats = ({ user, tema }) => {
 
                   return (
                     <div key={key} className={`max-w-[80%] p-3 rounded-2xl ${mine ? 'ml-auto' : ''} ${mine ? messageMineClass : messageOtherClass}`}>
-                      <div className="text-sm whitespace-pre-wrap">{m.conteudo}</div>
+                      {/* Indicador de resposta */}
+                      {m.respondendoA && (
+                        <div className="text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded mb-2 border-l-2 border-blue-400">
+                          <div className="font-semibold">Respondendo a:</div>
+                          <div className="truncate">{m.respondendoA.conteudo}</div>
+                        </div>
+                      )}
+                      
+                      {/* Conteúdo da mensagem */}
+                      {editingMessage && editingMessage.mensagemId === m.mensagemId ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="w-full p-2 border rounded resize-none"
+                            rows="2"
+                          />
+                          <div className="flex gap-2">
+                            <button onClick={editMessage} className="text-xs px-2 py-1 bg-green-600 text-white rounded">Salvar</button>
+                            <button onClick={cancelEdit} className="text-xs px-2 py-1 bg-gray-600 text-white rounded">Cancelar</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm whitespace-pre-wrap">
+                          {m.conteudo}
+                          {m.editado && <span className="text-xs text-gray-400 ml-2">(editado)</span>}
+                        </div>
+                      )}
+                      
                       <div className="flex items-center justify-between mt-1 text-xs opacity-80">
                         <div>{mine ? username : m.userId} • {fmt(m.publicadoEm)}</div>
                         <div className="flex items-center gap-2">
@@ -477,8 +607,13 @@ const Chats = ({ user, tema }) => {
                             <div className="text-[11px] text-gray-400">{seenByMe ? '✓ visto' : ''}</div>
                           )}
 
+                          {/* Botões de ação */}
+                          <button onClick={() => startReply(m)} className="text-xs px-2 py-0.5 rounded border hover:bg-gray-100">Responder</button>
                           {mine && (
-                            <button onClick={() => deleteMessage(m.mensagemId)} className="text-xs px-2 py-0.5 rounded border">Apagar</button>
+                            <>
+                              <button onClick={() => startEditMessage(m)} className="text-xs px-2 py-0.5 rounded border hover:bg-gray-100">Editar</button>
+                              <button onClick={() => deleteMessage(m.mensagemId)} className="text-xs px-2 py-0.5 rounded border hover:bg-red-100">Apagar</button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -495,28 +630,112 @@ const Chats = ({ user, tema }) => {
 
           {selectedChat && (
             <div className={`p-3 border-t ${panelClass} space-y-2`}>
-              <div className="flex gap-2 items-center">
-                <input placeholder="userId para adicionar" value={addUserId} onChange={e => setAddUserId(e.target.value)} className="px-2 py-1 rounded border w-1/4" />
-                <input placeholder="username" value={addUsername} onChange={e => setAddUsername(e.target.value)} className="px-2 py-1 rounded border w-1/4" />
-                <button onClick={addUser} className="px-3 py-1 rounded bg-green-600 text-white">Adicionar</button>
+              {/* Configurações do Chat */}
+              <div className="flex justify-between items-center">
+                <div className="flex gap-2 items-center">
+                  <input placeholder="userId para adicionar" value={addUserId} onChange={e => setAddUserId(e.target.value)} className="px-2 py-1 rounded border w-1/4" />
+                  <input placeholder="username" value={addUsername} onChange={e => setAddUsername(e.target.value)} className="px-2 py-1 rounded border w-1/4" />
+                  <button onClick={addUser} className="px-3 py-1 rounded bg-green-600 text-white">Adicionar</button>
 
-                <input placeholder="userId para remover" value={removeUserId} onChange={e => setRemoveUserId(e.target.value)} className="px-2 py-1 rounded border w-1/4 ml-4" />
-                <button onClick={removeUser} className="px-3 py-1 rounded bg-red-600 text-white">Remover</button>
+                  <input placeholder="userId para remover" value={removeUserId} onChange={e => setRemoveUserId(e.target.value)} className="px-2 py-1 rounded border w-1/4 ml-4" />
+                  <button onClick={removeUser} className="px-3 py-1 rounded bg-red-600 text-white">Remover</button>
+                </div>
+                
+                <button 
+                  onClick={() => setShowChatSettings(!showChatSettings)} 
+                  className="px-3 py-1 rounded bg-blue-600 text-white"
+                >
+                  ⚙️ Configurações
+                </button>
               </div>
+
+              {/* Painel de Configurações */}
+              {showChatSettings && (
+                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded border">
+                  <h4 className="font-semibold mb-2">Configurações do Chat</h4>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={chatSettings.notificacoes}
+                        onChange={(e) => setChatSettings({...chatSettings, notificacoes: e.target.checked})}
+                      />
+                      Notificações
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={chatSettings.arquivado}
+                        onChange={(e) => setChatSettings({...chatSettings, arquivado: e.target.checked})}
+                      />
+                      Arquivar chat
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={chatSettings.fixado}
+                        onChange={(e) => setChatSettings({...chatSettings, fixado: e.target.checked})}
+                      />
+                      Fixar chat
+                    </label>
+                    <div className="flex gap-2 mt-3">
+                      <button 
+                        onClick={() => updateChatSettings(chatSettings)} 
+                        className="px-3 py-1 bg-green-600 text-white rounded"
+                      >
+                        Salvar
+                      </button>
+                      <button 
+                        onClick={() => setShowChatSettings(false)} 
+                        className="px-3 py-1 bg-gray-600 text-white rounded"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           <div className={`p-3 border-t ${panelClass}`}>
+            {/* Indicador de resposta */}
+            {replyingTo && (
+              <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900 rounded border-l-4 border-blue-400">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-xs font-semibold">Respondendo a:</div>
+                    <div className="text-sm truncate">{replyingTo.conteudo}</div>
+                  </div>
+                  <button onClick={cancelReply} className="text-xs px-2 py-1 bg-gray-600 text-white rounded">✕</button>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') sendMessage(); }}
+                onKeyDown={(e) => { 
+                  if (e.key === 'Enter') {
+                    if (replyingTo) {
+                      replyToMessage();
+                    } else {
+                      sendMessage();
+                    }
+                  }
+                }}
                 className="flex-1 px-3 py-2 rounded-lg border focus:outline-none"
-                placeholder={selectedChat ? 'Escreva uma mensagem...' : 'Selecione um chat'}
+                placeholder={selectedChat ? (replyingTo ? 'Responder mensagem...' : 'Escreva uma mensagem...') : 'Selecione um chat'}
                 disabled={!selectedChat}
               />
-              <button onClick={sendMessage} disabled={!selectedChat || !newMessage.trim()} className="px-4 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50">Enviar</button>
+              <button 
+                onClick={replyingTo ? replyToMessage : sendMessage} 
+                disabled={!selectedChat || !newMessage.trim()} 
+                className="px-4 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50"
+              >
+                {replyingTo ? 'Responder' : 'Enviar'}
+              </button>
             </div>
             {error && <div className="text-sm text-red-600 mt-2">{error}</div>}
           </div>

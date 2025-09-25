@@ -5,6 +5,10 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes.js';
+import gamificationRoutes from './routes/gamificationRoutes.js';
+import analyticsRoutes from './routes/analyticsRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
+import webSearchRoutes from './routes/webSearchRoutes.js';
 import { StripeWebhook } from './controllers/stripe.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -89,8 +93,12 @@ async function connectDB() {
 
 connectDB()
 
-// Rotas com headers específicos de API
-app.use('/', apiSecurityHeaders, authRoutes);
+// Rotas da API
+app.use('/api/auth', apiSecurityHeaders, authRoutes);
+app.use('/api/gamification', apiSecurityHeaders, gamificationRoutes);
+app.use('/api/analytics', apiSecurityHeaders, analyticsRoutes);
+app.use('/api/reports', apiSecurityHeaders, reportRoutes);
+app.use('/api/web-search', apiSecurityHeaders, webSearchRoutes);
 
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;

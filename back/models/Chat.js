@@ -22,7 +22,24 @@ const ChatSchema = new Schema({
             userId: { type: String, required: true },
             mensagemId: { type: String, default: uuidv4},
             conteudo: { type: String, required: true },
-            vistos: [],
+            tipo: { type: String, enum: ['texto', 'imagem', 'arquivo', 'audio', 'video'], default: 'texto' },
+            anexos: [{
+                nome: String,
+                url: String,
+                tipo: String,
+                tamanho: Number
+            }],
+            vistos: [{
+                userId: String,
+                vistoEm: { type: Date, default: getBrazilDate }
+            }],
+            editado: { type: Boolean, default: false },
+            editadoEm: Date,
+            respondendoA: {
+                mensagemId: String,
+                conteudo: String,
+                userId: String
+            },
             publicadoEm: {type: Date, default: getBrazilDate}
         }
     ],
@@ -33,7 +50,12 @@ const ChatSchema = new Schema({
             explanation: { type: String, required: true },
             criadoEm: { type: Date, default: getBrazilDate },
         }
-    ]
+    ],
+    configuracoes: {
+        notificacoes: { type: Boolean, default: true },
+        arquivado: { type: Boolean, default: false },
+        fixado: { type: Boolean, default: false }
+    }
 });
 
 // índice único parcial para pairId (só aplica quando pairId existe)
@@ -41,6 +63,11 @@ ChatSchema.index(
   { pairId: 1 },
   { unique: true, partialFilterExpression: { pairId: { $exists: true, $ne: null } } }
 );
+
+// Índices para performance
+ChatSchema.index({ 'membros.userId': 1 });
+ChatSchema.index({ 'mensagens.mensagemId': 1 });
+ChatSchema.index({ criadoEm: -1 });
 
 const Chat = mongoose.model('Chat', ChatSchema, 'Chats');
 

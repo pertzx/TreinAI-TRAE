@@ -410,3 +410,246 @@ export const marcarMensagensVistas = async (req, res) => {
     return res.status(500).json({ error: 'Erro no servidor ao marcar mensagens vistas' });
   }
 };
+
+// Editar mensagem
+export const editarMensagem = async (req, res) => {
+  const { ChatId, mensagemId } = req.query || {};
+  const { userId, novoConteudo } = req.body || {};
+
+  if (!ChatId || !mensagemId) {
+    return res.status(400).json({ error: 'ChatId e mensagemId são obrigatórios' });
+  }
+  if (!userId || !novoConteudo) {
+    return res.status(400).json({ error: 'userId e novoConteudo são obrigatórios' });
+  }
+
+  try {
+    const chat = await Chat.findOne({ ChatId: String(ChatId) }).lean();
+    if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
+
+    const mensagem = chat.mensagens.find(m => String(m.mensagemId) === String(mensagemId));
+    if (!mensagem) return res.status(404).json({ error: 'Mensagem não encontrada' });
+
+    // Verificar se o usuário é o autor da mensagem
+    if (String(mensagem.userId) !== String(userId)) {
+      return res.status(403).json({ error: 'Apenas o autor pode editar a mensagem' });
+    }
+
+    const updated = await Chat.findOneAndUpdate(
+      { ChatId: String(ChatId), 'mensagens.mensagemId': String(mensagemId) },
+      { 
+        $set: { 
+          'mensagens.$.conteudo': String(novoConteudo),
+          'mensagens.$.editado': true,
+          'mensagens.$.editadoEm': typeof getBrazilDate === 'function' ? getBrazilDate() : new Date()
+        }
+      },
+      { new: true }
+    ).lean();
+
+    const mensagemEditada = updated.mensagens.find(m => String(m.mensagemId) === String(mensagemId));
+    return res.status(200).json({ success: true, mensagem: mensagemEditada });
+  } catch (error) {
+    console.error('editarMensagem error:', error);
+    return res.status(500).json({ error: 'Erro ao editar mensagem' });
+  }
+};
+
+// Responder mensagem
+export const responderMensagem = async (req, res) => {
+  const { ChatId, otherUserId } = req.query || {};
+  const { userId, conteudo, respondendoA, creatorUsername } = req.body || {};
+
+  if (!conteudo) return res.status(400).json({ error: 'conteudo é obrigatório' });
+  if (!userId) return res.status(400).json({ error: 'userId é obrigatório' });
+  if (!respondendoA || !respondendoA.mensagemId) {
+    return res.status(400).json({ error: 'respondendoA com mensagemId é obrigatório' });
+  }
+
+  const mensagemObj = {
+    userId: String(userId),
+    mensagemId: uuidv4(),
+    conteudo: String(conteudo),
+    tipo: 'texto',
+    respondendoA: {
+      mensagemId: String(respondendoA.mensagemId),
+      conteudo: String(respondendoA.conteudo || ''),
+      userId: String(respondendoA.userId || '')
+    },
+    vistos: [{
+      userId: String(userId),
+      vistoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date()
+    }],
+    publicadoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date()
+  };
+
+  try {
+    if (ChatId) {
+      const updated = await Chat.findOneAndUpdate(
+        { ChatId: String(ChatId) },
+        { $push: { mensagens: mensagemObj } },
+        { new: true }
+      ).lean();
+      if (!updated) return res.status(404).json({ error: 'Chat não encontrado' });
+      return res.status(201).json({ mensagem: mensagemObj, mensagens: updated.mensagens, chat: updated });
+    }
+
+    if (otherUserId) {
+      const uid = String(userId);
+      const oid = String(otherUserId);
+      const pairId = [uid, oid].sort().join(':');
+
+      let otherUser = null;
+      try { otherUser = await User.findById(oid).select('username').lean(); } catch (e) { otherUser = null; }
+      let creatorUser = null;
+      try { creatorUser = await User.findById(uid).select('username').lean(); } catch (e) { creatorUser = null; }
+
+      const otherUsernameSafe = (otherUser && otherUser.username) ? otherUser.username : 'Contato';
+      const creatorUsernameSafe = (creatorUser && creatorUser.username) ? creatorUser.username : (creatorUsername || 'Usuário');
+
+      const setOnInsert = {
+        ChatId: uuidv4(),
+        pairId,
+        ChatName: `${creatorUsernameSafe} & ${otherUsernameSafe}`,
+        ChatDesc: 'Conversa privada',
+        criadoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date(),
+        membros: [
+          { userId: uid, username: creatorUsernameSafe, membroDesde: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date() },
+          { userId: oid, username: otherUsernameSafe, membroDesde: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date() }
+        ]
+      };
+
+      const updated = await Chat.findOneAndUpdate(
+        { pairId },
+        { $setOnInsert: setOnInsert, $push: { mensagens: mensagemObj } },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      ).lean();
+
+      return res.status(201).json({ mensagem: mensagemObj, mensagens: updated.mensagens, chat: updated });
+    }
+
+    return res.status(400).json({ error: 'Envie ChatId ou otherUserId' });
+  } catch (err) {
+    console.error('responderMensagem error:', err);
+    return res.status(500).json({ error: 'Erro ao responder mensagem' });
+  }
+};
+
+// Marcar mensagens como vistas (versão melhorada)
+export const marcarMensagensVistasV2 = async (req, res) => {
+  const { ChatId, mensagemIds, userId } = req.body || {};
+
+  if (!ChatId || !Array.isArray(mensagemIds) || mensagemIds.length === 0 || !userId) {
+    return res.status(400).json({ error: 'ChatId, mensagemIds (array) e userId são obrigatórios' });
+  }
+
+  try {
+    const vistoObj = {
+      userId: String(userId),
+      vistoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date()
+    };
+
+    const updateResult = await Chat.updateOne(
+      { ChatId: String(ChatId) },
+      { $addToSet: { 'mensagens.$[elem].vistos': vistoObj } },
+      {
+        arrayFilters: [{ 
+          'elem.mensagemId': { $in: mensagemIds.map(String) },
+          'elem.vistos.userId': { $ne: String(userId) }
+        }]
+      }
+    );
+
+    const chat = await Chat.findOne({ ChatId: String(ChatId) }).lean();
+    if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
+
+    const updatedMsgs = (chat.mensagens || []).filter(m => mensagemIds.map(String).includes(String(m.mensagemId)));
+    return res.status(200).json({ success: true, updatedCount: updatedMsgs.length, mensagens: updatedMsgs });
+  } catch (err) {
+    console.error('marcarMensagensVistasV2 error:', err);
+    return res.status(500).json({ error: 'Erro no servidor ao marcar mensagens vistas' });
+  }
+};
+
+// Configurar chat (arquivar, fixar, notificações)
+export const configurarChat = async (req, res) => {
+  const { ChatId } = req.query || {};
+  const { configuracoes } = req.body || {};
+
+  if (!ChatId) return res.status(400).json({ error: 'ChatId é obrigatório' });
+  if (!configuracoes) return res.status(400).json({ error: 'configuracoes é obrigatório' });
+
+  try {
+    const updateObj = {};
+    if (typeof configuracoes.notificacoes === 'boolean') {
+      updateObj['configuracoes.notificacoes'] = configuracoes.notificacoes;
+    }
+    if (typeof configuracoes.arquivado === 'boolean') {
+      updateObj['configuracoes.arquivado'] = configuracoes.arquivado;
+    }
+    if (typeof configuracoes.fixado === 'boolean') {
+      updateObj['configuracoes.fixado'] = configuracoes.fixado;
+    }
+
+    const updated = await Chat.findOneAndUpdate(
+      { ChatId: String(ChatId) },
+      { $set: updateObj },
+      { new: true }
+    ).lean();
+
+    if (!updated) return res.status(404).json({ error: 'Chat não encontrado' });
+
+    return res.status(200).json({ success: true, configuracoes: updated.configuracoes });
+  } catch (error) {
+    console.error('configurarChat error:', error);
+    return res.status(500).json({ error: 'Erro ao configurar chat' });
+  }
+};
+
+// Buscar histórico de mensagens com paginação
+export const buscarHistorico = async (req, res) => {
+  const { ChatId } = req.query || {};
+  const { page = 1, limit = 50, antes } = req.query || {};
+
+  if (!ChatId) return res.status(400).json({ error: 'ChatId é obrigatório' });
+
+  try {
+    const pageNum = parseInt(page) || 1;
+    const limitNum = Math.min(parseInt(limit) || 50, 100); // máximo 100 mensagens por vez
+    const skip = (pageNum - 1) * limitNum;
+
+    let query = { ChatId: String(ChatId) };
+    
+    const chat = await Chat.findOne(query).lean();
+    if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
+
+    let mensagens = chat.mensagens || [];
+    
+    // Filtrar mensagens antes de uma data específica se fornecida
+    if (antes) {
+      const antesDate = new Date(antes);
+      mensagens = mensagens.filter(m => new Date(m.publicadoEm) < antesDate);
+    }
+
+    // Ordenar por data (mais recentes primeiro) e paginar
+    mensagens.sort((a, b) => new Date(b.publicadoEm) - new Date(a.publicadoEm));
+    const totalMensagens = mensagens.length;
+    const mensagensPaginadas = mensagens.slice(skip, skip + limitNum);
+
+    return res.status(200).json({
+      success: true,
+      mensagens: mensagensPaginadas,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalMensagens,
+        pages: Math.ceil(totalMensagens / limitNum),
+        hasNext: skip + limitNum < totalMensagens,
+        hasPrev: pageNum > 1
+      }
+    });
+  } catch (error) {
+    console.error('buscarHistorico error:', error);
+    return res.status(500).json({ error: 'Erro ao buscar histórico' });
+  }
+};

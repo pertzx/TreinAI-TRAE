@@ -10,6 +10,7 @@ const Header = ({ user, tema }) => {
     { name: 'Home', href: '/dashboard' },
     { name: 'Encontrar', href: '/dashboard/encontrar' },
     { name: 'Meus Treinos', href: '/dashboard/meus-treinos' },
+    { name: 'Treinos IA', href: '/dashboard/ai-workout' },
     { name: 'Histórico', href: '/dashboard/historico' },
     { name: 'Perfil', href: '/dashboard/perfil' },
     { name: 'Configurações', href: '/dashboard/configuracoes' },
