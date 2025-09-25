@@ -20,7 +20,7 @@
 
 A API TreinAI é uma plataforma completa para gerenciamento de treinos, analytics de performance, gamificação e integração com IA para geração de exercícios personalizados.
 
-**Base URL:** `http://localhost:4000/api/auth`
+**Base URL:** `http://localhost:4000`
 
 **Versão:** 1.0.0
 
@@ -53,7 +53,7 @@ Content-Type: application/json
 
 ## 🛣️ Rotas da API
 
-### 🔑 Autenticação (`/api/auth`)
+### 🔑 Autenticação (`/`)
 
 #### `GET /csrf-token`
 Obtém token CSRF para proteção contra ataques CSRF.

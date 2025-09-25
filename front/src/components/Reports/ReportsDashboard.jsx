@@ -12,6 +12,7 @@ import {
   FiSettings,
   FiEye
 } from 'react-icons/fi';
+import api from '../../Api.js';
 
 const ReportsDashboard = ({ professionalId }) => {
   const [reports, setReports] = useState([]);
@@ -32,23 +33,15 @@ const ReportsDashboard = ({ professionalId }) => {
 
   const fetchReports = async () => {
     try {
-      const token = localStorage.getItem('token');
       const queryParams = new URLSearchParams();
       
       Object.entries(filters).forEach(([key, value]) => {
         if (value) queryParams.append(key, value);
       });
 
-      const response = await fetch(`/api/reports?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await api.get(`/reports?${queryParams}`);
       
-      if (response.ok) {
-        const data = await response.json();
-        setReports(data.reports);
-      }
+      setReports(response.data.reports);
     } catch (error) {
       console.error('Erro ao buscar relatórios:', error);
     } finally {
@@ -58,17 +51,9 @@ const ReportsDashboard = ({ professionalId }) => {
 
   const fetchTemplates = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/reports/templates', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await api.get('/reports/templates');
       
-      if (response.ok) {
-        const data = await response.json();
-        setTemplates(data);
-      }
+      setTemplates(response.data);
     } catch (error) {
       console.error('Erro ao buscar templates:', error);
     }
@@ -76,21 +61,10 @@ const ReportsDashboard = ({ professionalId }) => {
 
   const generateReport = async (reportData) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/reports/generate/${reportData.clientId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(reportData)
-      });
+      const response = await api.post(`/reports/generate/${reportData.clientId}`, reportData);
       
-      if (response.ok) {
-        const data = await response.json();
-        setReports(prev => [data.report, ...prev]);
-        setShowCreateModal(false);
-      }
+      setReports(prev => [response.data.report, ...prev]);
+      setShowCreateModal(false);
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
     }
@@ -98,15 +72,7 @@ const ReportsDashboard = ({ professionalId }) => {
 
   const shareReport = async (reportId, shareData) => {
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`/api/reports/${reportId}/share`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(shareData)
-      });
+      await api.post(`/reports/${reportId}/share`, shareData);
       
       // Atualizar lista de relatórios
       fetchReports();

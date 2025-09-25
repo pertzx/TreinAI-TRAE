@@ -94,11 +94,11 @@ async function connectDB() {
 connectDB()
 
 // Rotas da API
-app.use('/api/auth', apiSecurityHeaders, authRoutes);
-app.use('/api/gamification', apiSecurityHeaders, gamificationRoutes);
-app.use('/api/analytics', apiSecurityHeaders, analyticsRoutes);
-app.use('/api/reports', apiSecurityHeaders, reportRoutes);
-app.use('/api/web-search', apiSecurityHeaders, webSearchRoutes);
+app.use('/', apiSecurityHeaders, authRoutes);
+app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
+app.use('/analytics', apiSecurityHeaders, analyticsRoutes);
+app.use('/reports', apiSecurityHeaders, reportRoutes);
+app.use('/web-search', apiSecurityHeaders, webSearchRoutes);
 
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;

@@ -10,7 +10,7 @@ import {
   FaGift,
   FaCrown
 } from 'react-icons/fa';
-import axios from 'axios';
+import api from '../../Api.js';
 
 const GamificationDashboard = ({ userId }) => {
   const [gamificationData, setGamificationData] = useState(null);
@@ -23,14 +23,9 @@ const GamificationDashboard = ({ userId }) => {
 
   const fetchGamificationData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`/api/gamification/user/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get(`/gamification/user/${userId}`);
       
-      if (response.data.success) {
-        setGamificationData(response.data.data);
-      }
+      setGamificationData(response.data);
     } catch (error) {
       console.error('Erro ao buscar dados de gamificação:', error);
     } finally {
@@ -260,10 +255,7 @@ const BadgesTab = ({ badges }) => {
 const ChallengesTab = ({ activeChallenges, availableChallenges, userId, onChallengeJoin }) => {
   const joinChallenge = async (challengeId) => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`/api/gamification/user/${userId}/challenges/${challengeId}/join`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post(`/gamification/user/${userId}/challenges/${challengeId}/join`, {});
       onChallengeJoin();
     } catch (error) {
       console.error('Erro ao participar do desafio:', error);
@@ -336,10 +328,7 @@ const RankingTab = () => {
 
   const fetchRanking = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/gamification/ranking', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/gamification/ranking');
       
       if (response.data.success) {
         setRanking(response.data.data);

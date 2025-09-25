@@ -11,6 +11,7 @@ import {
   FiHeart
 } from 'react-icons/fi';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import api from '../../Api.js';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -47,16 +48,10 @@ const AnalyticsDashboard = ({ userId }) => {
 
   const fetchAnalyticsData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/analytics/dashboard/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await api.get(`/analytics/dashboard/${userId}`);
       
-      if (response.ok) {
-        const data = await response.json();
-        setAnalyticsData(data);
+      if (response.status === 200) {
+        setAnalyticsData(response.data);
       }
     } catch (error) {
       console.error('Erro ao buscar dados de analytics:', error);
@@ -67,15 +62,7 @@ const AnalyticsDashboard = ({ userId }) => {
 
   const recordWorkoutMetrics = async (metrics) => {
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`/api/analytics/workout-metrics/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(metrics)
-      });
+      await api.post(`/analytics/workout-metrics/${userId}`, metrics);
       fetchAnalyticsData(); // Atualizar dados
     } catch (error) {
       console.error('Erro ao registrar métricas de treino:', error);
@@ -84,16 +71,8 @@ const AnalyticsDashboard = ({ userId }) => {
 
   const recordBodyMetrics = async (metrics) => {
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`/api/analytics/body-metrics/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(metrics)
-      });
-      fetchAnalyticsData();
+      await api.post(`/analytics/body-metrics/${userId}`, metrics);
+      fetchAnalyticsData(); // Atualizar dados
     } catch (error) {
       console.error('Erro ao registrar métricas corporais:', error);
     }
