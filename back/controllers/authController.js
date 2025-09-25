@@ -486,11 +486,23 @@ export const atualizarPerfil = async (req, res) => {
 };
 
 const criarTreinos = async (objetivo) => {
+  // Verificar se OpenAI está configurado
+  if (!openai) {
+    console.error('OpenAI client não configurado na função criarTreinos');
+    return { treinos: [], raw: null, error: 'OpenAI não configurado' };
+  }
+
+  if (!objetivo) {
+    console.error('Objetivo não fornecido para criarTreinos');
+    return { treinos: [], raw: null, error: 'Objetivo não fornecido' };
+  }
+
+  console.log('Iniciando criação de treinos para objetivo:', objetivo);
+
   const systemPrompt = `Você é um profissional responsável por criar treinos ultramente específicos com base no objetivo do cliente
   sempre buscando os exercicios mais especificos para conquistar o objetivo do cliente.
   
-  IMPORTANTE: Use suas capacidades de busca na web para encontrar os exercícios mais atuais e eficazes para o objetivo específico.
-  Procure por exercícios científicamente comprovados, tendências atuais de fitness e técnicas modernas de treinamento.
+  Crie treinos baseados em exercícios científicamente comprovados e técnicas modernas de treinamento.
   
   Procure a quantidade de vezes que o cliente deseja treinar na semana e faça um treino ULTRA ESPECIFICO para cada dia de acordo com o OBJETIVO repassado e retorne **apenas JSON válido** com o formato:
   {
@@ -507,57 +519,76 @@ const criarTreinos = async (objetivo) => {
             "instrucoes": "String",
             "series": Number,
             "repeticoes": Number,
-            "pse": Number --- PSE: Percepção subjetiva de esforço, é a escala de esforço que você deve realizar em cada exercício. Normalmente usamos esta escala para calcular a % do peso 1RM (sendo 1 MUITO fraco a 100 EXTREMAMENTE exaustivo).
+            "pse": Number
           }
         ]
       }
     ]
-  }`;
+  }
+  
+  PSE: Percepção subjetiva de esforço, é a escala de esforço que você deve realizar em cada exercício (1-10, sendo 1 muito fácil e 10 extremamente difícil).`;
 
   const userPrompt = `Objetivo >> ${objetivo}
 
-Por favor, use busca na web para encontrar os exercícios mais eficazes e atuais para este objetivo específico. Considere:
-- Exercícios baseados em evidências científicas recentes
+Crie um plano de treino completo e específico para este objetivo. Considere:
+- Exercícios baseados em evidências científicas
 - Técnicas modernas de treinamento
-- Variações inovadoras de exercícios clássicos
-- Métodos de treinamento que estão sendo usados por profissionais atualmente`;
+- Progressão adequada
+- Variações de exercícios eficazes
+- Métodos de treinamento atuais
 
-  const resp = await openai.chat.completions.create({
-    model: OPENAI_MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ],
-    temperature: 0.2,
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "web_search",
-          description: "Search the web for current fitness exercises and training methods"
-        }
-      }
-    ]
-  });
-
-  const text = resp?.choices?.[0]?.message?.content || null;
-  if (!text) return { treinos: [], raw: null };
+Retorne APENAS o JSON válido sem texto adicional.`;
 
   try {
-    // Extrair JSON com regex para pegar o primeiro objeto JSON completo
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) {
-      const parsed = JSON.parse(match[0]);
+    const resp = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 2000
+    });
+
+    console.log('Resposta OpenAI recebida:', resp?.choices?.[0]?.message?.content?.substring(0, 200) + '...');
+
+    const text = resp?.choices?.[0]?.message?.content || null;
+    if (!text) {
+      console.error('OpenAI retornou resposta vazia');
+      return { treinos: [], raw: null, error: 'Resposta vazia da OpenAI' };
+    }
+
+    try {
+      // Tentar parsear diretamente primeiro
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (directParseError) {
+        // Se falhar, tentar extrair JSON com regex
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) {
+          parsed = JSON.parse(match[0]);
+        } else {
+          throw new Error('Nenhum JSON válido encontrado na resposta');
+        }
+      }
+
+      console.log('JSON parseado com sucesso. Treinos encontrados:', parsed?.treinos?.length || 0);
+
       return {
         treinos: parsed.treinos || [],
-        raw: text
+        raw: text,
+        total_tokens: resp?.usage?.total_tokens || 0
       };
+    } catch (parseError) {
+      console.error('Erro ao parsear JSON:', parseError);
+      console.error('Texto recebido:', text);
+      return { treinos: [], raw: text, error: 'Erro ao parsear JSON', total_tokens: resp?.usage?.total_tokens || 0 };
     }
-  } catch (error) {
-    console.error('Erro ao parsear JSON:', error);
+  } catch (apiError) {
+    console.error('Erro na chamada da OpenAI:', apiError);
+    return { treinos: [], raw: null, error: 'Erro na API OpenAI: ' + apiError.message };
   }
-
-  return { treinos: [], raw: text, total_tokens: resp?.usage?.total_tokens };
 }
 
 export const carregarTreinos = async (req, res) => {
@@ -579,6 +610,7 @@ export const carregarTreinos = async (req, res) => {
 
     // Sem treinos: gerar via IA
     const meusTreinosResp = await criarTreinos(user.perfil?.objetivo);
+    console.log('meusTreinosResp', meusTreinosResp);
     const treinosGPT = meusTreinosResp?.treinos || meusTreinosResp || [];
     const totalTokens = Number(meusTreinosResp?.total_tokens) || 0;
 
@@ -657,6 +689,8 @@ export const carregarTreinos = async (req, res) => {
     } catch (error) {
       console.log('Não foi o profissional que fez update! ou aconteceu algum erro > ', error);
     }
+
+    console.log(meusTreinos)
 
     // Atualiza o user com findByIdAndUpdate (evita VersionError)
     await User.findByIdAndUpdate(

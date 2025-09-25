@@ -35,12 +35,18 @@ const signupSchema = Joi.object({
 
 const updateProfileSchema = Joi.object({
     name: Joi.string().min(2).max(50).optional(),
+    username: Joi.string().min(2).max(50).optional(),
     email: Joi.string().email().optional(),
     age: Joi.number().integer().min(13).max(120).optional(),
+    idade: Joi.number().integer().min(13).max(120).optional(),
     weight: Joi.number().positive().max(500).optional(),
     height: Joi.number().positive().max(300).optional(),
     objective: Joi.string().valid('hipertrofia', 'emagrecimento', 'condicionamento', 'saude', 'forca', 'resistencia').optional(),
-    theme: Joi.string().valid('light', 'dark').optional()
+    theme: Joi.string().valid('light', 'dark').optional(),
+    city: Joi.string().min(2).max(100).optional(),
+    state: Joi.string().min(2).max(100).optional(),
+    country: Joi.string().min(2).max(100).optional(),
+    genero: Joi.string().valid('masculino', 'feminino', 'outro').optional()
 });
 
 // Middleware de validação genérico

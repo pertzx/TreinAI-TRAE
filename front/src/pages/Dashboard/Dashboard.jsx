@@ -8,6 +8,7 @@ import Historico from './Pages/Historico.jsx';
 import Perfil from './Pages/Perfil.jsx';
 import Configuracoes from './Pages/Configuracoes.jsx';
 import OnboardingQuestionnaireFitness from './Components/OnboardingQuestionnaireFitness.jsx';
+import OnboardingPersonalInfo from './Components/OnboardingPersonalInfo.jsx';
 import BuscarImagens from '../../components/BuscarImagens.jsx';
 import ChatTreino from './Components/ChatTreino.jsx';
 import BMIChart from './Components/BMIchart.jsx';
@@ -41,6 +42,7 @@ const Dashboard = ({ needToPay, plano }) => {
   const [error, setError] = useState('');
   const [tema, setTema] = useState(localStorage.getItem('tema') || 'light');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState('personal'); // 'personal' ou 'fitness'
   const [treinoStatus, setTreinoStatus] = useState(null);
   const navigate = useNavigate();
 
@@ -57,14 +59,14 @@ const Dashboard = ({ needToPay, plano }) => {
         const res = await api.get('/dashboard');
         if (res.data?.user) setUser(res.data.user);
         else navigate('/login');
-      } catch (error){
+      } catch (error) {
         console.error(error)
         const errorMessage = handleError(error, setError);
-        
+
         if (isAuthError(error)) {
           navigate('/login');
         }
-        
+
         clearErrorAfterDelay(setError, 5000);
       } finally {
         setLoading(false);
@@ -98,11 +100,28 @@ const Dashboard = ({ needToPay, plano }) => {
       user.onboarded === true ||
       user.preferences?.onboardCompleted === true;
 
-    // if (loginCount <= 1 && !onboardCompleted) {
-    //   setShowOnboarding(true);
-    // } else {
-    //   setShowOnboarding(false);
-    // }
+    // Verifica se tem informações pessoais básicas
+    const hasPersonalInfo = user.perfil?.idade && user.perfil?.city && user.perfil?.state && user.perfil?.country;
+    
+    // Verifica se tem respostas do questionário de fitness
+    const hasFitnessAnswers = user.onboarding?.answers && user.onboarding.answers.length > 0;
+
+    // Só mostra onboarding se:
+    // 1. Não foi completado ainda
+    // 2. É um dos primeiros logins (até 5 tentativas)
+    // 3. Falta alguma informação essencial
+    if (!onboardCompleted && loginCount <= 5 && (!hasPersonalInfo || !hasFitnessAnswers)) {
+      setShowOnboarding(true);
+      
+      // Define qual etapa mostrar baseado nas informações já coletadas
+      if (!hasPersonalInfo) {
+        setOnboardingStep('personal');
+      } else if (!hasFitnessAnswers) {
+        setOnboardingStep('fitness');
+      }
+    } else {
+      setShowOnboarding(false);
+    }
   }, [user]);
 
 
@@ -124,14 +143,14 @@ const Dashboard = ({ needToPay, plano }) => {
 
   if (loading) {
     return (
-      <LoadingSpinner 
+      <LoadingSpinner
         fullScreen={true}
         text="Carregando dashboard..."
         size="large"
       />
     );
   }
-  
+
   if (!user) return null;
 
   const themeClasses = tema === 'dark' ? 'bg-[#10151e] text-white' : 'bg-white text-black';
@@ -152,7 +171,7 @@ const Dashboard = ({ needToPay, plano }) => {
       <div className="w-full">
         <ChatTreino tema={tema} user={user} />
       </div>
-      
+
       {/* NutriAi */}
       <ChatNutriAI user={user} tema={tema} />
 
@@ -186,16 +205,25 @@ const Dashboard = ({ needToPay, plano }) => {
   return (
     <div className={`min-h-screen w-full h-full flex flex-col items-center p-4 ${themeClasses}`}>
       {/* Onboarding full-screen */}
+      {showOnboarding && onboardingStep === 'personal' && (
+        <OnboardingPersonalInfo
+          user={user}
+          setUser={setUser}
+          onComplete={() => setOnboardingStep('fitness')}
+          tema={tema}
+        />
+      )}
 
-      {showOnboarding && (
+      {showOnboarding && onboardingStep === 'fitness' && (
         <OnboardingQuestionnaireFitness
           user={user}
           setUser={setUser}
           setShowOnboard={setShowOnboarding}
+          tema={tema}
         />
       )}
 
-      {user.planInfos.status !== 'ativo' && user.planInfos.planType !== 'free' ? (
+      {!showOnboarding && user.planInfos.status !== 'ativo' && user.planInfos.planType !== 'free' ? (
         <div className='w-full'>
           <h1 className='mb-2'>Acesse o sistema ao ativar seu plano. Caso prefira, altere para o plano Free e continue usando com limitaçoes.</h1>
           <button
@@ -207,28 +235,29 @@ const Dashboard = ({ needToPay, plano }) => {
 
           <Configuracoes user={user} setTema={setTema} tema={tema} />
         </div>
-      ) : (
-        <div className="w-full h-full">
-          <Header tema={tema} user={user} />
-          <Routes>
-            <Route path="admin" element={<AdminPage user={user} tema={tema} />} />
-            <Route path="ajuda" element={<SupportPage user={user} tema={tema} />} />
-            <Route path="meus-treinos" element={<MeusTreinos tema={tema} user={user} setUser={setUser} />} />
-            <Route path="historico" element={<Historico historico={user?.historico} tema={tema} />} />
-            <Route path="perfil" element={<Perfil user={user} tema={tema} />} />
-            <Route path="configuracoes" element={<Configuracoes setTema={setTema} tema={tema} user={user} />} />
-            <Route path="encontrar" element={<Encontrar user={user} tema={tema} />} />
-            <Route path="coach/*" element={<Coach tema={tema} user={user} />} /> 
-            <Route path="coach/u/" element={<CoachEspecifico user={user} />} /> 
-            <Route path="/chat" element={<Chats user={user} tema={tema} />} /> 
-            <Route path="/infosCoach" element={<InfoCoachs user={user} />} /> 
-            <Route path="/anuncios" element={<AnunciosDash user={user} tema={tema} />} /> 
-            <Route path="/locais" element={<Locais user={user} tema={tema}/>} /> 
-            <Route path="" element={db} />
-          </Routes>
-          <Footer tema={tema} user={user} />
-        </div>
-      )}
+      ) :
+        !showOnboarding && (
+          <div className="w-full h-full">
+            <Header tema={tema} user={user} />
+            <Routes>
+              <Route path="admin" element={<AdminPage user={user} tema={tema} />} />
+              <Route path="ajuda" element={<SupportPage user={user} tema={tema} />} />
+              <Route path="meus-treinos" element={<MeusTreinos tema={tema} user={user} setUser={setUser} />} />
+              <Route path="historico" element={<Historico historico={user?.historico} tema={tema} />} />
+              <Route path="perfil" element={<Perfil user={user} tema={tema} />} />
+              <Route path="configuracoes" element={<Configuracoes setTema={setTema} tema={tema} user={user} />} />
+              <Route path="encontrar" element={<Encontrar user={user} tema={tema} />} />
+              <Route path="coach/*" element={<Coach tema={tema} user={user} />} />
+              <Route path="coach/u/" element={<CoachEspecifico user={user} />} />
+              <Route path="/chat" element={<Chats user={user} tema={tema} />} />
+              <Route path="/infosCoach" element={<InfoCoachs user={user} />} />
+              <Route path="/anuncios" element={<AnunciosDash user={user} tema={tema} />} />
+              <Route path="/locais" element={<Locais user={user} tema={tema} />} />
+              <Route path="" element={db} />
+            </Routes>
+            <Footer tema={tema} user={user} />
+          </div>
+        )}
     </div>
   );
 };
