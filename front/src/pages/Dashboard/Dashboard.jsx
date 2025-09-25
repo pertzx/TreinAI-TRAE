@@ -25,7 +25,7 @@ import Locais from './Pages/Locais.jsx';
 import AdminPage from './Pages/AdminPage/AdminPage.jsx';
 import SupportPage from './Pages/SupportPage.jsx';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import AIWorkoutGenerator from '../../components/AIWorkoutGenerator.jsx';
+
 import { handleError, clearErrorAfterDelay, isAuthError } from '../../utils/errorHandler';
 import { FaUser, FaChartLine, FaDumbbell, FaAppleAlt, FaCog, FaSignOutAlt, FaQuestionCircle, FaMapMarkerAlt, FaUsers, FaSearch, FaBullhorn, FaShieldAlt } from 'react-icons/fa';
 import { MdDarkMode, MdLightMode } from 'react-icons/md';
@@ -218,7 +218,6 @@ const Dashboard = ({ needToPay, plano }) => {
             <Route path="perfil" element={<Perfil user={user} tema={tema} />} />
             <Route path="configuracoes" element={<Configuracoes setTema={setTema} tema={tema} user={user} />} />
             <Route path="encontrar" element={<Encontrar user={user} tema={tema} />} />
-            <Route path="ai-workout" element={<AIWorkoutGenerator tema={tema} user={user} />} />
             <Route path="coach/*" element={<Coach tema={tema} user={user} />} /> 
             <Route path="coach/u/" element={<CoachEspecifico user={user} />} /> 
             <Route path="/chat" element={<Chats user={user} tema={tema} />} /> 

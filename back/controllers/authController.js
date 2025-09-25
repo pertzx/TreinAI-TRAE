@@ -488,6 +488,10 @@ export const atualizarPerfil = async (req, res) => {
 const criarTreinos = async (objetivo) => {
   const systemPrompt = `Você é um profissional responsável por criar treinos ultramente específicos com base no objetivo do cliente
   sempre buscando os exercicios mais especificos para conquistar o objetivo do cliente.
+  
+  IMPORTANTE: Use suas capacidades de busca na web para encontrar os exercícios mais atuais e eficazes para o objetivo específico.
+  Procure por exercícios científicamente comprovados, tendências atuais de fitness e técnicas modernas de treinamento.
+  
   Procure a quantidade de vezes que o cliente deseja treinar na semana e faça um treino ULTRA ESPECIFICO para cada dia de acordo com o OBJETIVO repassado e retorne **apenas JSON válido** com o formato:
   {
     "treinos": [
@@ -510,7 +514,13 @@ const criarTreinos = async (objetivo) => {
     ]
   }`;
 
-  const userPrompt = `Objetivo >> ${objetivo}`;
+  const userPrompt = `Objetivo >> ${objetivo}
+
+Por favor, use busca na web para encontrar os exercícios mais eficazes e atuais para este objetivo específico. Considere:
+- Exercícios baseados em evidências científicas recentes
+- Técnicas modernas de treinamento
+- Variações inovadoras de exercícios clássicos
+- Métodos de treinamento que estão sendo usados por profissionais atualmente`;
 
   const resp = await openai.chat.completions.create({
     model: OPENAI_MODEL,
@@ -518,7 +528,16 @@ const criarTreinos = async (objetivo) => {
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ],
-    temperature: 0.2
+    temperature: 0.2,
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "web_search",
+          description: "Search the web for current fitness exercises and training methods"
+        }
+      }
+    ]
   });
 
   const text = resp?.choices?.[0]?.message?.content || null;

@@ -268,32 +268,6 @@ Lista templates disponíveis.
 
 ---
 
-### 🔍 Busca Web (`/web-search`)
-
-#### `POST /search-exercises`
-🔒 **Rota Protegida** - Busca exercícios usando APIs externas.
-
-**Rate Limit:** 20 req/min
-
-**Body:**
-```json
-{
-  "query": "exercícios para peito",
-  "muscleGroup": "chest",
-  "equipment": "dumbbell"
-}
-```
-
-#### `POST /generate-workout`
-🔒 **Rota Protegida** - Gera treino usando IA e APIs externas.
-
-**Rate Limit:** 10 req/min
-
-#### `GET /fitness-trends`
-🔒 **Rota Protegida** - Busca tendências fitness.
-
-**Rate Limit:** 5 req/5min
-
 ---
 
 ## 📄 Modelos de Dados

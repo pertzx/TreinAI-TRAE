@@ -8,7 +8,6 @@ import authRoutes from './routes/authRoutes.js';
 import gamificationRoutes from './routes/gamificationRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
-import webSearchRoutes from './routes/webSearchRoutes.js';
 import { StripeWebhook } from './controllers/stripe.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -98,7 +97,6 @@ app.use('/', apiSecurityHeaders, authRoutes);
 app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
 app.use('/analytics', apiSecurityHeaders, analyticsRoutes);
 app.use('/reports', apiSecurityHeaders, reportRoutes);
-app.use('/web-search', apiSecurityHeaders, webSearchRoutes);
 
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
