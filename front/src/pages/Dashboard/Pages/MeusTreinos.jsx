@@ -3,9 +3,13 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import api from '../../../Api';
 import { FiChevronDown, FiChevronUp, FiPlus } from 'react-icons/fi';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
+import { useToast } from '../../../components/Toast.jsx';
+import { createToastHelper } from '../../../utils/toastHelper.js';
 
 const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   const isDark = tema === 'dark';
+  const toastFunctions = useToast();
+  const showToast = createToastHelper(toastFunctions);
 
   const [meusTreinos, setMeusTreinos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,9 +34,6 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   const lastSavedRef = useRef(getBrazilDate());
   const mountedRef = useRef(true);
 
-  // toasts: { id, msg, variant }
-  const [toasts, setToasts] = useState([]);
-
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -44,19 +45,6 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
       return () => clearTimeout(t);
     }
   }, [rebuke]);
-
-  // toast helpers
-  const showToast = (msg, variant = 'info', autoHide = 3500) => {
-    if (!msg) return;
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    setToasts(prev => [...prev, { id, msg, variant }]);
-    if (autoHide > 0) {
-      setTimeout(() => {
-        setToasts(prev => prev.filter(t => t.id !== id));
-      }, autoHide);
-    }
-  };
-  const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
   // helper: normaliza e popula estados a partir do user (ou lista de treinos)
   const syncMeusTreinosFromUser = useCallback((userObj) => {
@@ -391,37 +379,8 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
 
   if (loading) return <div>Carregando treinos...</div>;
 
-  // theme for toast boxes
-  const toastClassFor = (variant) => {
-    if (isDark) {
-      if (variant === 'success') return 'bg-green-600 text-white border-transparent';
-      if (variant === 'error') return 'bg-red-600 text-white border-transparent';
-      return 'bg-gray-800 text-white border-transparent';
-    } else {
-      if (variant === 'success') return 'bg-green-50 text-green-800 border border-green-200';
-      if (variant === 'error') return 'bg-red-50 text-red-800 border border-red-200';
-      return 'bg-white text-gray-900 border border-gray-200';
-    }
-  };
-
   return (
     <div className="space-y-6 mt-6 relative">
-      {/* Toast container (absolute) */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
-        {toasts.map(t => (
-          <div
-            key={t.id}
-            className={`pointer-events-auto px-4 py-2 rounded-lg shadow-lg ${toastClassFor(t.variant)} max-w-xs`}
-            role="status"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm">{t.msg}</div>
-              <button onClick={() => removeToast(t.id)} className={`ml-2 text-xs ${isDark ? 'text-gray-200' : 'text-gray-600'}`}>✕</button>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {rebuke && (
         <div className={`p-4 border-4 rounded-2xl text-xl font-normal ${isDark ? 'bg-red-800 border-red-900 text-white' : 'bg-red-50 border-red-200 text-red-700'}`}>
           Somente usuarios com o plano <b>PRO, MAX ou COACH</b> podem editar os treinos!

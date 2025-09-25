@@ -1,23 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { FaCheckCircle, FaExclamationTriangle, FaInfoCircle, FaTimes, FaTimesCircle } from 'react-icons/fa';
+
+// Context para compartilhar o estado dos toasts
+const ToastContext = createContext();
 
 /**
  * Componente de Toast para notificações
  */
-const Toast = ({ 
-  message, 
-  type = 'info', 
-  duration = 5000, 
+const Toast = ({
+  message,
+  type = 'info',
+  duration = 5000,
   onClose,
   position = 'top-right',
-  showCloseButton = true 
+  showCloseButton = true
 }) => {
   const [isVisible, setIsVisible] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     setIsAnimating(true);
-    
+
     if (duration > 0) {
       const timer = setTimeout(() => {
         handleClose();
@@ -28,10 +31,15 @@ const Toast = ({
   }, [duration]);
 
   const handleClose = () => {
+    console.log('handleClose chamado');
     setIsAnimating(false);
     setTimeout(() => {
+      console.log('Removendo toast após animação');
       setIsVisible(false);
-      if (onClose) onClose();
+      if (onClose) {
+        console.log('Chamando onClose callback');
+        onClose();
+      }
     }, 300);
   };
 
@@ -40,27 +48,31 @@ const Toast = ({
   const typeConfig = {
     success: {
       icon: FaCheckCircle,
-      bgColor: 'bg-green-500',
+      bgColor: 'bg-gradient-to-r from-green-500 to-green-600',
       textColor: 'text-white',
-      borderColor: 'border-green-600'
+      borderColor: 'border-green-400',
+      shadowColor: 'shadow-green-500/25'
     },
     error: {
       icon: FaTimesCircle,
-      bgColor: 'bg-red-500',
+      bgColor: 'bg-gradient-to-r from-red-500 to-red-600',
       textColor: 'text-white',
-      borderColor: 'border-red-600'
+      borderColor: 'border-red-400',
+      shadowColor: 'shadow-red-500/25'
     },
     warning: {
       icon: FaExclamationTriangle,
-      bgColor: 'bg-yellow-500',
+      bgColor: 'bg-gradient-to-r from-yellow-500 to-yellow-600',
       textColor: 'text-white',
-      borderColor: 'border-yellow-600'
+      borderColor: 'border-yellow-400',
+      shadowColor: 'shadow-yellow-500/25'
     },
     info: {
       icon: FaInfoCircle,
-      bgColor: 'bg-blue-500',
+      bgColor: 'bg-gradient-to-r from-blue-500 to-blue-600',
       textColor: 'text-white',
-      borderColor: 'border-blue-600'
+      borderColor: 'border-blue-400',
+      shadowColor: 'shadow-blue-500/25'
     }
   };
 
@@ -86,14 +98,15 @@ const Toast = ({
     >
       <div
         className={`
-          ${config.bgColor} ${config.textColor} ${config.borderColor}
-          border-l-4 p-4 rounded-lg shadow-lg
+          ${config.bgColor} ${config.textColor} ${config.borderColor} ${config.shadowColor}
+          border-l-4 p-4 rounded-lg shadow-xl
           flex items-center space-x-3
           transition-all duration-300 ease-in-out
+          backdrop-blur-sm pointer-events-auto
         `}
       >
         <IconComponent className="text-xl flex-shrink-0" />
-        
+
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium break-words">
             {message}
@@ -103,7 +116,7 @@ const Toast = ({
         {showCloseButton && (
           <button
             onClick={handleClose}
-            className="flex-shrink-0 text-white hover:text-gray-200 transition-colors"
+            className="flex-shrink-0 text-white hover:text-gray-200 transition-colors pointer-events-auto"
             aria-label="Fechar notificação"
           >
             <FaTimes className="text-sm" />
@@ -115,13 +128,27 @@ const Toast = ({
 };
 
 /**
- * Hook para gerenciar toasts
+ * Provider para gerenciar o estado global dos toasts
  */
-export const useToast = () => {
+export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
   const addToast = (message, type = 'info', options = {}) => {
+    console.log('addToast chamado:', { message, type, options });
+    
+    // Verificar se já existe um toast com a mesma mensagem e tipo
+    const existingToast = toasts.find(toast => 
+      toast.message === message && toast.type === type
+    );
+    
+    if (existingToast) {
+      console.log('Toast duplicado detectado, ignorando:', { message, type });
+      return existingToast.id;
+    }
+    
     const id = Date.now() + Math.random();
+    console.log('Criando novo toast:', { id, message, type, options });
+    
     const toast = {
       id,
       message,
@@ -129,7 +156,11 @@ export const useToast = () => {
       ...options
     };
 
-    setToasts(prev => [...prev, toast]);
+    setToasts(prev => {
+      const newToasts = [...prev, toast];
+      console.log('Atualizando toasts:', newToasts);
+      return newToasts;
+    });
 
     // Auto-remove após duração especificada
     const duration = options.duration || 5000;
@@ -143,10 +174,16 @@ export const useToast = () => {
   };
 
   const removeToast = (id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+    console.log('Removendo toast:', id);
+    setToasts(prev => {
+      const filtered = prev.filter(toast => toast.id !== id);
+      console.log('Toasts após remoção:', filtered);
+      return filtered;
+    });
   };
 
   const clearAllToasts = () => {
+    console.log('Limpando todos os toasts');
     setToasts([]);
   };
 
@@ -162,7 +199,7 @@ export const useToast = () => {
   const showInfo = (message, options = {}) => 
     addToast(message, 'info', options);
 
-  return {
+  const value = {
     toasts,
     addToast,
     removeToast,
@@ -172,6 +209,28 @@ export const useToast = () => {
     showWarning,
     showInfo
   };
+
+  console.log('ToastProvider render, toasts atuais:', toasts);
+
+  return (
+    <ToastContext.Provider value={value}>
+      {children}
+    </ToastContext.Provider>
+  );
+};
+
+/**
+ * Hook para usar o contexto de toasts
+ */
+export const useToast = () => {
+  const context = useContext(ToastContext);
+  
+  if (!context) {
+    throw new Error('useToast deve ser usado dentro de um ToastProvider');
+  }
+  
+  console.log('useToast chamado, toasts disponíveis:', context.toasts);
+  return context;
 };
 
 /**
@@ -179,6 +238,8 @@ export const useToast = () => {
  */
 export const ToastContainer = ({ toasts, onRemoveToast, position = 'top-right' }) => {
   if (!toasts || toasts.length === 0) return null;
+
+  console.log('ToastContainer renderizando com toasts:', toasts);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50">
@@ -189,11 +250,29 @@ export const ToastContainer = ({ toasts, onRemoveToast, position = 'top-right' }
           type={toast.type}
           duration={0} // Controlado pelo hook
           position={position}
-          onClose={() => onRemoveToast(toast.id)}
+          onClose={() => {
+            console.log('Toast onClose chamado para ID:', toast.id);
+            onRemoveToast(toast.id);
+          }}
           showCloseButton={toast.showCloseButton !== false}
         />
       ))}
     </div>
+  );
+};
+
+/**
+ * Container Global de Toasts que usa o hook internamente
+ */
+export const GlobalToastContainer = ({ position = 'top-right' }) => {
+  const { toasts, removeToast } = useToast();
+
+  return (
+    <ToastContainer
+      toasts={toasts}
+      onRemoveToast={removeToast}
+      position={position}
+    />
   );
 };
 

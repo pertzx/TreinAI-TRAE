@@ -7,6 +7,7 @@ import locationsData from '../../../data/locations.json';
 import MeusTreinos from './MeusTreinos';
 import HistoricoChart from '../Components/HistoricoChart';
 import ChatNutriAI from '../Components/ChatNutriAi';
+import { useToast } from '../../../components/Toast';
 
 const base = {
   card: 'p-4',
@@ -30,6 +31,7 @@ const getSpecialtyTheme = (especialidade = 'personal-trainner', isDark = true) =
 const Coach = ({ user, tema = 'dark' }) => {
   const navigate = useNavigate();
   const isDark = tema === 'dark';
+  const { showError, showSuccess } = useToast();
 
   const theme = {
     bg: isDark ? 'bg-gray-900 text-white' : 'bg-white text-black',
@@ -49,8 +51,6 @@ const Coach = ({ user, tema = 'dark' }) => {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [error, setError] = useState(null);
-  const [successMsg, setSuccessMsg] = useState(null);
 
   const [createForm, setCreateForm] = useState({ profissionalName: '', biografia: '', especialidade: 'personal-trainner', country: '', state: '', city: '' });
   const [createImageFile, setCreateImageFile] = useState(null);
@@ -117,7 +117,7 @@ const Coach = ({ user, tema = 'dark' }) => {
       if (mountedRef.current) setProfissional(null);
       return;
     }
-    setLoading(true); setError(null); setSuccessMsg(null);
+    setLoading(true);
     try {
       const res = await api.get('/profissionais', { params: { userId }, signal });
       if (!mountedRef.current) return;
@@ -135,7 +135,7 @@ const Coach = ({ user, tema = 'dark' }) => {
     } catch (err) {
       if (err.name === 'CanceledError' || err.message === 'canceled') return;
       console.error('Erro ao carregar profissional:', err);
-      setError(err?.response?.data?.msg || err.message || 'Erro desconhecido');
+      showError(err?.response?.data?.msg || err.message || 'Erro desconhecido');
       setProfissional(null);
     } finally { if (mountedRef.current) setLoading(false); }
   }, [getUserIdFromUser]);
@@ -170,10 +170,10 @@ const Coach = ({ user, tema = 'dark' }) => {
   const handleCreateProfissional = async (e) => {
     e?.preventDefault?.();
     const validationError = validateCreateForm();
-    if (validationError) { setError(validationError); return; }
+    if (validationError) { showError(validationError); return; }
 
     const userId = getUserIdFromUser();
-    setCreating(true); setError(null); setSuccessMsg(null);
+    setCreating(true);
     try {
       const form = new FormData();
       form.append('profissionalName', createForm.profissionalName);
@@ -190,16 +190,16 @@ const Coach = ({ user, tema = 'dark' }) => {
       if (data && (data.profissional || data.success)) {
         const created = data.profissional || data;
         setProfissional(created);
-        setSuccessMsg('Profissional criado com sucesso.');
+        showSuccess('Profissional criado com sucesso.');
         setEditMode(false);
         setCreateForm({ profissionalName: '', biografia: '', especialidade: 'personal-trainner', country: '', state: '', city: '' });
         setCreateImageFile(null);
       } else {
-        setError(data?.msg || 'Erro ao criar profissional.');
+        showError(data?.msg || 'Erro ao criar profissional.');
       }
     } catch (err) {
       console.error('Erro ao criar profissional:', err);
-      setError(err?.response?.data?.msg || err?.message || 'Erro desconhecido');
+      showError(err?.response?.data?.msg || err?.message || 'Erro desconhecido');
     } finally { if (mountedRef.current) setCreating(false); }
   };
 
@@ -238,12 +238,12 @@ const Coach = ({ user, tema = 'dark' }) => {
     } else { setEditImageFile(null); setEditImagePreview(profissional?.imageUrl || null); }
   };
 
-  const handleToggleEditMode = () => { setEditMode(prev => !prev); setError(null); setSuccessMsg(null); };
+  const handleToggleEditMode = () => { setEditMode(prev => !prev); };
 
   const handleEditSubmit = async (e) => {
     e?.preventDefault();
     if (!profissional) return;
-    setSavingEdit(true); setError(null); setSuccessMsg(null);
+    setSavingEdit(true);
     try {
       const form = new FormData();
       form.append('profissionalId', profissional.profissionalId || profissional._id || profissional.userId || '');
@@ -263,17 +263,16 @@ const Coach = ({ user, tema = 'dark' }) => {
         const updated = data.profissional || data;
         if (updated && (updated._id || updated.profissionalId)) setProfissional(updated);
         else await loadProfissional(new AbortController().signal);
-        setSuccessMsg(data.msg || 'Atualizado com sucesso.');
+        showSuccess(data.msg || 'Atualizado com sucesso.');
         setEditMode(false);
       } else {
         throw new Error(data?.msg || 'Falha ao atualizar.');
       }
     } catch (err) {
       console.error('Erro editar profissional:', err);
-      setError(err?.response?.data?.msg || err?.message || 'Erro desconhecido');
+      showError(err?.response?.data?.msg || err?.message || 'Erro desconhecido');
     } finally {
       setSavingEdit(false);
-      setTimeout(() => setSuccessMsg(null), 3000);
     }
   };
 
@@ -380,7 +379,7 @@ const Coach = ({ user, tema = 'dark' }) => {
         const msgs = (curr.messages || []).filter(m => !(m.mensagemId && String(m.mensagemId).startsWith('local-')));
         return { ...prev, [alunoUserId]: { ...curr, messages: msgs, sending: false, error: err?.response?.data?.error || err?.message || 'Falha ao enviar' } };
       });
-      setError('Falha ao enviar mensagem.');
+      showError('Falha ao enviar mensagem.');
     }
   };
 
@@ -434,12 +433,12 @@ const Coach = ({ user, tema = 'dark' }) => {
         setProfissional(prev => ({ ...prev, alunos: (prev.alunos || []).map(a => String(a.userId) === String(returnedAluno.userId) ? { ...a, ...returnedAluno } : a) }));
         setAlunosData(prev => prev.map(a => String(a.userId) === String(returnedAluno.userId) ? { ...a, aceito: !!returnedAluno.aceito, aceitoEm: returnedAluno.aceitoEm || a.aceitoEm } : a));
       }
-      setSuccessMsg('Aluno aceito com sucesso.'); setTimeout(() => setSuccessMsg(null), 2500);
+      showSuccess('Aluno aceito com sucesso.');
     } catch (err) {
       console.error('Erro aceitarAluno:', err);
       setProfissional(prevProf);
       await fetchAlunosDetails(new AbortController().signal);
-      setError(err?.response?.data?.msg || err?.message || 'Erro ao aceitar aluno.');
+      showError(err?.response?.data?.msg || err?.message || 'Erro ao aceitar aluno.');
     }
   };
 
@@ -461,16 +460,15 @@ const Coach = ({ user, tema = 'dark' }) => {
         setProfissional(prev => ({ ...prev, alunos: res.data.alunos }));
         setAlunosData(prev => prev.filter(a => res.data.alunos.some(x => String(x.userId) === String(a.userId))));
       }
-      setSuccessMsg(res.data.msg || 'Aluno removido.');
+      showSuccess(res.data.msg || 'Aluno removido.');
     } catch (err) {
       console.error('Erro remover aluno:', err);
       setProfissional(prevProf);
       setAlunosData(prevAlunos);
-      setError(err?.response?.data?.msg || err?.message || 'Erro ao remover aluno.');
+      showError(err?.response?.data?.msg || err?.message || 'Erro ao remover aluno.');
       alert(`Falha ao remover aluno: ${err?.message || 'erro'}`);
     } finally {
       setRemovingMap(prev => { const c = { ...prev }; delete c[alunoUserId]; return c; });
-      setTimeout(() => setSuccessMsg(null), 3000);
     }
   };
 
@@ -502,8 +500,8 @@ const Coach = ({ user, tema = 'dark' }) => {
         </div>
       </header>
 
-      {error && <div className="mb-4 text-sm text-red-500">{error}</div>}
-      {successMsg && <div className="mb-4 text-sm text-green-400">{successMsg}</div>}
+      {/* {error && <div className="mb-4 text-sm text-red-500">{error}</div>} */}
+      {/* {successMsg && <div className="mb-4 text-sm text-green-400">{successMsg}</div>} */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
@@ -656,7 +654,7 @@ const Coach = ({ user, tema = 'dark' }) => {
                 <div className="flex flex-wrap gap-2 items-stretch">
                   <input readOnly value={`${(typeof window !== 'undefined' && window.location ? window.location.origin : '')}/dashboard/coach/u?q=${encodeURIComponent(profissional?.userId || profissional?.profissionalId || profissional?._id || '')}`} className={`${theme.input} text-xs flex-1`} onFocus={e => e.target.select()} />
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => { navigator.clipboard?.writeText && navigator.clipboard.writeText(window.location.origin + '/dashboard/coach/u?q=' + encodeURIComponent(profissional?.userId || profissional?.profissionalId || profissional?._id || '')); setSuccessMsg('Link copiado.'); setTimeout(() => setSuccessMsg(null), 1500); }} className={`${theme.ghostBtn}`}>Copiar</button>
+                    <button onClick={() => { navigator.clipboard?.writeText && navigator.clipboard.writeText(window.location.origin + '/dashboard/coach/u?q=' + encodeURIComponent(profissional?.userId || profissional?.profissionalId || profissional?._id || '')); showSuccess('Link copiado.'); }} className={`${theme.ghostBtn}`}>Copiar</button>
                     <button onClick={() => navigator.share ? navigator.share({ title: `Convite - ${profissional?.profissionalName}`, url: window.location.origin + '/dashboard/coach/u?q=' + encodeURIComponent(profissional?.userId || profissional?.profissionalId || profissional?._id || '') }) : null} className={`${themeWithSpec.primaryBtn}`}>Compartilhar</button>
                     <button onClick={() => navigate('/dashboard/coach/u?q=' + encodeURIComponent(profissional?.userId || profissional?.profissionalId || profissional?._id || ''), '_blank')} className={`${theme.ghostBtn}`}>Abrir</button>
                   </div>

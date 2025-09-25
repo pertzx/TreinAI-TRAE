@@ -25,7 +25,8 @@ const GamificationDashboard = ({ userId }) => {
     try {
       const response = await api.get(`/gamification/user/${userId}`);
       
-      setGamificationData(response.data);
+      // O backend retorna { success: true, data: {...} }
+      setGamificationData(response.data.data);
     } catch (error) {
       console.error('Erro ao buscar dados de gamificação:', error);
     } finally {
@@ -101,7 +102,7 @@ const GamificationDashboard = ({ userId }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-100 text-sm">Pontos Totais</p>
-              <p className="text-3xl font-bold">{totalPoints.toLocaleString()}</p>
+              <p className="text-3xl font-bold">{totalPoints}</p>
             </div>
             <FaStar className="text-4xl text-green-200" />
           </div>
@@ -132,7 +133,7 @@ const GamificationDashboard = ({ userId }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-purple-100 text-sm">Badges</p>
-              <p className="text-3xl font-bold">{badges.length}</p>
+              <p className="text-3xl font-bold">{badges}</p>
             </div>
             <FaMedal className="text-4xl text-purple-200" />
           </div>
@@ -197,15 +198,15 @@ const OverviewTab = ({ stats }) => (
   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
     <div className="bg-gray-50 rounded-lg p-4">
       <h3 className="font-semibold text-gray-800 mb-2">Treinos Realizados</h3>
-      <p className="text-2xl font-bold text-blue-600">{stats.totalWorkouts}</p>
+      <p className="text-2xl font-bold text-blue-600">{stats?.totalWorkouts || 0}</p>
     </div>
     <div className="bg-gray-50 rounded-lg p-4">
       <h3 className="font-semibold text-gray-800 mb-2">Exercícios Completados</h3>
-      <p className="text-2xl font-bold text-green-600">{stats.totalExercises}</p>
+      <p className="text-2xl font-bold text-green-600">{stats?.totalExercises || 0}</p>
     </div>
     <div className="bg-gray-50 rounded-lg p-4">
       <h3 className="font-semibold text-gray-800 mb-2">Tempo Total (min)</h3>
-      <p className="text-2xl font-bold text-purple-600">{stats.totalMinutes}</p>
+      <p className="text-2xl font-bold text-purple-600">{stats?.totalMinutes || 0}</p>
     </div>
   </div>
 );
@@ -224,7 +225,7 @@ const BadgesTab = ({ badges }) => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {badges.map((badge, index) => (
+      {badges && badges.length > 0 ? badges.map((badge, index) => (
         <motion.div
           key={badge.id}
           initial={{ opacity: 0, scale: 0.9 }}
@@ -246,7 +247,13 @@ const BadgesTab = ({ badges }) => {
             </div>
           </div>
         </motion.div>
-      ))}
+      )) : (
+        <div className="col-span-full text-center py-8">
+          <FaMedal className="mx-auto text-4xl text-gray-300 mb-4" />
+          <p className="text-gray-500">Nenhuma badge conquistada ainda</p>
+          <p className="text-sm text-gray-400">Complete treinos para desbloquear badges!</p>
+        </div>
+      )}
     </div>
   );
 };
@@ -268,12 +275,16 @@ const ChallengesTab = ({ activeChallenges, availableChallenges, userId, onChalle
       <div>
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Desafios Ativos</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {activeChallenges.map((challenge, index) => (
+          {activeChallenges && activeChallenges.length > 0 ? activeChallenges.map((challenge, index) => (
             <div key={challenge.challengeId} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-semibold text-blue-800">Desafio Ativo</h4>
               <p className="text-sm text-blue-600">Progresso: {challenge.progress}</p>
             </div>
-          ))}
+          )) : (
+            <div className="col-span-full text-center py-4">
+              <p className="text-gray-500">Nenhum desafio ativo</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -281,7 +292,7 @@ const ChallengesTab = ({ activeChallenges, availableChallenges, userId, onChalle
       <div>
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Desafios Disponíveis</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {availableChallenges.map((challenge, index) => (
+          {availableChallenges && availableChallenges.length > 0 ? availableChallenges.map((challenge, index) => (
             <motion.div
               key={challenge._id}
               initial={{ opacity: 0, y: 20 }}
@@ -298,7 +309,7 @@ const ChallengesTab = ({ activeChallenges, availableChallenges, userId, onChalle
                       {challenge.type}
                     </span>
                     <span className="text-sm text-green-600 font-medium">
-                      +{challenge.rewards.points} pts
+                      +{challenge.rewards?.points || 0} pts
                     </span>
                   </div>
                 </div>
@@ -310,7 +321,13 @@ const ChallengesTab = ({ activeChallenges, availableChallenges, userId, onChalle
                 </button>
               </div>
             </motion.div>
-          ))}
+          )) : (
+            <div className="col-span-full text-center py-8">
+              <FaGift className="mx-auto text-4xl text-gray-300 mb-4" />
+              <p className="text-gray-500">Nenhum desafio disponível</p>
+              <p className="text-sm text-gray-400">Novos desafios serão adicionados em breve!</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -348,7 +365,7 @@ const RankingTab = () => {
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-gray-800">Ranking Global</h3>
       <div className="space-y-2">
-        {ranking?.rankings?.slice(0, 10).map((user, index) => (
+        {ranking?.rankings && ranking.rankings.length > 0 ? ranking.rankings.slice(0, 10).map((user, index) => (
           <div key={user.userId} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
             <div className="flex-shrink-0">
               <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
@@ -365,11 +382,17 @@ const RankingTab = () => {
               <p className="text-sm text-gray-600">Nível {user.level}</p>
             </div>
             <div className="text-right">
-              <p className="font-semibold text-blue-600">{user.points.toLocaleString()} pts</p>
-              <p className="text-xs text-gray-500">{user.badges} badges</p>
+              <p className="font-semibold text-blue-600">{user.points?.toLocaleString() || 0} pts</p>
+              <p className="text-xs text-gray-500">{user.badges || 0} badges</p>
             </div>
           </div>
-        ))}
+        )) : (
+          <div className="text-center py-8">
+            <FaUsers className="mx-auto text-4xl text-gray-300 mb-4" />
+            <p className="text-gray-500">Ranking ainda não disponível</p>
+            <p className="text-sm text-gray-400">Complete treinos para aparecer no ranking!</p>
+          </div>
+        )}
       </div>
     </div>
   );

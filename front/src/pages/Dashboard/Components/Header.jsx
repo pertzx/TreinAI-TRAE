@@ -11,6 +11,7 @@ const Header = ({ user, tema }) => {
     { name: 'Encontrar', href: '/dashboard/encontrar' },
     { name: 'Meus Treinos', href: '/dashboard/meus-treinos' },
     { name: 'Histórico', href: '/dashboard/historico' },
+    { name: 'Gamificação', href: '/dashboard/gamificacao' },
     { name: 'Perfil', href: '/dashboard/perfil' },
     { name: 'Configurações', href: '/dashboard/configuracoes' },
   ];

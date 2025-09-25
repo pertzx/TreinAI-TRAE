@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../../Api';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
+import TokensChart from '../Components/TokensChart.jsx';
 
 /**
  * Configuracoes - usa `tema` com valores 'dark' | 'light'
@@ -42,12 +43,19 @@ const Configuracoes = ({ setTema, tema, user }) => {
   const [password, setPassword] = useState('');
   const [changeError, setChangeError] = useState(null); // mensagem de erro ao tentar trocar para mesmo valor/tipo
 
+  // Estados para tokens
+  const [tokensTotal, setTokensTotal] = useState(0);
+  const [tokensToday, setTokensToday] = useState(0);
+
   const priceMapForDisplay = {
     free: { label: 'Free', price: 0 },
     pro: { label: 'Pro', price: 15 },
     max: { label: 'Max', price: 40 },
     coach: { label: 'Coach', price: 70 },
   };
+
+  // Função para formatar números
+  const fmt = (n) => (typeof n === 'number' ? Math.round(n).toLocaleString('pt-BR') : '0');
 
   useEffect(() => {
     // Sincroniza tema -> se user tiver preferência usa ela
@@ -77,6 +85,42 @@ const Configuracoes = ({ setTema, tema, user }) => {
     if (user?.planInfos) {
       setCurrentPlan(user.planInfos.planType);
       setPlanInfos(user.planInfos);
+    }
+
+    // Calcular tokens
+    const tokenEntries = (user?.stats && Array.isArray(user.stats.tokens)) ? user.stats.tokens : [];
+    if (!tokenEntries.length) {
+      setTokensTotal(0);
+      setTokensToday(0);
+    } else {
+      const total = tokenEntries.reduce((acc, e) => {
+        const v = Number(e?.valor ?? e?.value ?? 0);
+        return acc + (Number.isFinite(v) ? v : 0);
+      }, 0);
+
+      const brazilDayKey = (d) => {
+        try {
+          const dt = d ? new Date(d) : new Date();
+          return dt.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        } catch (err) {
+          const dt = d ? new Date(d) : new Date();
+          return dt.toISOString().slice(0, 10);
+        }
+      };
+
+      const todayKey = brazilDayKey(new Date());
+      const todaySum = tokenEntries.reduce((acc, e) => {
+        const dt = e?.data ?? e?.date ?? e?.createdAt ?? e?.publishedAt ?? null;
+        const key = dt ? brazilDayKey(dt) : null;
+        if (key === todayKey) {
+          const v = Number(e?.valor ?? e?.value ?? 0);
+          return acc + (Number.isFinite(v) ? v : 0);
+        }
+        return acc;
+      }, 0);
+
+      setTokensTotal(total);
+      setTokensToday(todaySum);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -339,6 +383,31 @@ const Configuracoes = ({ setTema, tema, user }) => {
           <span className="text-xs">{notificacoes ? 'Ativas' : 'Desativadas'}</span>
           <Switch checked={notificacoes} onChange={toggleNotificacoes} label="Alternar notificações" tema={tema} />
         </div>
+      </div>
+
+      {/* Tokens summary */}
+      <div className={`${cardClass} w-full max-w-2xl p-4 rounded-2xl border`}>
+        <h3 className="font-semibold mb-4">Usagem (IA)</h3>
+        
+        {/* Resumo dos tokens */}
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <div className="text-xs text-gray-500">Total de tokens gastos</div>
+            <div className="text-lg font-bold">{fmt(tokensTotal)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">Tokens gastos hoje</div>
+            <div className="text-lg font-bold">{fmt(tokensToday)}</div>
+          </div>
+        </div>
+
+        {/* Gráfico de tokens */}
+        <div className="mt-4">
+          <h4 className="text-sm font-medium mb-2">Histórico dos últimos 14 dias</h4>
+          <TokensChart user={user} days={14} tema={tema} />
+        </div>
+
+        <div className={`text-xs mt-2 ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Contagem baseada nos registros de <code>user.stats.tokens</code> (fuso America/Sao_Paulo).</div>
       </div>
 
       {/* Plan Info */}

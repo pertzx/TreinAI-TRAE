@@ -1,6 +1,7 @@
 import Chat from "../models/Chat.js";
 import { v4 as uuidv4 } from 'uuid'
 import User from "../models/User.js";
+import { getBrazilDate } from "../helpers/getBrazilDate.js";
 
 // * pegar todos os chats do usuário (query: ?userId=xxx)
 // GET /pegarChats
@@ -199,7 +200,10 @@ export const enviarMensagem = async (req, res) => {
     userId: String(userId),
     mensagemId: uuidv4(),
     conteudo: String(conteudo),
-    vistos: [String(userId)],
+    vistos: [{
+      userId: String(userId),
+      vistoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date()
+    }],
     publicadoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date()
   };
 
@@ -389,9 +393,14 @@ export const marcarMensagensVistas = async (req, res) => {
 
   try {
     // Atualiza todos os elementos do array mensagens cujo mensagemId esteja em mensagemIds
+    const vistoObj = {
+      userId: String(userId),
+      vistoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date()
+    };
+    
     const updateResult = await Chat.updateOne(
       { ChatId: String(ChatId) },
-      { $addToSet: { 'mensagens.$[elem].vistos': String(userId) } },
+      { $addToSet: { 'mensagens.$[elem].vistos': vistoObj } },
       {
         arrayFilters: [{ 'elem.mensagemId': { $in: mensagemIds.map(String) } }],
         // new não se aplica a updateOne; iremos buscar o documento atualizado depois

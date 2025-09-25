@@ -5,14 +5,15 @@ import Logo from "../components/Logo";
 import { useCSRF } from "../hooks/useCSRF";
 import LoadingSpinner, { ButtonSpinner } from '../components/LoadingSpinner';
 import { handleError, clearErrorAfterDelay, isAuthError } from '../utils/errorHandler';
+import { useToast } from '../components/Toast';
 
 function Login({ plano, setLogado, logado }) {
   const [mode, setMode] = useState("signup"); // login ou signup
-  const [error, setError] = useState(false);
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { csrfToken, loading: csrfLoading, getValidToken, clearToken } = useCSRF();
+  const { showError, showSuccess } = useToast();
 
   // Evitar redirecionamento dentro do render
   useEffect(() => {
@@ -33,7 +34,6 @@ function Login({ plano, setLogado, logado }) {
     e.preventDefault();
 
     // limpar estados anteriores
-    setError(false);
     setMsg(null);
     setLoading(true);
 
@@ -42,16 +42,14 @@ function Login({ plano, setLogado, logado }) {
 
     // Validação básica
     if (!data.email || !data.password) {
-      setError(true);
-      setMsg("Preencha e-mail e senha.");
+      showError("Preencha e-mail e senha.");
       setLoading(false);
       return;
     }
 
     if (mode === "signup") {
       if (data.password !== data.confirm) {
-        setError(true);
-        setMsg("As senhas não conferem.");
+        showError("As senhas não conferem.");
         setLoading(false);
         return;
       }
@@ -59,8 +57,7 @@ function Login({ plano, setLogado, logado }) {
 
     // Verificar se CSRF token está disponível
     if (csrfLoading) {
-      setError(true);
-      setMsg("Aguarde, carregando token de segurança...");
+      showError("Aguarde, carregando token de segurança...");
       setLoading(false);
       return;
     }
@@ -70,8 +67,7 @@ function Login({ plano, setLogado, logado }) {
       const validToken = await getValidToken();
       
       if (!validToken) {
-        setError(true);
-        setMsg("Erro ao obter token de segurança. Recarregue a página.");
+        showError("Erro ao obter token de segurança. Recarregue a página.");
         setLoading(false);
         return;
       }
@@ -98,21 +94,12 @@ function Login({ plano, setLogado, logado }) {
 
       // se não tiver token, tratar como falha e pegar mensagem do body
       const serverMsg = response?.data?.msg ?? "Falha no login (resposta inesperada).";
-      setError(true);
-      setMsg(serverMsg);
+      showError(serverMsg);
       setLoading(false);
     } catch (err) {
       // Usar o sistema centralizado de tratamento de erros
-      handleError(err, (message) => {
-        setError(true);
-        setMsg(message);
-      });
-      
-      // Limpar erro automaticamente após 5 segundos
-      clearErrorAfterDelay(() => {
-        setError(false);
-        setMsg("");
-      });
+      const errorMessage = handleError(err);
+      showError(errorMessage);
       
       // Se for erro de autenticação, limpar tokens
       if (isAuthError(err)) {
@@ -127,8 +114,7 @@ function Login({ plano, setLogado, logado }) {
   return (
     <div className="min-h-screen bg-[#10151e] flex items-center justify-center px-4">
       <div
-        className={`w-full max-w-md bg-[#1a1f2b] text-slate-200 rounded-2xl shadow-xl border border-slate-800 p-6 md:p-8 relative transition-all duration-300 ${error ? "animate-shake border-red-500" : ""
-          }`}
+        className="w-full max-w-md bg-[#1a1f2b] text-slate-200 rounded-2xl shadow-xl border border-slate-800 p-6 md:p-8 relative transition-all duration-300"
       >
         {window.history.state && window.history.state.idx > 0 && (
           <div
@@ -173,7 +159,7 @@ function Login({ plano, setLogado, logado }) {
         </div>
 
         {/* Mensagens de erro / sucesso: garantir que msg seja string */}
-        {error && msg ? (
+        {/* {error && msg ? (
           <div className="text-yellow-300 text-sm mb-4">{String(msg)}</div>
         ) : error && !msg ? (
           <p className="text-red-500 text-sm mb-4">
@@ -183,7 +169,7 @@ function Login({ plano, setLogado, logado }) {
         ) : (
           // se não houver erro, mostrar espaço em branco (ou uma instrução)
           <div className="h-4 mb-4" />
-        )}
+        )} */}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === "signup" && (

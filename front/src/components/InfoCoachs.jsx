@@ -185,7 +185,7 @@ const InfoCoachs = ({ user }) => {
                 </div>
             </div>
 
-            {error && <div className="text-sm text-red-600">{error}</div>}
+            {/* {error && <div className="text-sm text-red-600">{error}</div>} */}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <ProfCard title="Nutricionista" prof={nutricionista} />

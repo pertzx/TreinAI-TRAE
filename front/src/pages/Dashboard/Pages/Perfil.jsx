@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import api from '../../../Api';
 import BuscarImagem from '../../../components/BuscarImagens';
 import locationsRaw from '../../../data/locations.json';
+import { useToast } from '../../../components/Toast';
 
 const Perfil = ({ user, tema = 'light' }) => {
   const isDark = tema === 'dark';
+  const { showError, showSuccess } = useToast();
 
   // ---------- Locations (from JSON) ----------
   const locations = useMemo(() => {
@@ -60,7 +62,6 @@ const Perfil = ({ user, tema = 'light' }) => {
 
   // ---------- meta ----------
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
 
   // tipos / helpers
   const tipos = [
@@ -206,7 +207,6 @@ const Perfil = ({ user, tema = 'light' }) => {
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
-      setError(null);
 
       const formData = new FormData();
       formData.append('email', user?.email);
@@ -252,9 +252,11 @@ const Perfil = ({ user, tema = 'light' }) => {
         URL.revokeObjectURL(prevAvatarPreviewRef.current);
         prevAvatarPreviewRef.current = null;
       }
+      
+      showSuccess('Perfil atualizado com sucesso!');
     } catch (err) {
       console.error('Erro ao atualizar o perfil: ', err);
-      setError(err?.response?.data?.message || err.message || 'Erro desconhecido');
+      showError(err?.response?.data?.message || err.message || 'Erro desconhecido');
     } finally {
       setSubmitting(false);
     }
@@ -491,22 +493,6 @@ const Perfil = ({ user, tema = 'light' }) => {
           </button>
         </div>
         <p className={`text-xs mt-3 text-center ${mutedText}`}>Escolha o gênero com o qual você mais se identifica.</p>
-      </div>
-
-      {/* Tokens summary */}
-      <div className={cardClass}>
-        <h3 className="font-semibold mb-2">Tokens (IA)</h3>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="text-xs text-gray-500">Total de tokens gastos</div>
-            <div className="text-lg font-bold">{fmt(tokensTotal)}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">Tokens gastos hoje</div>
-            <div className="text-lg font-bold">{fmt(tokensToday)}</div>
-          </div>
-        </div>
-        <div className={`text-xs mt-2 ${mutedText}`}>Contagem baseada nos registros de <code>user.stats.tokens</code> (fuso America/Sao_Paulo).</div>
       </div>
 
       {/* Botão Aplicar */}

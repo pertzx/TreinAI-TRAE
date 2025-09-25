@@ -737,7 +737,7 @@ const Chats = ({ user, tema }) => {
                 {replyingTo ? 'Responder' : 'Enviar'}
               </button>
             </div>
-            {error && <div className="text-sm text-red-600 mt-2">{error}</div>}
+            {/* {error && <div className="text-sm text-red-600 mt-2">{error}</div>} */}
           </div>
         </div>
       </div>

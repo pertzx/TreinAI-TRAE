@@ -17,7 +17,7 @@ import Encontrar from './Pages/Encontrar.jsx';
 import TokensChart from './Components/TokensChart.jsx';
 import Coach from './Pages/Coach.jsx';
 import CoachEspecifico from './Pages/CoachEspecifico.jsx';
-import Chats from '../../components/Chats.jsx';
+import ChatsOptimized from '../../components/ChatsOptimized.jsx';
 import Footer from './Components/Footer.jsx';
 import ChatNutriAI from './Components/ChatNutriAi.jsx';
 import InfoCoachs from '../../components/InfoCoachs.jsx';
@@ -26,8 +26,10 @@ import Locais from './Pages/Locais.jsx';
 import AdminPage from './Pages/AdminPage/AdminPage.jsx';
 import SupportPage from './Pages/SupportPage.jsx';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import GamificationDashboard from '../../components/Gamification/GamificationDashboard.jsx';
 
 import { handleError, clearErrorAfterDelay, isAuthError } from '../../utils/errorHandler';
+import { useToast } from '../../components/Toast.jsx';
 import { FaUser, FaChartLine, FaDumbbell, FaAppleAlt, FaCog, FaSignOutAlt, FaQuestionCircle, FaMapMarkerAlt, FaUsers, FaSearch, FaBullhorn, FaShieldAlt } from 'react-icons/fa';
 import { MdDarkMode, MdLightMode } from 'react-icons/md';
 import { FaRobot } from 'react-icons/fa6';
@@ -39,16 +41,17 @@ import { FaUserShield } from 'react-icons/fa6';
 const Dashboard = ({ needToPay, plano }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [tema, setTema] = useState(localStorage.getItem('tema') || 'light');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState('personal'); // 'personal' ou 'fitness'
   const [treinoStatus, setTreinoStatus] = useState(null);
   const navigate = useNavigate();
+  const { showError, showInfo, showWarning, showSuccess } = useToast();
 
   useEffect(() => {
-    if (plano !== 'free') {
-
+    showSuccess('Plano atualizado com sucesso!');
+    if (user?.planInfos?.planType === 'free') {
+      showWarning('Você está usando o plano gratuito. Para acessar todas as funcionalidades, por favor, atualize seu plano.');
     }
   }, [])
 
@@ -61,13 +64,12 @@ const Dashboard = ({ needToPay, plano }) => {
         else navigate('/login');
       } catch (error) {
         console.error(error)
-        const errorMessage = handleError(error, setError);
+        const errorMessage = handleError(error);
+        showError(errorMessage);
 
         if (isAuthError(error)) {
           navigate('/login');
         }
-
-        clearErrorAfterDelay(setError, 5000);
       } finally {
         setLoading(false);
       }
@@ -102,7 +104,7 @@ const Dashboard = ({ needToPay, plano }) => {
 
     // Verifica se tem informações pessoais básicas
     const hasPersonalInfo = user.perfil?.idade && user.perfil?.city && user.perfil?.state && user.perfil?.country;
-    
+
     // Verifica se tem respostas do questionário de fitness
     const hasFitnessAnswers = user.onboarding?.answers && user.onboarding.answers.length > 0;
 
@@ -112,7 +114,7 @@ const Dashboard = ({ needToPay, plano }) => {
     // 3. Falta alguma informação essencial
     if (!onboardCompleted && loginCount <= 5 && (!hasPersonalInfo || !hasFitnessAnswers)) {
       setShowOnboarding(true);
-      
+
       // Define qual etapa mostrar baseado nas informações já coletadas
       if (!hasPersonalInfo) {
         setOnboardingStep('personal');
@@ -244,12 +246,13 @@ const Dashboard = ({ needToPay, plano }) => {
               <Route path="ajuda" element={<SupportPage user={user} tema={tema} />} />
               <Route path="meus-treinos" element={<MeusTreinos tema={tema} user={user} setUser={setUser} />} />
               <Route path="historico" element={<Historico historico={user?.historico} tema={tema} />} />
+              <Route path="gamificacao" element={<GamificationDashboard userId={user?._id} tema={tema} />} />
               <Route path="perfil" element={<Perfil user={user} tema={tema} />} />
               <Route path="configuracoes" element={<Configuracoes setTema={setTema} tema={tema} user={user} />} />
               <Route path="encontrar" element={<Encontrar user={user} tema={tema} />} />
               <Route path="coach/*" element={<Coach tema={tema} user={user} />} />
               <Route path="coach/u/" element={<CoachEspecifico user={user} />} />
-              <Route path="/chat" element={<Chats user={user} tema={tema} />} />
+              <Route path="/chat" element={<ChatsOptimized user={user} tema={tema} />} />
               <Route path="/infosCoach" element={<InfoCoachs user={user} />} />
               <Route path="/anuncios" element={<AnunciosDash user={user} tema={tema} />} />
               <Route path="/locais" element={<Locais user={user} tema={tema} />} />

@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import HistoricoChart from "./HistoricoChart";
 import Logo from "../../../components/Logo"; // opcional: seu componente de logo
 import { safePrintWindow } from "../../../utils/sanitizer";
+import { useToast } from "../../../components/Toast";
 
 /* -------------------- Helpers -------------------- */
 function formatSeconds(s) {
@@ -26,6 +27,7 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
     const [sharing, setSharing] = useState(false);
     const overlayRef = useRef(null);
     const navigate = useNavigate();
+    const { showError } = useToast();
 
     // camera / foto local
     const fileInputRef = useRef(null);
@@ -280,7 +282,7 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
             setCompositeBlob(blob);
         } catch (err) {
             console.error("Erro ao compor imagem:", err);
-            alert("Não foi possível processar a foto. Tente novamente.");
+            showError("Não foi possível processar a foto. Tente novamente.");
             setCompositeBlob(null);
             if (compositeBlobUrl) try { URL.revokeObjectURL(compositeBlobUrl); } catch (e) { }
             setCompositeBlobUrl(null);
@@ -452,7 +454,7 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
             URL.revokeObjectURL(url);
         } catch (err) {
             console.error('downloadImage error:', err);
-            alert('Erro ao gerar a imagem. Veja console para mais detalhes.');
+            showError('Erro ao gerar a imagem. Veja console para mais detalhes.');
         } finally {
             setProcessingImage(false);
         }
@@ -489,14 +491,14 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
             URL.revokeObjectURL(url);
         } catch (err) {
             console.error('shareImage error:', err);
-            alert('Não foi possível gerar/compartilhar a imagem. Veja console para detalhes.');
+            showError('Não foi possível gerar/compartilhar a imagem. Veja console para detalhes.');
         } finally {
             setSharing(false);
         }
     };
 
     const downloadTrainingImage = async () => {
-        if (!compositeBlob) return alert('Nenhuma imagem para baixar. Tire uma foto primeiro.');
+        if (!compositeBlob) return showError('Nenhuma imagem para baixar. Tire uma foto primeiro.');
         const a = document.createElement('a');
         const url = compositeBlobUrl || URL.createObjectURL(compositeBlob);
         a.href = url;

@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import api from '../src/Api';
 import Success from './pages/Stripe/Success';
 import Cancel from './pages/Stripe/Cancel';
+import { ToastProvider, GlobalToastContainer } from './components/Toast.jsx';
 
 function App() {
   const [plano, setPlano] = useState('free');
@@ -32,19 +33,23 @@ function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-      {/* <Menu /> */}
-      
-      <Routes>
-        <Route path='/' element={<Home logado={logado}/>} />
-        <Route path='/planos' element={<Planos setPlano={setPlano} setNeedToPay={setNeedToPay} />} />
-        <Route path='/login' element={<Login plano={plano} setLogado={setLogado} logado={logado} />} />
-        <Route path='/dashboard/*' element={<Dashboard needToPay={needToPay} plano={plano} />} />
-        <Route path='/success?' element={<Success />} />
-        <Route path='/cancel' element={<Cancel />} />
+    <ToastProvider>
+      <BrowserRouter>
+        {/* <Menu /> */}
+        
+        <Routes>
+          <Route path='/' element={<Home logado={logado}/>} />
+          <Route path='/planos' element={<Planos setPlano={setPlano} setNeedToPay={setNeedToPay} />} />
+          <Route path='/login' element={<Login plano={plano} setLogado={setLogado} logado={logado} />} />
+          <Route path='/dashboard/*' element={<Dashboard needToPay={needToPay} plano={plano} />} />
+          <Route path='/success?' element={<Success />} />
+          <Route path='/cancel' element={<Cancel />} />
 
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+        
+        <GlobalToastContainer position="top-right" />
+      </BrowserRouter>
+    </ToastProvider>
   );
 }
 
