@@ -3,6 +3,9 @@ import api from '../../../../Api'
 import { getBrazilDate } from '../../../../../helpers/getBrazilDate.js'
 
 export default function AdminUsuarios({ tema, user }) {
+  // Validação de segurança - apenas admins podem acessar
+  const isAdmin = !!(user && user.role === 'admin')
+  
   const [usuarios, setUsuarios] = useState([])
   const [erro, setErro] = useState('')
   const [msg, setMsg] = useState('')
@@ -109,6 +112,15 @@ export default function AdminUsuarios({ tema, user }) {
     setFilterStatus('all')
     setQ('')
     setSortBy('none')
+  }
+
+  // Verificação de segurança
+  if (!isAdmin) {
+    return (
+      <div className="p-4 text-red-600">
+        Acesso negado: somente administradores podem gerenciar usuários.
+      </div>
+    )
   }
 
   return (

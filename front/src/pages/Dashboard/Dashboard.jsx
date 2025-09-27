@@ -159,7 +159,7 @@ const Dashboard = ({ needToPay, plano }) => {
 
   const db = (
     <section
-      className={`w-full flex flex-col md:grid-cols-3 gap-6 mt-6 transition-colors duration-300 ${tema === "dark" ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}
+      className={`max-w-full flex flex-col md:grid-cols-3 gap-6 mt-6 transition-colors duration-300 ${tema === "dark" ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}
     >
       {
         user && user.planInfos && user.planInfos.planType && user.planInfos.planType === 'coach' && (

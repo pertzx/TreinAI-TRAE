@@ -13,7 +13,7 @@ const loginSchema = Joi.object({
 });
 
 const signupSchema = Joi.object({
-    name: Joi.string().min(2).max(50).required().messages({
+    username: Joi.string().min(2).max(50).required().messages({
         'string.min': 'Nome deve ter pelo menos 2 caracteres',
         'string.max': 'Nome deve ter no máximo 50 caracteres',
         'any.required': 'Nome é obrigatório'
@@ -23,14 +23,18 @@ const signupSchema = Joi.object({
         'any.required': 'Email é obrigatório'
     }),
     password: Joi.string()
-        .min(8)
-        .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)'))
-        .required()
-        .messages({
-            'string.min': 'Senha deve ter pelo menos 8 caracteres',
-            'string.pattern.base': 'Senha deve conter pelo menos uma letra minúscula, uma maiúscula e um número',
-            'any.required': 'Senha é obrigatória'
-        })
+    .min(8)
+    .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)'))
+    .required()
+    .messages({
+        'string.min': 'Senha deve ter pelo menos 8 caracteres',
+        'string.pattern.base': 'Senha deve conter pelo menos uma letra minúscula, uma maiúscula e um número',
+        'any.required': 'Senha é obrigatória'
+    }),
+    plano: Joi.string().min(1).max(50).messages({
+        'string.min': 'Nome deve ter pelo menos 1 caracteres',
+        'string.max': 'Nome deve ter no máximo 50 caracteres',
+    }),
 });
 
 const updateProfileSchema = Joi.object({

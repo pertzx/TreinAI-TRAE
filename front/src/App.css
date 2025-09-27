@@ -10,7 +10,7 @@ body{
     border: 0.2px solid black
 } */
 
-html, body{
+html, body, #root{
     height: 100%;
     margin: 0;
     padding: 0;

@@ -1,6 +1,8 @@
 import { UserGamification, Challenge, Ranking } from '../models/Gamification.js';
 import User from '../models/User.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
+import { updateChallengeProgressSystem, updateUserStreak } from './challengeProgressController.js';
+import { checkAndAwardBadges } from './badgeController.js';
 import { v4 as uuidv4 } from 'uuid';
 
 // Sistema de Badges predefinidas
@@ -95,7 +97,7 @@ export const initializeUserGamification = async (userId) => {
 export const addPoints = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { points, reason } = req.body;
+    const { points, actionType = 'complete_workout', metadata = {} } = req.body;
 
     let gamification = await UserGamification.findOne({ userId });
     if (!gamification) {
@@ -107,8 +109,21 @@ export const addPoints = async (req, res) => {
     gamification.currentLevel = calculateLevel(gamification.totalPoints);
     gamification.pointsToNextLevel = calculatePointsToNextLevel(gamification.totalPoints);
 
+    // Atualizar estatísticas baseado no tipo de ação
+    if (actionType === 'complete_workout') {
+      gamification.stats.totalWorkouts += 1;
+      if (metadata.exercises) gamification.stats.totalExercises += metadata.exercises;
+      if (metadata.duration) gamification.stats.totalMinutes += metadata.duration;
+    }
+
     // Verificar se subiu de nível
     const leveledUp = gamification.currentLevel > oldLevel;
+
+    // Atualizar streak
+    await updateUserStreak(userId, actionType);
+
+    // Atualizar progresso dos desafios usando o novo sistema
+    const challengeProgress = await updateChallengeProgressSystem(userId, actionType, 1, metadata);
 
     await gamification.save();
 
@@ -124,7 +139,9 @@ export const addPoints = async (req, res) => {
         currentLevel: gamification.currentLevel,
         pointsToNextLevel: gamification.pointsToNextLevel,
         leveledUp,
-        reason
+        challengeProgress: challengeProgress.success ? challengeProgress : null,
+        completedChallenges: challengeProgress.success ? challengeProgress.completedChallenges : [],
+        stats: gamification.stats
       }
     });
   } catch (error) {
@@ -139,15 +156,31 @@ export const recordWorkoutCompleted = async (req, res) => {
     const { userId } = req.params;
     const { workoutDuration, exerciseCount } = req.body;
 
+    console.log(`🏋️ Registrando treino para usuário ${userId}:`);
+    console.log(`   - Duração: ${workoutDuration} minutos`);
+    console.log(`   - Exercícios: ${exerciseCount}`);
+
     let gamification = await UserGamification.findOne({ userId });
     if (!gamification) {
       gamification = await initializeUserGamification(userId);
+      console.log(`   - Criando nova gamificação para usuário ${userId}`);
+    } else {
+      console.log(`   - Gamificação existente encontrada`);
+      console.log(`   - Pontos atuais: ${gamification.totalPoints}`);
+      console.log(`   - Nível atual: ${gamification.currentLevel}`);
+      console.log(`   - Treinos totais: ${gamification.stats.totalWorkouts}`);
+      console.log(`   - Minutos totais: ${gamification.stats.totalMinutes}`);
     }
 
     // Atualizar estatísticas
     gamification.stats.totalWorkouts += 1;
     gamification.stats.totalExercises += exerciseCount || 0;
     gamification.stats.totalMinutes += workoutDuration || 0;
+
+    console.log(`   - Novas estatísticas:`);
+    console.log(`     * Total treinos: ${gamification.stats.totalWorkouts}`);
+    console.log(`     * Total exercícios: ${gamification.stats.totalExercises}`);
+    console.log(`     * Total minutos: ${gamification.stats.totalMinutes}`);
 
     // Calcular streak
     const today = new Date();
@@ -187,10 +220,23 @@ export const recordWorkoutCompleted = async (req, res) => {
     gamification.pointsToNextLevel = calculatePointsToNextLevel(gamification.totalPoints);
 
     await gamification.save();
+    console.log(`   - ✅ Gamificação salva no banco de dados`);
+    console.log(`   - Pontos finais: ${gamification.totalPoints}`);
+    console.log(`   - Nível final: ${gamification.currentLevel}`);
 
     // Verificar badges e desafios
     await checkAndUnlockBadges(userId);
     await updateChallengeProgress(userId, 'complete_workouts', 1);
+
+    // Atualizar ranking após completar treino
+    try {
+      console.log(`   - Atualizando ranking geral...`);
+      await generateRanking('geral');
+      console.log(`   - ✅ Ranking atualizado com sucesso`);
+    } catch (rankingError) {
+      console.error('   - ❌ Erro ao atualizar ranking:', rankingError);
+      // Não falha o processo principal se o ranking falhar
+    }
 
     const leveledUp = gamification.currentLevel > oldLevel;
 
@@ -295,21 +341,65 @@ export const getUserGamification = async (req, res) => {
   }
 };
 
+// Obter todos os desafios (para admin)
+export const getAllChallenges = async (req, res) => {
+  try {
+    const challenges = await Challenge.find({})
+      .sort({ createdAt: -1 })
+      .populate('createdBy', 'name email');
+
+    res.status(200).json({
+      success: true,
+      challenges,
+      total: challenges.length
+    });
+  } catch (error) {
+    console.error('Erro ao buscar desafios:', error);
+    res.status(500).json({
+      success: false,
+      erro: 'Erro interno do servidor'
+    });
+  }
+};
+
 // Criar novo desafio
 export const createChallenge = async (req, res) => {
   try {
-    const { title, description, type, category, startDate, endDate, requirements, rewards } = req.body;
+    const { titulo, descricao, actionType, period, category, requisitos, recompensas, dataInicio, dataFim, ativo, adminId } = req.body;
 
+    // Verificar se o usuário é admin
+    const admin = await User.findById(adminId);
+    if (!admin || admin.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        erro: 'Acesso negado. Apenas administradores podem criar desafios.'
+      });
+    }
+
+    // Mapear dados do frontend para o schema otimizado
     const challenge = new Challenge({
-      title,
-      description,
-      type,
-      category,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      requirements,
-      rewards,
-      isActive: true
+      title: titulo,
+      description: descricao,
+      actionType: actionType || 'complete_workouts', // Padrão se não especificado
+      period: period || 'monthly', // Padrão se não especificado
+      category: category || 'training', // Padrão se não especificado
+      startDate: new Date(dataInicio),
+      endDate: new Date(dataFim),
+      requirements: {
+        target: requisitos?.quantidade || requisitos?.target || 1,
+        current: 0,
+        unit: requisitos?.unit || 'workouts'
+      },
+      rewards: {
+        points: recompensas?.pontos || recompensas?.points || 0,
+        badge: recompensas?.badge || null,
+        title: recompensas?.title || null,
+        description: recompensas?.descricao || recompensas?.description || null
+      },
+      isActive: ativo !== undefined ? ativo : true,
+      createdBy: adminId,
+      createdAt: getBrazilDate(),
+      updatedAt: getBrazilDate()
     });
 
     await challenge.save();
@@ -321,7 +411,10 @@ export const createChallenge = async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao criar desafio:', error);
-    res.status(500).json({ success: false, message: 'Erro interno do servidor' });
+    res.status(500).json({ 
+      success: false, 
+      erro: 'Erro interno do servidor: ' + error.message 
+    });
   }
 };
 
@@ -385,7 +478,8 @@ const updateChallengeProgress = async (userId, actionType, value) => {
       const challenge = await Challenge.findById(activeChallenge.challengeId);
       if (!challenge || !challenge.isActive) continue;
 
-      if (challenge.requirements.type === actionType) {
+      // Usar actionType do schema otimizado
+      if (challenge.actionType === actionType) {
         activeChallenge.progress += value;
 
         // Verificar se completou o desafio
@@ -506,6 +600,135 @@ const generateRanking = async (period) => {
   }
 };
 
+// Atualizar desafio existente (apenas admins)
+export const updateChallenge = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { titulo, descricao, tipo, requisitos, recompensas, dataInicio, dataFim, ativo, adminId } = req.body;
+
+    // Verificar se o usuário é admin
+    const admin = await User.findById(adminId);
+    if (!admin || admin.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        erro: 'Acesso negado. Apenas administradores podem atualizar desafios.'
+      });
+    }
+
+    const challenge = await Challenge.findById(id);
+    if (!challenge) {
+      return res.status(404).json({
+        success: false,
+        erro: 'Desafio não encontrado'
+      });
+    }
+
+    // Atualizar campos
+    challenge.title = titulo;
+    challenge.description = descricao;
+    challenge.type = tipo;
+    challenge.requirements = requisitos;
+    challenge.rewards = recompensas;
+    challenge.startDate = new Date(dataInicio);
+    challenge.endDate = new Date(dataFim);
+    challenge.isActive = ativo;
+    challenge.updatedAt = getBrazilDate();
+
+    await challenge.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Desafio atualizado com sucesso',
+      data: challenge
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar desafio:', error);
+    res.status(500).json({
+      success: false,
+      erro: 'Erro interno do servidor'
+    });
+  }
+};
+
+// Deletar desafio (apenas admins)
+export const deleteChallenge = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminId } = req.body;
+
+    // Verificar se o usuário é admin
+    const admin = await User.findById(adminId);
+    if (!admin || admin.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        erro: 'Acesso negado. Apenas administradores podem deletar desafios.'
+      });
+    }
+
+    const challenge = await Challenge.findById(id);
+    if (!challenge) {
+      return res.status(404).json({
+        success: false,
+        erro: 'Desafio não encontrado'
+      });
+    }
+
+    await Challenge.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Desafio deletado com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro ao deletar desafio:', error);
+    res.status(500).json({
+      success: false,
+      erro: 'Erro interno do servidor'
+    });
+  }
+};
+
+// Alternar status do desafio (apenas admins)
+export const toggleChallengeStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { ativo, adminId } = req.body;
+
+    // Verificar se o usuário é admin
+    const admin = await User.findById(adminId);
+    if (!admin || admin.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        erro: 'Acesso negado. Apenas administradores podem alterar status de desafios.'
+      });
+    }
+
+    const challenge = await Challenge.findById(id);
+    if (!challenge) {
+      return res.status(404).json({
+        success: false,
+        erro: 'Desafio não encontrado'
+      });
+    }
+
+    challenge.isActive = ativo;
+    challenge.updatedAt = getBrazilDate();
+    await challenge.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Desafio ${ativo ? 'ativado' : 'desativado'} com sucesso`,
+      data: challenge
+    });
+  } catch (error) {
+    console.error('Erro ao alterar status do desafio:', error);
+    res.status(500).json({
+      success: false,
+      erro: 'Erro interno do servidor'
+    });
+  }
+};
+
 export default {
   initializeUserGamification,
   addPoints,
@@ -513,5 +736,9 @@ export default {
   getUserGamification,
   createChallenge,
   joinChallenge,
-  getRanking
+  getRanking,
+  getAllChallenges,
+  updateChallenge,
+  deleteChallenge,
+  toggleChallengeStatus
 };

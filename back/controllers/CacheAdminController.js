@@ -1,6 +1,6 @@
 import RedisManager from '../utils/redisManager.js';
 import redisCache from '../config/redis.js';
-import { AISystemLogger } from '../utils/aiSystemLogger.js';
+import User from '../models/User.js';
 
 /**
  * Controlador dedicado para administração do cache Redis
@@ -11,14 +11,13 @@ import { AISystemLogger } from '../utils/aiSystemLogger.js';
  */
 export const getCacheDashboard = async (req, res) => {
     try {
-        const adminId = req.user.id;
         const startTime = Date.now();
 
         // Obter estatísticas detalhadas
-        const stats = await RedisManager.getDetailedStats(adminId);
+        const stats = await RedisManager.getDetailedStats();
         
         // Análise de TTL para chaves principais
-        const ttlAnalysis = await RedisManager.analyzeTTL(adminId, '*');
+        const ttlAnalysis = await RedisManager.analyzeTTL(null, '*');
         
         // Informações de conectividade
         const connectionInfo = {
@@ -60,7 +59,7 @@ export const getCacheDashboard = async (req, res) => {
 export const performCacheMaintenance = async (req, res) => {
     try {
         const { operations } = req.body;
-        const adminId = req.user.id;
+
         const results = [];
 
         // Operações disponíveis
@@ -122,18 +121,6 @@ export const performCacheMaintenance = async (req, res) => {
             }
         }
 
-        // Log da manutenção
-        await AISystemLogger.logAction(
-            'CACHE_MAINTENANCE',
-            adminId,
-            true,
-            0,
-            {
-                operations,
-                results: results.map(r => ({ operation: r.operation, success: r.success }))
-            }
-        );
-
         res.json({
             success: true,
             message: 'Manutenção do cache concluída',
@@ -156,7 +143,6 @@ export const performCacheMaintenance = async (req, res) => {
 export const getCacheMonitoring = async (req, res) => {
     try {
         const { interval = 5000 } = req.query; // Intervalo em ms
-        const adminId = req.user.id;
 
         // Configurar SSE (Server-Sent Events) para monitoramento em tempo real
         res.writeHead(200, {
@@ -171,19 +157,47 @@ export const getCacheMonitoring = async (req, res) => {
                 const stats = await redisCache.getStats();
                 const timestamp = new Date().toISOString();
                 
+                // Verificar se stats não é null
+                if (!stats) {
+                    const data = {
+                        timestamp,
+                        stats: null,
+                        memory: {
+                            used: 'N/A',
+                            keys: 0,
+                            connected: false
+                        },
+                        error: 'Redis não conectado'
+                    };
+                    res.write(`data: ${JSON.stringify(data)}\n\n`);
+                    return;
+                }
+                
                 const data = {
                     timestamp,
                     stats,
                     memory: {
-                        used: stats.memoryUsage,
-                        keys: stats.keys,
-                        connected: stats.connected
+                        used: stats.memory || 'N/A',
+                        keys: stats.keys || 0,
+                        connected: stats.connected || false
                     }
                 };
 
                 res.write(`data: ${JSON.stringify(data)}\n\n`);
             } catch (error) {
                 console.error('Erro ao enviar atualização de monitoramento:', error);
+                // Enviar erro para o cliente
+                const errorData = {
+                    timestamp: new Date().toISOString(),
+                    error: error.message,
+                    stats: null,
+                    memory: {
+                        used: 'N/A',
+                        keys: 0,
+                        connected: false
+                    }
+                };
+                res.write(`data: ${JSON.stringify(errorData)}\n\n`);
             }
         };
 
@@ -198,22 +212,16 @@ export const getCacheMonitoring = async (req, res) => {
             clearInterval(intervalId);
         });
 
-        // Log do início do monitoramento
-        await AISystemLogger.logAction(
-            'CACHE_MONITORING_START',
-            adminId,
-            true,
-            0,
-            { interval }
-        );
-
     } catch (error) {
         console.error('Erro no monitoramento do cache:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Erro ao iniciar monitoramento',
-            error: error.message
-        });
+        // Só enviar resposta JSON se headers ainda não foram enviados
+        if (!res.headersSent) {
+            res.status(500).json({
+                success: false,
+                message: 'Erro ao iniciar monitoramento',
+                error: error.message
+            });
+        }
     }
 };
 
@@ -223,7 +231,6 @@ export const getCacheMonitoring = async (req, res) => {
 export const configureCacheAlerts = async (req, res) => {
     try {
         const { alerts } = req.body;
-        const adminId = req.user.id;
 
         // Validar configurações de alerta
         const validAlerts = ['memory_usage', 'key_count', 'connection_loss', 'performance_degradation'];
@@ -246,19 +253,9 @@ export const configureCacheAlerts = async (req, res) => {
         // Salvar configurações (em produção, salvar no banco de dados)
         // Por enquanto, apenas simular
         const alertConfig = {
-            adminId,
             alerts: configuredAlerts,
             updatedAt: new Date().toISOString()
         };
-
-        // Log da configuração
-        await AISystemLogger.logAction(
-            'CACHE_ALERTS_CONFIG',
-            adminId,
-            true,
-            0,
-            { alertsConfigured: Object.keys(configuredAlerts).length }
-        );
 
         res.json({
             success: true,

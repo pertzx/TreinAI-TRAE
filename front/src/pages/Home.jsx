@@ -9,7 +9,7 @@ import { NavLink } from 'react-router-dom'
 
 function Home({logado}) {
     return (
-        <>
+        <div className='m-8'>
             {/* HERO */}
             <section className='flex gap-y-10 md:gap-y-0 items-center md:gap-10 flex-col md:justify-center md:flex-row h-full px-4'>
                 <div className='w-full md:w-1/2 flex flex-col gap-y-10 items-center md:items-start h-full justify-around'>
@@ -75,7 +75,7 @@ function Home({logado}) {
                     </button>
                 </NavLink>
             </section>
-        </>
+        </div>
     )
 }
 

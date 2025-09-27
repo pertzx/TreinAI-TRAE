@@ -20,8 +20,10 @@ export const useCSRF = () => {
       
       const response = await api.get('/csrf-token');
       
+      console.log(response)
       if (response.data && response.data.csrfToken) {
         setCsrfToken(response.data.csrfToken);
+
         
         // Armazena no localStorage para persistir entre recarregamentos
         localStorage.setItem('csrfToken', response.data.csrfToken);

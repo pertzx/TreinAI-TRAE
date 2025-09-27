@@ -2,8 +2,8 @@ import React, { useEffect } from 'react'
 import AdminSuporte from './AdminSuporte'
 import AdminUsuarios from './AdminUsuarios'
 import AdminAnuncios from './AdminAnuncios'
-import AdminReports from './AdminReports'
 import AdminLocais from './AdminLocais'
+import AdminGamificacao from './AdminGamificacao'
 
 const AdminPage = ({ user, tema = 'dark' }) => {
   const isAdmin = !!(user && user.role === 'admin')
@@ -24,7 +24,7 @@ const AdminPage = ({ user, tema = 'dark' }) => {
     { label: '📍 Locais', element: <AdminLocais tema={tema} user={user} /> },
     { label: '🛠️ Suportes', element: <AdminSuporte tema={tema} user={user} /> },
     { label: '📣 Anúncios', element: <AdminAnuncios tema={tema} user={user} /> },
-    { label: '📊 Reports', element: <AdminReports tema={tema} user={user} /> }
+    { label: '🎮 Gamificação', element: <AdminGamificacao tema={tema} user={user} /> }
   ]
 
   useEffect(() => {

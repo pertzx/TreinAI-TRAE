@@ -133,7 +133,7 @@ const GamificationDashboard = ({ userId }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-purple-100 text-sm">Badges</p>
-              <p className="text-3xl font-bold">{badges}</p>
+              <p className="text-3xl font-bold">{badges?.length || 0}</p>
             </div>
             <FaMedal className="text-4xl text-purple-200" />
           </div>
@@ -377,6 +377,9 @@ const RankingTab = () => {
                 {user.position}
               </span>
             </div>
+
+            img
+
             <div className="flex-1">
               <p className="font-medium text-gray-800">{user.username}</p>
               <p className="text-sm text-gray-600">Nível {user.level}</p>

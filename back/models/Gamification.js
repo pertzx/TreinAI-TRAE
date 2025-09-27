@@ -29,39 +29,55 @@ const BadgeSchema = new Schema({
   unlockedAt: { type: Date, default: getBrazilDate }
 });
 
-// Schema para Desafios
+// Schema para Desafios - Otimizado baseado no relatório
 const ChallengeSchema = new Schema({
   id: { type: String, default: () => uuidv4() },
   title: { type: String, required: true },
   description: { type: String, required: true },
-  type: { 
+  
+  // Separação clara entre tipo de ação e período
+  actionType: { 
     type: String, 
-    enum: ['diario', 'semanal', 'mensal', 'especial'], 
+    enum: ['complete_workouts', 'use_nutri_ai', 'daily_streak', 'calorie_goal', 'share_progress', 'rate_app'], 
+    required: true 
+  },
+  period: { 
+    type: String, 
+    enum: ['daily', 'weekly', 'monthly', 'one_time'], 
     required: true 
   },
   category: { 
     type: String, 
-    enum: ['treino', 'consistencia', 'progresso', 'social'], 
+    enum: ['training', 'consistency', 'progress', 'social', 'engagement'], 
     required: true 
   },
+  
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
   isActive: { type: Boolean, default: true },
+  
+  // Requirements limpos - sem duplicação
   requirements: {
-    type: { type: String, enum: ['complete_workouts', 'streak_days', 'exercise_count', 'duration_minutes'] },
     target: { type: Number, required: true },
-    current: { type: Number, default: 0 }
+    current: { type: Number, default: 0 },
+    unit: { type: String, enum: ['workouts', 'days', 'minutes', 'calories', 'uses'], default: 'workouts' }
   },
+  
+  // Rewards limpos - sem duplicação
   rewards: {
-    points: { type: Number, default: 0 },
+    points: { type: Number, required: true },
     badge: { type: String, default: null },
-    title: { type: String, default: null }
+    title: { type: String, default: null },
+    description: { type: String, default: null }
   },
   participants: [{ type: String }], // userIds
   completedBy: [{ 
     userId: { type: String },
     completedAt: { type: Date, default: getBrazilDate }
-  }]
+  }],
+  createdBy: { type: String },
+  createdAt: { type: Date, default: getBrazilDate },
+  updatedAt: { type: Date, default: getBrazilDate }
 });
 
 // Schema principal de Gamificação do usuário
