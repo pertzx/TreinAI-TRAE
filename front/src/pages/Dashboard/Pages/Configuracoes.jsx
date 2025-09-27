@@ -483,9 +483,9 @@ const Configuracoes = ({ setTema, tema, user }) => {
 
       {/* Modal de confirmação (input) */}
       {confirmOpen && pendingPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-          <div className={` ${tema === 'dark' ? 'bg-gray-900' : 'bg-white'} relative w-full max-w-lg rounded-2xl p-6 shadow-lg z-10`}>
+        <div className="fixed max-h-full inset-0 z-50 flex items-center justify-center p-4">
+          <div className="inset-0 bg-black/40" onClick={closeModal} />
+          <div className={`max-h-full overflow-y-auto ${tema === 'dark' ? 'bg-gray-900' : 'bg-white'} relative w-full max-w-lg rounded-2xl p-6 shadow-lg z-10`}>
             <h3 className="text-lg font-semibold mb-2">Confirmar alteração para "{pendingPlan}"</h3>
 
             <div className="mb-3 text-sm ">

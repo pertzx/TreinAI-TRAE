@@ -252,7 +252,7 @@ const Perfil = ({ user, tema = 'light' }) => {
         URL.revokeObjectURL(prevAvatarPreviewRef.current);
         prevAvatarPreviewRef.current = null;
       }
-      
+
       showSuccess('Perfil atualizado com sucesso!');
     } catch (err) {
       console.error('Erro ao atualizar o perfil: ', err);
@@ -500,7 +500,6 @@ const Perfil = ({ user, tema = 'light' }) => {
         {submitting ? 'Salvando...' : houveAlteracao ? 'Salvar Alterações' : 'Nenhuma Alteração'}
       </button>
 
-      {error && <div className="text-sm text-red-500 mt-2">{error}</div>}
     </div>
   );
 };

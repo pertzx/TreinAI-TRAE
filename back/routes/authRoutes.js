@@ -289,8 +289,8 @@ router.post('/supports', pedirSuporte) // body: adminId, assunto
 router.post('/logout', (req, res) => {
     res.clearCookie('authToken', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        secure: false, // Permitir HTTP em desenvolvimento (necessário para cross-site)
+        sameSite: 'none', // Permite cross-origin entre localhost e IP da rede local
         path: '/'
     });
     res.json({ msg: 'Logout realizado com sucesso!' });

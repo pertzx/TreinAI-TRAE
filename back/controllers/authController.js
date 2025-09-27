@@ -130,8 +130,8 @@ export const login = async (req, res) => {
     // Define cookie httpOnly seguro
     res.cookie('authToken', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Permite cross-origin em produção
+      secure: false, // Permitir HTTP em desenvolvimento (necessário para cross-site)
+      sameSite: 'none', // Permite cross-origin entre localhost e IP da rede local
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
       path: '/' // Garante que o cookie seja enviado para todas as rotas
     });
@@ -177,6 +177,15 @@ export const signup = async (req, res) => {
 
     // Gera token
     const token = jwt.sign({ email }, SECRET_JWT, { expiresIn: "7d" });
+
+    // Define cookie httpOnly seguro (mesmo padrão do login)
+    res.cookie('authToken', token, {
+      httpOnly: true,
+      secure: false, // Permitir HTTP em desenvolvimento (necessário para cross-site)
+      sameSite: 'none', // Permite cross-origin entre localhost e IP da rede local
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+      path: '/' // Garante que o cookie seja enviado para todas as rotas
+    });
 
     return res.status(201).json({ 
       msg: 'Usuário criado com sucesso!', 

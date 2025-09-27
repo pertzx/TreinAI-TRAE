@@ -21,6 +21,57 @@ const ChatTreino = ({ tema = "dark", user }) => {
   const isDark = tema === "dark";
   const navigate = useNavigate();
 
+  // Função para interpretar markdown básico (**texto** -> negrito)
+  const parseMarkdown = (text) => {
+    if (typeof text !== 'string') return text;
+    
+    // Regex para encontrar **texto** e converter em negrito
+    // Suporta múltiplas ocorrências e trata casos onde ** não é fechado
+    const parts = [];
+    let lastIndex = 0;
+    let inBold = false;
+    let boldStart = -1;
+    
+    for (let i = 0; i < text.length - 1; i++) {
+      if (text[i] === '*' && text[i + 1] === '*') {
+        if (!inBold) {
+          // Início do negrito
+          if (i > lastIndex) {
+            parts.push(text.slice(lastIndex, i));
+          }
+          boldStart = i + 2;
+          inBold = true;
+          i++; // Pula o próximo *
+        } else {
+          // Fim do negrito
+          const boldText = text.slice(boldStart, i);
+          parts.push(<strong key={`bold-${parts.length}`}>{boldText}</strong>);
+          lastIndex = i + 2;
+          inBold = false;
+          i++; // Pula o próximo *
+        }
+      }
+    }
+    
+    // Se ainda está em negrito (** não foi fechado), adiciona o resto como negrito
+    if (inBold && boldStart !== -1) {
+      const boldText = text.slice(boldStart);
+      parts.push(<strong key={`bold-${parts.length}`}>{boldText}</strong>);
+    } else {
+      // Adiciona o resto do texto normal
+      if (lastIndex < text.length) {
+        parts.push(text.slice(lastIndex));
+      }
+    }
+    
+    // Se não há partes JSX, retorna o texto original
+    if (parts.length === 0) return text;
+    if (parts.length === 1 && typeof parts[0] === 'string') return parts[0];
+    
+    // Retorna um span com as partes formatadas
+    return <span key={`parsed-${Date.now()}`}>{parts}</span>;
+  };
+
   // treinos (fallback)
   const treinosDisponiveis =
     user?.meusTreinos && user.meusTreinos.length
@@ -193,7 +244,12 @@ const ChatTreino = ({ tema = "dark", user }) => {
   };
 
   const adicionarMensagem = (conteudo, tipo) => {
-    setMensagens(prev => [...prev, { id: getBrazilDate() + Math.random(), conteudo, tipo }]);
+    // Aplica formatação de markdown apenas para mensagens da IA
+    const conteudoFormatado = tipo === 'bot' && typeof conteudo === 'string' 
+      ? parseMarkdown(conteudo) 
+      : conteudo;
+    
+    setMensagens(prev => [...prev, { id: getBrazilDate() + Math.random(), conteudo: conteudoFormatado, tipo }]);
     const role = tipo === 'bot' ? 'ia' : 'user';
     let contentString = "";
     if (typeof conteudo === "string") contentString = conteudo;

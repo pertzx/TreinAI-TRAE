@@ -376,7 +376,7 @@ export const conversar = async (req, res) => {
                 role: h.role === 'ia' ? 'assistant' : 'user',
                 content: h.content
             })),
-            { role: 'user', content: `Fala do cliente: ${input}, dados do treino atual do cliente: ${treino}` }
+            { role: 'user', content: `Fala do cliente: ${input}, dados do treino atual do cliente: JSON:${JSON.stringify(treino)}` }
         ];
 
         const resp = await openai.chat.completions.create({
