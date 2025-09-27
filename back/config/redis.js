@@ -19,12 +19,18 @@ class RedisCache {
         retryDelayOnFailover: 100,
         enableReadyCheck: false,
         maxRetriesPerRequest: null,
+        lazyConnect: true, // Não conecta automaticamente
+        retryDelayOnClusterDown: 300,
+        retryDelayOnFailover: 100,
+        maxRetriesPerRequest: 3,
+        connectTimeout: 5000, // 5 segundos timeout
+        commandTimeout: 5000
       };
 
       this.client = redis.createClient(redisConfig);
 
       this.client.on('error', (err) => {
-        console.error('Redis Client Error:', err);
+        // console.warn('⚠️ Redis não disponível:', err.message);
         this.isConnected = false;
       });
 
@@ -43,10 +49,17 @@ class RedisCache {
         this.isConnected = false;
       });
 
-      await this.client.connect();
+      // Tentar conectar com timeout
+      const connectPromise = this.client.connect();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout na conexão Redis')), 5000)
+      );
+
+      await Promise.race([connectPromise, timeoutPromise]);
       return true;
     } catch (error) {
-      console.error('❌ Erro ao conectar com Redis:', error.message);
+      console.warn('⚠️ Redis não pôde ser conectado:', error.message);
+      console.warn('⚠️ Aplicação continuará sem cache Redis');
       this.isConnected = false;
       return false;
     }

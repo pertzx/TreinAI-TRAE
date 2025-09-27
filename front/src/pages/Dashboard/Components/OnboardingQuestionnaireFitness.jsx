@@ -135,8 +135,8 @@ const OnboardingQuestionnaireFitness = ({ user, setUser, setShowOnboard, tema = 
     
     return {
       overlay: isDark 
-        ? 'fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6'
-        : 'fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6',
+        ? ''/* 'inset-0 z-50 bg-black/80 flex items-center justify-center p-6' */
+        : ''/* 'inset-0 z-50 bg-black/60 flex items-center justify-center p-6' */,
       
       container: isDark 
         ? 'w-full max-w-4xl bg-gray-800 text-white rounded-2xl shadow-2xl overflow-hidden'

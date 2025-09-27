@@ -1,8 +1,7 @@
 import Anuncio from "../models/Anuncios.js";
 import User from "../models/User.js";
 import Support from "../models/Support.js";
-import UserAnalytics from "../models/Analytics.js";
-import { APIErrorLog, APIPerformanceMetric, AISystemLog } from "../models/AISystemLogs.js";
+// import { APIErrorLog, APIPerformanceMetric, AISystemLog } from "../models/AISystemLogs.js";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import redisCache from '../config/redis.js';
 import RedisManager from '../utils/redisManager.js';
@@ -311,13 +310,13 @@ export const getDetailedAIAnalytics = async (req, res) => {
  };
 
 export const getAnunciosByAdmin = async (req, res) => {
-    try {
-        const { adminId } = req.body;
+  try {
+    const { adminId } = req.query;
 
-        const user = await User.findById(adminId);
-        if (user.role !== 'admin') {
-            return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem acessar esta rota.' });
-        }
+    const user = await User.findById(adminId);
+    if (user.role !== 'admin') {
+      return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem acessar esta rota.' });
+    }
 
         // Lógica para buscar anúncios
         const anuncios = await Anuncio.find();
@@ -519,13 +518,24 @@ export const alterarVisibilidadeSuporte = async (req, res) => {
 
 // Dashboard administrativo com métricas do sistema AI
 export const getAIDashboard = async (req, res) => {
-    try {
-        const { adminId } = req.body;
+  try {
+    const { adminId } = req.query;
 
-        const user = await User.findById(adminId);
-        if (!user || user.role !== 'admin') {
-            return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem acessar esta rota.' });
-        }
+    // Verificar se adminId foi fornecido
+    if (!adminId) {
+      return res.status(400).json({
+        success: false,
+        msg: 'ID do administrador é obrigatório'
+      });
+    }
+
+    const user = await User.findById(adminId);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        msg: 'Acesso negado. Apenas administradores podem acessar esta rota.'
+      });
+    }
 
         // Estatísticas gerais do sistema
         const totalUsers = await User.countDocuments();
@@ -535,29 +545,14 @@ export const getAIDashboard = async (req, res) => {
         });
 
         // Estatísticas do sistema AI
-        const totalAnalytics = await UserAnalytics.countDocuments();
-        const usersWithWorkouts = await UserAnalytics.countDocuments({ 
-            'workoutMetrics.0': { $exists: true } 
-        });
+        // REMOVIDO: Sistema de analytics não utilizado
+        const totalAnalytics = 0; // await UserAnalytics.countDocuments();
+        const usersWithWorkouts = 0; // await UserAnalytics.countDocuments({ 'workoutMetrics.0': { $exists: true } });
 
         // Métricas de performance das APIs AI (últimos 7 dias)
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const recentWorkouts = await UserAnalytics.aggregate([
-            { $unwind: '$workoutMetrics' },
-            { $match: { 'workoutMetrics.date': { $gte: sevenDaysAgo } } },
-            { $count: 'total' }
-        ]);
-
-        const recentAIGeneratedWorkouts = await UserAnalytics.aggregate([
-            { $unwind: '$workoutMetrics' },
-            { 
-                $match: { 
-                    'workoutMetrics.date': { $gte: sevenDaysAgo },
-                    'workoutMetrics.generatedByAI': true 
-                } 
-            },
-            { $count: 'total' }
-        ]);
+        const recentWorkouts = [{ total: 0 }]; // await UserAnalytics.aggregate([...]);
+        const recentAIGeneratedWorkouts = [{ total: 0 }]; // await UserAnalytics.aggregate([...]);
 
         // Estatísticas do cache Redis
         const cacheStats = await redisCache.getStats();
@@ -586,19 +581,7 @@ export const getAIDashboard = async (req, res) => {
 
         // Top exercícios mais buscados (últimos 30 dias)
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        const topExercises = await UserAnalytics.aggregate([
-            { $unwind: '$workoutMetrics' },
-            { $match: { 'workoutMetrics.date': { $gte: thirtyDaysAgo } } },
-            { $unwind: '$workoutMetrics.exercises' },
-            { 
-                $group: { 
-                    _id: '$workoutMetrics.exercises.name', 
-                    count: { $sum: 1 } 
-                } 
-            },
-            { $sort: { count: -1 } },
-            { $limit: 10 }
-        ]);
+        const topExercises = []; // await UserAnalytics.aggregate([...]) - REMOVIDO: Sistema de analytics não utilizado
 
         const dashboardData = {
             systemStats: {
@@ -736,33 +719,7 @@ export const getAPIPerformanceMetrics = async (req, res) => {
         }
 
         // Métricas de uso do sistema AI
-        const aiUsageMetrics = await UserAnalytics.aggregate([
-            {
-                $match: {
-                    $or: [
-                        { 'workoutMetrics.date': { $gte: startDate } },
-                        { 'performanceMetrics.date': { $gte: startDate } }
-                    ]
-                }
-            },
-            {
-                $project: {
-                    userId: 1,
-                    recentWorkouts: {
-                        $filter: {
-                            input: '$workoutMetrics',
-                            cond: { $gte: ['$$this.date', startDate] }
-                        }
-                    },
-                    recentPerformance: {
-                        $filter: {
-                            input: '$performanceMetrics',
-                            cond: { $gte: ['$$this.date', startDate] }
-                        }
-                    }
-                }
-            }
-        ]);
+        const aiUsageMetrics = []; // await UserAnalytics.aggregate([...]) - REMOVIDO: Sistema de analytics não utilizado
 
         // Estatísticas de cache por tipo
         const cachePatterns = [

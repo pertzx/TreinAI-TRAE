@@ -222,7 +222,7 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
       setShowReport(false);
     } catch (err) {
       console.error('[BuscarImagem] erro ao enviar report:', err?.response?.data || err.message);
-      setReportError(err?.response?.data?.msg || 'Erro ao enviar report.');
+      setReportError(err?.response?.data?.msg || err?.response?.data?.message || 'Erro ao enviar report.');
     } finally {
       setReporting(false);
       setTimeout(() => setReportSuccess(null), 3000);

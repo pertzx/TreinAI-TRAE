@@ -1,5 +1,4 @@
 import redisCache from '../config/redis.js';
-import { AISystemLogger } from './aiSystemLogger.js';
 
 /**
  * Gerenciador avançado do Redis para funcionalidades administrativas
@@ -13,6 +12,23 @@ export class RedisManager {
     static async getDetailedStats(adminId) {
         try {
             const startTime = Date.now();
+            
+            // Verificar se o Redis está conectado
+            if (!redisCache.client || !redisCache.isConnected()) {
+                console.warn('Redis não está conectado. Retornando estatísticas vazias.');
+                return {
+                    success: false,
+                    message: 'Redis não está conectado',
+                    detailed: {
+                        basicStats: { hits: 0, misses: 0, keys: 0 },
+                        keyStats: {},
+                        totalKeys: 0,
+                        totalMemoryUsage: 0,
+                        serverInfo: null,
+                        executionTime: Date.now() - startTime
+                    }
+                };
+            }
             
             // Estatísticas básicas do Redis
             const basicStats = await redisCache.getStats();
@@ -80,36 +96,27 @@ export class RedisManager {
             // Informações do servidor Redis
             let serverInfo = {};
             try {
-                const info = await redisCache.client.info();
-                const lines = info.split('\r\n');
-                
-                for (const line of lines) {
-                    if (line.includes(':')) {
-                        const [key, value] = line.split(':');
-                        if (key && value) {
-                            serverInfo[key.trim()] = value.trim();
+                if (redisCache.client && redisCache.isConnected()) {
+                    const info = await redisCache.client.info();
+                    const lines = info.split('\r\n');
+                    
+                    for (const line of lines) {
+                        if (line.includes(':')) {
+                            const [key, value] = line.split(':');
+                            if (key && value) {
+                                serverInfo[key.trim()] = value.trim();
+                            }
                         }
                     }
+                } else {
+                    console.warn('Redis client não disponível para obter informações do servidor');
                 }
             } catch (error) {
                 console.error('Erro ao obter informações do servidor:', error);
-                serverInfo = { error: error.message };
+                serverInfo = { error: 'Não foi possível obter informações do servidor' };
             }
 
             const executionTime = Date.now() - startTime;
-
-            // Log da ação administrativa
-            await AISystemLogger.logAction(
-                'REDIS_STATS_QUERY',
-                adminId,
-                true,
-                executionTime,
-                {
-                    totalKeys,
-                    keyPatternsAnalyzed: keyPatterns.length,
-                    estimatedMemoryUsage: totalMemoryUsage
-                }
-            );
 
             return {
                 basic: basicStats,
@@ -134,17 +141,6 @@ export class RedisManager {
             };
 
         } catch (error) {
-            await AISystemLogger.logAPIError(
-                'REDIS_MANAGER',
-                `stats_${Date.now()}`,
-                adminId,
-                'STATS_ERROR',
-                error.message,
-                'MEDIUM',
-                500,
-                0,
-                { action: 'getDetailedStats' }
-            );
             throw error;
         }
     }
@@ -195,21 +191,6 @@ export class RedisManager {
 
             const executionTime = Date.now() - startTime;
 
-            // Log da ação administrativa
-            await AISystemLogger.logAction(
-                'REDIS_CACHE_CLEAR',
-                adminId,
-                true,
-                executionTime,
-                {
-                    pattern,
-                    keysFound: keys.length,
-                    keysDeleted: deletedCount,
-                    isDangerous,
-                    batchSize
-                }
-            );
-
             return {
                 success: true,
                 message: `${deletedCount} chaves removidas com sucesso`,
@@ -221,17 +202,6 @@ export class RedisManager {
             };
 
         } catch (error) {
-            await AISystemLogger.logAPIError(
-                'REDIS_MANAGER',
-                `clear_${Date.now()}`,
-                adminId,
-                'CLEAR_ERROR',
-                error.message,
-                'HIGH',
-                500,
-                0,
-                { action: 'clearByPattern', pattern }
-            );
             throw error;
         }
     }
@@ -273,15 +243,6 @@ export class RedisManager {
                 memorySaved: (statsBefore.memoryUsage || 0) - (statsAfter.memoryUsage || 0)
             };
 
-            // Log da ação administrativa
-            await AISystemLogger.logAction(
-                'REDIS_CACHE_OPTIMIZE',
-                adminId,
-                true,
-                executionTime,
-                optimization
-            );
-
             return {
                 success: true,
                 message: 'Cache otimizado com sucesso',
@@ -290,17 +251,6 @@ export class RedisManager {
             };
 
         } catch (error) {
-            await AISystemLogger.logAPIError(
-                'REDIS_MANAGER',
-                `optimize_${Date.now()}`,
-                adminId,
-                'OPTIMIZE_ERROR',
-                error.message,
-                'MEDIUM',
-                500,
-                0,
-                { action: 'optimizeCache' }
-            );
             throw error;
         }
     }
@@ -314,6 +264,17 @@ export class RedisManager {
     static async analyzeTTL(adminId, pattern = '*') {
         try {
             const startTime = Date.now();
+            
+            // Verificar se o Redis está conectado
+            if (!redisCache.client || !redisCache.isConnected()) {
+                console.warn('Redis não está conectado. Retornando análise vazia.');
+                return {
+                    success: false,
+                    message: 'Redis não está conectado',
+                    analysis: null,
+                    executionTime: Date.now() - startTime
+                };
+            }
             
             const keys = await redisCache.client.keys(pattern);
             
@@ -385,21 +346,6 @@ export class RedisManager {
 
             const executionTime = Date.now() - startTime;
 
-            // Log da ação administrativa
-            await AISystemLogger.logAction(
-                'REDIS_TTL_ANALYSIS',
-                adminId,
-                true,
-                executionTime,
-                {
-                    pattern,
-                    totalKeys: keys.length,
-                    analyzedKeys: sampleKeys.length,
-                    withTTL: ttlAnalysis.withTTL,
-                    withoutTTL: ttlAnalysis.withoutTTL
-                }
-            );
-
             return {
                 success: true,
                 message: 'Análise de TTL concluída',
@@ -409,17 +355,6 @@ export class RedisManager {
             };
 
         } catch (error) {
-            await AISystemLogger.logAPIError(
-                'REDIS_MANAGER',
-                `ttl_analysis_${Date.now()}`,
-                adminId,
-                'TTL_ANALYSIS_ERROR',
-                error.message,
-                'LOW',
-                500,
-                0,
-                { action: 'analyzeTTL', pattern }
-            );
             throw error;
         }
     }
@@ -469,20 +404,6 @@ export class RedisManager {
 
             const executionTime = Date.now() - startTime;
 
-            // Log da ação administrativa
-            await AISystemLogger.logAction(
-                'REDIS_SET_TTL',
-                adminId,
-                true,
-                executionTime,
-                {
-                    pattern,
-                    ttlSeconds,
-                    keysFound: keys.length,
-                    keysUpdated: updatedCount
-                }
-            );
-
             return {
                 success: true,
                 message: `TTL definido para ${updatedCount} chaves`,
@@ -493,17 +414,6 @@ export class RedisManager {
             };
 
         } catch (error) {
-            await AISystemLogger.logAPIError(
-                'REDIS_MANAGER',
-                `set_ttl_${Date.now()}`,
-                adminId,
-                'SET_TTL_ERROR',
-                error.message,
-                'MEDIUM',
-                500,
-                0,
-                { action: 'setTTLByPattern', pattern, ttlSeconds }
-            );
             throw error;
         }
     }

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import Logo from '../../../components/Logo';
 
 const AdBanner = ({ className = '', showPlaceholder = true }) => {
   const adRef = useRef(false);
@@ -24,16 +25,11 @@ const AdBanner = ({ className = '', showPlaceholder = true }) => {
   }, []);
 
   return (
-    <ins
-      className={`adsbygoogle block ${showPlaceholder ? 'bg-black text-white flex items-center justify-center' : ''} ${className}`}
-      data-ad-client="ca-pub-4653666389038251"
-      data-ad-slot="1383755817"
-      data-ad-format="auto"
-      data-full-width-responsive="true"
-      data-adtest={showPlaceholder ? "on" : undefined} // apenas para testes em localhost
+    <div
+      className={`w-full gap-2 aspect-[4/1] adsbygoogle block ${showPlaceholder ? 'bg-black text-white flex items-center justify-center' : ''} ${className}`}
     >
-      {showPlaceholder && 'ANÚNCIO TREINAI'}
-    </ins>
+      TREINAI <Logo scale={0.6} />
+    </div>
   );
 };
 

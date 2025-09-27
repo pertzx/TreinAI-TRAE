@@ -353,11 +353,12 @@ Retorne apenas JSON puro. Use tipos corretos.
 
 export const conversar = async (req, res) => {
     try {
-        const { email, input, historico } = req.body;
+        const { email, input, historico, treino } = req.body;
 
         if (!email) return res.json({ msg: '!email' });
         if (!input) return res.json({ msg: '!input' });
-        if (!historico) return res.json({ msg: 'historico' });
+        if (!historico) return res.json({ msg: '!historico' });
+        if (!treino) return res.json({ msg: '!treino' });
 
         const user = await User.findOne({ email });
         if (!user) return res.json({ msg: 'Não conseguimos encontrar o seu usuario.' });
@@ -366,7 +367,8 @@ export const conversar = async (req, res) => {
 
         const systemPrompt = `Você é um personal trainner e esta conversando com o seu cliente, voce é formal e nunca falará besteiras, mas é humano entao pode brincar com o seu cliente caso o usuario passe dos limites perguntando alguma coisa MUITO fora de contexto voce ira mandar ele voltar ao foco do treino pois ele pode estar tentando se safar do treino.
          responda sempre de forma descoontraida utilizando emojis caso necessario, mas caso o assunto for serio responda da mesma maneira seria. Voce nao pode gerar nenhum tipo de mensagem longa, como gerar um treino porque outro assistente ja tem esse trabalho, toda vez q alguem pedir algo relacionado a gerar voce explica que voce so pode conversar e explicar as coisas mas nao pode gerar nada.
-         Caso o cliente pergunte sobre alguma coisa que voce pode ter mandado anteriormente analise o historico e responda o cliente.`;
+         Caso o cliente pergunte sobre alguma coisa que voce pode ter mandado anteriormente analise o historico e responda o cliente.
+         Analise a fala do cliente e se ele está perguntando sobre o treino atual, responda com base nos dados do treino.`;
 
         const messages = [
             { role: 'system', content: systemPrompt },
@@ -374,7 +376,7 @@ export const conversar = async (req, res) => {
                 role: h.role === 'ia' ? 'assistant' : 'user',
                 content: h.content
             })),
-            { role: 'user', content: input }
+            { role: 'user', content: `Fala do cliente: ${input}, dados do treino atual do cliente: ${treino}` }
         ];
 
         const resp = await openai.chat.completions.create({

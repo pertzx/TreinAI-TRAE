@@ -20,7 +20,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   let c = -2
-  const [nutriInfos, setNutriInfos] = useState(() => (user && user.nutriInfos ? user.nutriInfos : null));
+  const [nutriInfos, setNutriInfos] = useState(user && user.nutriInfos ? user.nutriInfos : null);
   const [notify, setNotify] = useState(null); // { text, type: 'info'|'error' }
   const bottomRef = useRef(null);
   const containerRef = useRef(null);
@@ -72,7 +72,8 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
       if (data.nutriInfos && Array.isArray(data.nutriInfos.planoNutricional)) {
         setNutriInfos({
           userId: data.nutriInfos.userId || String(user._id),
-          planoNutricional: data.nutriInfos.planoNutricional
+          planoNutricional: data.nutriInfos.planoNutricional || [],
+          restricoes: data.nutriInfos.restricoes || []
         });
 
         // also append an AI message that a plan foi criada/atualizada (use data.msg when available)
@@ -186,18 +187,18 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
           <div ref={bottomRef} />
         </div>
 
-        <div className="flex gap-2">
+        <div className="grid grid-cols-3 w-full gap-2">
           <input
             type='text'
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={user ? (allowedToUse() ? 'Escreva sua pergunta para a NutriAI...' : 'NutriAI disponível apenas para planos MAX/COACH') : 'Faça login para conversar'}
-            className={`flex-1 p-3 rounded-lg border ${theme.input}`}
+            className={`col-span-2 p-3 rounded-lg border ${theme.input}`}
             rows={2}
             disabled={!user || !allowedToUse()}
           />
-          <div className="flex flex-col gap-2">
+          <div className="col-span-1 flex flex-col gap-2">
             <button
               onClick={handleSend}
               disabled={!user || !allowedToUse() || loading || !input.trim()}

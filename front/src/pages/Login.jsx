@@ -8,7 +8,7 @@ import { handleError, clearErrorAfterDelay, isAuthError } from '../utils/errorHa
 import { useToast } from '../components/Toast';
 
 function Login({ plano, setLogado, logado }) {
-  const [mode, setMode] = useState("signup"); // login ou signup
+  const [mode, setMode] = useState("login"); // login ou signup
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -80,7 +80,7 @@ function Login({ plano, setLogado, logado }) {
 
       // axios lança em caso de 4xx/5xx, então lidamos via try/catch
       const response = await api.post(endpoint, payload);
-
+      console.log(response)
       // sucesso esperado: token presente
       if (response && response.data && response.data.token) {
         // Não armazenar mais o token no localStorage - usar apenas cookies httpOnly
@@ -91,15 +91,16 @@ function Login({ plano, setLogado, logado }) {
         navigate("/dashboard");
         return;
       }
-
+      
       // se não tiver token, tratar como falha e pegar mensagem do body
       const serverMsg = response?.data?.msg ?? "Falha no login (resposta inesperada).";
       showError(serverMsg);
       setLoading(false);
     } catch (err) {
       // Usar o sistema centralizado de tratamento de erros
-      const errorMessage = handleError(err);
-      showError(errorMessage);
+      console.log(err)
+      const errorMessage = handleError(err, showError);
+      // showError(errorMessage || err?.data?.message);
       
       // Se for erro de autenticação, limpar tokens
       if (isAuthError(err)) {

@@ -58,6 +58,13 @@ export const getErrorMessage = (error) => {
     return ERROR_MESSAGES[data.code];
   }
   
+  // Processa array de erros de validação
+  if (data?.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+    // Retorna as mensagens de erro formatadas
+    const errorMessages = data.errors.map(err => err.message).join('; ');
+    return errorMessages;
+  }
+  
   // Verifica se há mensagem de erro do servidor
   if (data?.message) {
     return data.message;

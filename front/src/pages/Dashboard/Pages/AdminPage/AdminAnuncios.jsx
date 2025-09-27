@@ -52,9 +52,13 @@ const formatDate = (iso) => {
 }
 
 export default function AdminAnuncios({ tema, user }) {
+  // Validação de segurança - apenas admins podem acessar
+  const isAdmin = !!(user && user.role === 'admin')
+  
   const theme = getTheme(tema)
 
   const [anuncios, setAnuncios] = useState([])
+  const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState('')
   const [msg, setMsg] = useState('')
 
@@ -75,7 +79,7 @@ export default function AdminAnuncios({ tema, user }) {
 
   const fetchAnuncios = async () => {
     try {
-      const res = await api.post('/anuncios-by-admin', { adminId: user?._id })
+      const res = await api.get(`/anuncios-by-admin?adminId=${user?._id}`)
       if (res.data && res.data.success) {
         setAnuncios(res.data.anuncios || [])
       } else {
@@ -231,6 +235,14 @@ export default function AdminAnuncios({ tema, user }) {
     }
   }
 
+  // Verificação de segurança
+  if (!isAdmin) {
+    return (
+      <div className="p-4 text-red-600">
+        Acesso negado: somente administradores podem gerenciar anúncios.
+      </div>
+    )
+  }
 
   return (
     <div className={`p-4 ${theme.bg} ${theme.text}`}>

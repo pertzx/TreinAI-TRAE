@@ -6,13 +6,13 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes.js';
 import gamificationRoutes from './routes/gamificationRoutes.js';
-import analyticsRoutes from './routes/analyticsRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import { StripeWebhook } from './controllers/stripe.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import rateLimit from 'express-rate-limit';
 import { securityHeaders, apiSecurityHeaders } from './middlewares/securityHeaders.js';
+import redisCache from './config/redis.js';
 
 // cria __filename e __dirname em ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -36,24 +36,35 @@ app.use(limiter)
 // Headers de segurança globais
 app.use(securityHeaders);
 
-// Configuração CORS segura
+// Configuração CORS baseada no ambiente
 const corsOptions = {
     origin: function (origin, callback) {
-        // Lista de origens permitidas
-        const allowedOrigins = [
-            'http://localhost:5173', // Desenvolvimento local
-            'http://localhost:3000', // Desenvolvimento alternativo
-            process.env.FRONTEND_URL, // URL de produção do frontend
-        ].filter(Boolean); // Remove valores undefined/null
-        
-        // Permite requisições sem origin (mobile apps, Postman, etc.) apenas em desenvolvimento
-        if (!origin && process.env.NODE_ENV !== 'production') {
+        // Em desenvolvimento, permite qualquer origem
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(`🌐 CORS [DEV]: Permitindo origem: ${origin || 'sem origin'}`);
             return callback(null, true);
         }
         
+        // Em produção, apenas origens específicas
+        const allowedOrigins = [
+            process.env.FRONTEND_URL, // URL de produção do frontend
+            process.env.ALLOWED_ORIGINS?.split(',') || [], // URLs adicionais do .env
+        ].flat().filter(Boolean); // Remove valores undefined/null
+        
+        console.log(`🔒 CORS [PROD]: Verificando origem: ${origin}`);
+        console.log(`🔒 CORS [PROD]: Origens permitidas:`, allowedOrigins);
+        
+        // Permite requisições sem origin apenas em desenvolvimento
+        if (!origin) {
+            console.log('❌ CORS [PROD]: Requisição sem origin rejeitada');
+            return callback(new Error('Origem não especificada não permitida em produção'));
+        }
+        
         if (allowedOrigins.includes(origin)) {
+            console.log(`✅ CORS [PROD]: Origem permitida: ${origin}`);
             callback(null, true);
         } else {
+            console.log(`❌ CORS [PROD]: Origem rejeitada: ${origin}`);
             callback(new Error('Não permitido pelo CORS'));
         }
     },
@@ -90,14 +101,28 @@ async function connectDB() {
   }
 }
 
-connectDB()
+// Inicializar Redis
+async function connectRedis() {
+  try {
+    await redisCache.connect();
+    console.log('✅ Redis inicializado com sucesso!');
+  } catch (err) {
+    console.warn('⚠️ Redis não pôde ser conectado:', err.message);
+    console.warn('⚠️ Aplicação continuará sem cache Redis');
+  }
+}
+
+// Conectar aos bancos de dados
+connectDB();
+connectRedis();
 
 // Rotas da API
 app.use('/', apiSecurityHeaders, authRoutes);
 app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
-app.use('/analytics', apiSecurityHeaders, analyticsRoutes);
 app.use('/reports', apiSecurityHeaders, reportRoutes);
 
 // Iniciar servidor
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+});

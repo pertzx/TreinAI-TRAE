@@ -28,8 +28,9 @@ import { conversarNutri } from '../controllers/NutriAI.js';
 import { editarLocal } from '../controllers/LocalController.js';
 import { getLocais } from '../controllers/LocalController.js';
 import { criarAnuncio, editarAnuncio, getAnuncios } from '../controllers/AnunciosController.js';
+import { getLocaisAdmin, updateLocalStatus, deleteLocal, editLocal } from '../controllers/AdminLocalController.js';
 import { deletarAnuncio } from '../controllers/AnunciosController.js';
-import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError, getDetailedAIAnalytics } from '../controllers/AdminController.js';
+import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError } from '../controllers/AdminController.js';
 import { 
     getCacheDashboard,
     performCacheMaintenance,
@@ -37,10 +38,6 @@ import {
     configureCacheAlerts
 } from '../controllers/CacheAdminController.js';
 import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
-import { 
-  apiPerformanceMiddleware, 
-  aiSystemLogger 
-} from '../middleware/apiPerformanceMiddleware.js';
 
 const router = Router();
 
@@ -56,15 +53,11 @@ router.post('/change-theme', changeTheme)
 router.post('/complete-onboarding', completeOnboarding)
 router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, sanitizeInput, validateUpdateProfile, upload('uploads/image-perfil', 'avatar'), atualizarPerfil)
 router.post('/criar-meusTreinos', carregarTreinos);
-// IA routes with performance monitoring
+// IA routes
 router.post('/gerar-exercicio-ia', 
-  apiPerformanceMiddleware('EXERCISE_GENERATION_AI'),
-  aiSystemLogger('EXERCISE_GENERATION_AI'),
   criarExercicioIA
 );
 router.post('/gerar-treino-ia', 
-  apiPerformanceMiddleware('WORKOUT_GENERATION_AI'),
-  aiSystemLogger('WORKOUT_GENERATION_AI'),
   criarTreinoIA
 );
 router.delete('/excluir-treino', async (req, res) => {
@@ -171,10 +164,8 @@ router.delete('/excluir-exercicio', async (req, res) => {
   }
 });
 router.put('/atualizar-meusTreinos', atualizarMeusTreinos)
-// Chat and AI conversation routes with monitoring
+// Chat and AI conversation routes
 router.post('/conversar', 
-  apiPerformanceMiddleware('AI_CONVERSATION'),
-  aiSystemLogger('AI_CONVERSATION'),
   conversar
 );
 router.post('/publicar-no-historico', publicarNoHistorico);
@@ -208,8 +199,6 @@ router.get('/buscar-historico', buscarHistorico);
 
 // nutri
 router.post('/conversar-nutri', 
-  apiPerformanceMiddleware('NUTRI_AI_CONVERSATION'),
-  aiSystemLogger('NUTRI_AI_CONVERSATION'),
   conversarNutri
 );
 
@@ -266,25 +255,31 @@ router.post('/editar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('upload
 
 // Rotas administrativas com rate limiting específico
 router.post('/usuarios', adminRateLimit, adminSecurityHeaders, getUsers) // body: adminId (obrigatório)
-router.post('/anuncios-by-admin', adminRateLimit, adminSecurityHeaders, getAnunciosByAdmin) // body: adminId (obrigatório)
+router.get('/anuncios-by-admin', adminRateLimit, adminSecurityHeaders, getAnunciosByAdmin) // query: adminId (obrigatório)
 router.post('/alterar-status-anuncio', adminRateLimit, adminSecurityHeaders, alterarStatusAnuncio) // body: adminId, anuncioId, novoStatus (obrigatórios)
-router.get('/supports-by-admin', adminRateLimit, adminSecurityHeaders, getSupportsByAdmin) // body: adminId,
+router.get('/supports-by-admin', adminRateLimit, adminSecurityHeaders, getSupportsByAdmin) // query: adminId,
 router.post('/alterarVisibilidade-by-admin', adminRateLimit, adminSecurityHeaders, alterarVisibilidadeSuporte) // body: adminId, supportId, boolean
 router.post('/adicionarRespostaSuportAdmin', adminRateLimit, adminSecurityHeaders, adicionarRespostaSupport) // body: adminId, supportId, resposta
 
+// Rotas administrativas de locais
+router.get('/admin/locais', adminRateLimit, adminSecurityHeaders, getLocaisAdmin) // query: adminId (obrigatório)
+router.post('/admin/local-status', adminRateLimit, adminSecurityHeaders, updateLocalStatus) // body: adminId, localId, ativo
+router.post('/admin/delete-local', adminRateLimit, adminSecurityHeaders, deleteLocal) // body: adminId, localId
+router.post('/admin/edit-local', adminRateLimit, adminSecurityHeaders, editLocal) // body: adminId, localId, dados
+
 // Rotas administrativas do sistema AI
-router.post('/admin/ai-dashboard', adminRateLimit, adminSecurityHeaders, getAIDashboard) // body: adminId (obrigatório)
+router.get('/admin/ai-dashboard', adminRateLimit, adminSecurityHeaders, getAIDashboard) // query: adminId (obrigatório)
 router.post('/admin/cache-management', adminRateLimit, adminSecurityHeaders, manageCacheRedis) // body: adminId, action, pattern (opcional)
 router.post('/admin/api-performance', adminRateLimit, adminSecurityHeaders, getAPIPerformanceMetrics) // body: adminId, timeRange (opcional)
 router.post('/admin/error-logs', adminRateLimit, adminSecurityHeaders, getAPIErrorLogs)
 router.post('/admin/resolve-error', adminRateLimit, adminSecurityHeaders, resolveAPIError)
-router.post('/admin/detailed-analytics', adminRateLimit, adminSecurityHeaders, getDetailedAIAnalytics)
+
 
 // Rotas administrativas avançadas do cache Redis
-router.get('/admin/cache-dashboard', adminRateLimit, adminSecurityHeaders, getCacheDashboard)
-router.post('/admin/cache-maintenance', adminRateLimit, adminSecurityHeaders, performCacheMaintenance) // body: operations[]
-router.get('/admin/cache-monitoring', adminRateLimit, adminSecurityHeaders, getCacheMonitoring) // query: interval
-router.post('/admin/cache-alerts', adminRateLimit, adminSecurityHeaders, configureCacheAlerts) // body: alerts{}
+router.get('/admin/cache-dashboard', verificarToken, adminRateLimit, adminSecurityHeaders, getCacheDashboard)
+router.post('/admin/cache-maintenance', verificarToken, adminRateLimit, adminSecurityHeaders, performCacheMaintenance) // body: operations[]
+router.get('/admin/cache-monitoring', verificarToken, adminRateLimit, adminSecurityHeaders, getCacheMonitoring) // query: interval
+router.post('/admin/cache-alerts', verificarToken, adminRateLimit, adminSecurityHeaders, configureCacheAlerts) // body: alerts{}
 
 // support
 router.get('/supports', getSupports) // body: adminId, anuncioId, novoStatus (obrigatórios)

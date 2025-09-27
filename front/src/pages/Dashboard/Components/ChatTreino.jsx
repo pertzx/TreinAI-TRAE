@@ -162,7 +162,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
         const workoutDuration = Math.floor(registroLocal.duracao / 60); // converter segundos para minutos
         const exerciseCount = registroLocal.exerciciosFeitos?.length || 0;
         
-        const gamificationResponse = await api.post(`/gamification/user/${user._id}/workout-completed`, {
+        const gamificationResponse = await api.post(`/gamification/user/${user._id}/workout`, {
           workoutDuration,
           exerciseCount
         });
@@ -516,7 +516,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
     setMensagens(prev => [...prev, { id: typingId, conteudo: <TypingDots />, tipo: 'bot', _typing: true }]);
 
     try {
-      const res = await api.post('/conversar', { email: user.email, input: text, historico });
+      const res = await api.post('/conversar', { email: user.email, input: text, historico, treino: treinoAtual });
       const data = await res.data;
       // remove placeholder
       setMensagens(prev => prev.filter(m => m.id !== typingId));

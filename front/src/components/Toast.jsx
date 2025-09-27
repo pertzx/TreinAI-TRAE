@@ -91,7 +91,7 @@ const Toast = ({
   return (
     <div
       className={`
-        fixed z-50 max-w-sm w-full mx-auto
+        fixed z-50 max-w-full mx-2
         ${positionClasses[position]}
         ${isAnimating ? 'animate-slide-in' : 'animate-slide-out'}
       `}
@@ -135,20 +135,20 @@ export const ToastProvider = ({ children }) => {
 
   const addToast = (message, type = 'info', options = {}) => {
     console.log('addToast chamado:', { message, type, options });
-    
+
     // Verificar se já existe um toast com a mesma mensagem e tipo
-    const existingToast = toasts.find(toast => 
+    const existingToast = toasts.find(toast =>
       toast.message === message && toast.type === type
     );
-    
+
     if (existingToast) {
       console.log('Toast duplicado detectado, ignorando:', { message, type });
       return existingToast.id;
     }
-    
+
     const id = Date.now() + Math.random();
     console.log('Criando novo toast:', { id, message, type, options });
-    
+
     const toast = {
       id,
       message,
@@ -187,16 +187,16 @@ export const ToastProvider = ({ children }) => {
     setToasts([]);
   };
 
-  const showSuccess = (message, options = {}) => 
+  const showSuccess = (message, options = {}) =>
     addToast(message, 'success', options);
 
-  const showError = (message, options = {}) => 
+  const showError = (message, options = {}) =>
     addToast(message, 'error', options);
 
-  const showWarning = (message, options = {}) => 
+  const showWarning = (message, options = {}) =>
     addToast(message, 'warning', options);
 
-  const showInfo = (message, options = {}) => 
+  const showInfo = (message, options = {}) =>
     addToast(message, 'info', options);
 
   const value = {
@@ -224,11 +224,11 @@ export const ToastProvider = ({ children }) => {
  */
 export const useToast = () => {
   const context = useContext(ToastContext);
-  
+
   if (!context) {
     throw new Error('useToast deve ser usado dentro de um ToastProvider');
   }
-  
+
   console.log('useToast chamado, toasts disponíveis:', context.toasts);
   return context;
 };
