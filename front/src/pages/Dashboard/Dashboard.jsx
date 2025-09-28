@@ -53,7 +53,7 @@ const Dashboard = ({ needToPay, plano }) => {
     if (user?.planInfos?.planType === 'free') {
       showWarning('Você está usando o plano gratuito. Para acessar todas as funcionalidades, por favor, atualize seu plano.');
     }
-  }, [])
+  }, [user])
 
   useEffect(() => {
     const fetchUser = async () => {

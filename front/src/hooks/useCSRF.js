@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../Api';
+import { authCookies } from '../utils/cookieUtils';
 
 /**
  * Hook personalizado para gerenciar CSRF tokens
@@ -25,9 +26,9 @@ export const useCSRF = () => {
         // Log removido para evitar exposição de token CSRF
 
         
-        // Armazena no localStorage para persistir entre recarregamentos
-        localStorage.setItem('csrfToken', response.data.csrfToken);
-        localStorage.setItem('csrfTokenExpiry', Date.now() + response.data.expiresIn);
+        // Armazena em cookie para persistir entre recarregamentos
+        authCookies.setCsrfToken(response.data.csrfToken);
+        authCookies.setCsrfExpiry(Date.now() + response.data.expiresIn);
         
         return response.data.csrfToken;
       }
@@ -45,7 +46,7 @@ export const useCSRF = () => {
   const isTokenValid = () => {
     if (!csrfToken) return false;
     
-    const expiry = localStorage.getItem('csrfTokenExpiry');
+    const expiry = authCookies.getCsrfExpiry();
     if (!expiry) return false;
     
     return Date.now() < parseInt(expiry);
@@ -67,16 +68,16 @@ export const useCSRF = () => {
    */
   const clearToken = () => {
     setCsrfToken(null);
-    localStorage.removeItem('csrfToken');
-    localStorage.removeItem('csrfTokenExpiry');
+    authCookies.removeCsrfToken();
+    authCookies.removeCsrfExpiry();
   };
 
   // Inicialização do hook
   useEffect(() => {
     const initializeToken = async () => {
-      // Tenta recuperar token do localStorage
-      const storedToken = localStorage.getItem('csrfToken');
-      const storedExpiry = localStorage.getItem('csrfTokenExpiry');
+      // Tenta recuperar token do cookie
+      const storedToken = authCookies.getCsrfToken();
+      const storedExpiry = authCookies.getCsrfExpiry();
       
       if (storedToken && storedExpiry && Date.now() < parseInt(storedExpiry)) {
         // Token armazenado ainda é válido
@@ -95,7 +96,7 @@ export const useCSRF = () => {
   useEffect(() => {
     if (!csrfToken) return;
 
-    const expiry = localStorage.getItem('csrfTokenExpiry');
+    const expiry = authCookies.getCsrfExpiry();
     if (!expiry) return;
 
     const timeUntilExpiry = parseInt(expiry) - Date.now();

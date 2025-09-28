@@ -75,9 +75,9 @@ const Configuracoes = ({ setTema, tema, user }) => {
 
   const priceMapForDisplay = {
     free: { label: 'Free', price: 0 },
-    pro: { label: 'Pro', price: 15 },
-    max: { label: 'Max', price: 40 },
-    coach: { label: 'Coach', price: 70 },
+    pro: { label: 'Pro', price: '39,99' },
+    max: { label: 'Max', price: '79,99' },
+    coach: { label: 'Coach', price: '149,99' },
   };
 
   // Função para formatar números

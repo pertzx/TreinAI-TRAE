@@ -5,6 +5,7 @@ import { useCSRF } from "../hooks/useCSRF";
 import LoadingSpinner, { ButtonSpinner } from '../components/LoadingSpinner';
 import { handleError, clearErrorAfterDelay, isAuthError } from '../utils/errorHandler';
 import { useToast } from '../components/Toast';
+import { authCookies } from '../utils/cookieUtils';
 import api from '../Api.js';
 
 function Login({ plano }) {
@@ -18,7 +19,7 @@ function Login({ plano }) {
 
   // Verificar se usuário já está autenticado
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = authCookies.getToken();
     if (token) {
       setIsAuthenticated(true);
       navigate("/dashboard");
@@ -101,8 +102,8 @@ function Login({ plano }) {
       console.log(response)
 
       if (response.status === 200) {
-        // Armazenar token JWT no localStorage
-        localStorage.setItem('token', response.data.token);
+        // Armazenar token JWT em cookie seguro
+        authCookies.setToken(response.data.token);
 
         showSuccess(response.data.message || `${mode === 'login' ? 'Login' : 'Cadastro'} realizado com sucesso!`);
         setIsAuthenticated(true);

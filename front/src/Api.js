@@ -1,5 +1,6 @@
 import axios from "axios";
 import { createRetryAxios, RETRY_CONFIGS } from './utils/apiRetry.js';
+import { authCookies } from './utils/cookieUtils.js';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
@@ -15,7 +16,7 @@ api.interceptors.request.use(
   async (config) => {
     // Para métodos que modificam dados, incluir CSRF token
     if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase())) {
-      const csrfToken = localStorage.getItem('csrfToken');
+      const csrfToken = authCookies.getCsrfToken();
       
       if (csrfToken) {
         config.headers['x-csrf-token'] = csrfToken;
@@ -47,9 +48,9 @@ api.interceptors.response.use(
         const tokenResponse = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/csrf-token`);
         const newToken = tokenResponse.data.csrfToken;
         
-        // Armazena novo token
-        localStorage.setItem('csrfToken', newToken);
-        localStorage.setItem('csrfTokenExpiry', Date.now() + tokenResponse.data.expiresIn);
+        // Armazena novo token em cookie
+        authCookies.setCsrfToken(newToken);
+        authCookies.setCsrfExpiry(Date.now() + tokenResponse.data.expiresIn);
         
         // Refaz a requisição original com novo token
         originalRequest.headers['x-csrf-token'] = newToken;
@@ -58,8 +59,8 @@ api.interceptors.response.use(
       } catch (tokenError) {
         console.error('Falha ao renovar CSRF token:', tokenError);
         // Remove tokens inválidos
-        localStorage.removeItem('csrfToken');
-        localStorage.removeItem('csrfTokenExpiry');
+        authCookies.removeCsrfToken();
+        authCookies.removeCsrfExpiry();
       }
     }
     
@@ -104,7 +105,7 @@ const criticalApi = createRetryAxios(axios.create({
   instance.interceptors.request.use(
     async (config) => {
       if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase())) {
-        const csrfToken = localStorage.getItem('csrfToken');
+        const csrfToken = authCookies.getCsrfToken();
         if (csrfToken) {
           config.headers['x-csrf-token'] = csrfToken;
         }
@@ -130,16 +131,16 @@ const criticalApi = createRetryAxios(axios.create({
           const tokenResponse = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/csrf-token`);
           const newToken = tokenResponse.data.csrfToken;
           
-          localStorage.setItem('csrfToken', newToken);
-          localStorage.setItem('csrfTokenExpiry', Date.now() + tokenResponse.data.expiresIn);
+          authCookies.setCsrfToken(newToken);
+          authCookies.setCsrfExpiry(Date.now() + tokenResponse.data.expiresIn);
           
           originalRequest.headers['x-csrf-token'] = newToken;
           return instance(originalRequest);
           
         } catch (tokenError) {
           console.error('Falha ao renovar CSRF token:', tokenError);
-          localStorage.removeItem('csrfToken');
-          localStorage.removeItem('csrfTokenExpiry');
+          authCookies.removeCsrfToken();
+          authCookies.removeCsrfExpiry();
         }
       }
       
