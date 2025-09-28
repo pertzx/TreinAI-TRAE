@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useToast } from './front/src/components/Toast.jsx';
+import { useToast } from '../front/src/components/Toast.jsx';
 
 const ExemploUseToast = () => {
   const [loading, setLoading] = useState(false);
