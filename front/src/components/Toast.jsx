@@ -45,25 +45,25 @@ const Toast = ({
   const typeConfig = {
     success: {
       icon: FaCheckCircle,
-      bgColor: 'bg-gradient-to-r from-green-500 to-green-600',
+      bgColor: 'bg-gradient-to-r from-green-500 to-green-600/30 ',
       textColor: 'text-white',
       borderColor: 'border-green-400',
     },
     error: {
       icon: FaTimesCircle,
-      bgColor: 'bg-gradient-to-r from-red-500 to-red-600',
+      bgColor: 'bg-gradient-to-r from-red-500 to-red-600/30 ',
       textColor: 'text-white',
       borderColor: 'border-red-400',
     },
     warning: {
       icon: FaExclamationTriangle,
-      bgColor: 'bg-gradient-to-r from-yellow-500 to-yellow-600',
+      bgColor: 'bg-gradient-to-r from-yellow-500 to-yellow-600/30 ',
       textColor: 'text-white',
       borderColor: 'border-yellow-400',
     },
     info: {
       icon: FaInfoCircle,
-      bgColor: 'bg-gradient-to-r from-blue-500 to-blue-600',
+      bgColor: 'bg-gradient-to-r from-blue-500 to-blue-600/30 ',
       textColor: 'text-white',
       borderColor: 'border-blue-400',
     }

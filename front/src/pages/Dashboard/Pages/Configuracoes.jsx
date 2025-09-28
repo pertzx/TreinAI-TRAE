@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../../Api';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
 import TokensChart from '../Components/TokensChart.jsx';
@@ -28,6 +29,7 @@ const Switch = ({ checked, onChange, label, tema }) => (
 );
 
 const Configuracoes = ({ setTema, tema, user }) => {
+  const navigate = useNavigate();
   const [lang, setLang] = useState('pt');
   const [notificacoes, setNotificacoes] = useState(true);
 
@@ -46,6 +48,30 @@ const Configuracoes = ({ setTema, tema, user }) => {
   // Estados para tokens
   const [tokensTotal, setTokensTotal] = useState(0);
   const [tokensToday, setTokensToday] = useState(0);
+
+  // Função de logout
+  const handleLogout = async () => {
+    try {
+      // Fazer requisição de logout para o backend
+      await api.post('/logout');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    } finally {
+      // Limpar todos os dados locais independentemente do resultado da requisição
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Limpar cookies (se houver)
+      document.cookie.split(";").forEach((c) => {
+        const eqPos = c.indexOf("=");
+        const name = eqPos > -1 ? c.substr(0, eqPos) : c;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      });
+      
+      // Redirecionar para login
+      navigate('/login');
+    }
+  };
 
   const priceMapForDisplay = {
     free: { label: 'Free', price: 0 },
@@ -383,6 +409,24 @@ const Configuracoes = ({ setTema, tema, user }) => {
           <span className="text-xs">{notificacoes ? 'Ativas' : 'Desativadas'}</span>
           <Switch checked={notificacoes} onChange={toggleNotificacoes} label="Alternar notificações" tema={tema} />
         </div>
+      </div>
+
+      {/* Logout */}
+      <div className={`flex items-center justify-between w-full max-w-2xl p-4 rounded-2xl border ${cardClass}`}>
+        <div>
+          <div className="text-sm font-medium">Sair da Conta</div>
+          <div className="text-xs ">Fazer logout e limpar todos os dados do site</div>
+        </div>
+        <button
+          onClick={handleLogout}
+          className={`px-4 py-2 rounded-lg font-semibold transition ${
+            tema === 'dark' 
+              ? 'bg-red-600 hover:bg-red-700 text-white' 
+              : 'bg-red-500 hover:bg-red-600 text-white'
+          }`}
+        >
+          Logout
+        </button>
       </div>
 
       {/* Tokens summary */}
