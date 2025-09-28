@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import { FiInstagram, FiMail, FiGithub, FiArrowUp, FiUser, FiLogOut } from 'react-icons/fi';
 import Logo from '../../../components/Logo';
 import { getBrazilDate } from '../../../../../back/helpers/getBrazilDate';
+import api from '../../../Api';
 
 export default function Footer({
   tema = 'dark',
@@ -41,14 +42,26 @@ export default function Footer({
 
   const handleBackToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (typeof onLogout === 'function') return onLogout();
-    // fallback: try to call a /logout route or simply reload
+
+    // Clear all cookies
+    document.cookie.split(';').forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, '')
+        .replace(/=.*/, `=;expires=${new Date(0).toUTCString()};path=/`);
+    });
+
+    // Clear all storage
+    localStorage.clear();
+    sessionStorage.clear();
+
     try {
-      // optional: call API logout here if you want
-      window.location.href = '/logout';
+      await api.post('/logout')
     } catch (err) {
-      window.location.reload();
+      // silent fail
+    } finally {
+      window.location.href = '/';
     }
   };
 
@@ -96,7 +109,7 @@ export default function Footer({
             {/* Right: user (if any) + social */}
             <div className="flex items-center gap-3">
               {user ? (
-                <div className={`hidden sm:flex items-center gap-3 px-3 py-2 rounded-md ${profileBg} border`}>
+                <div className={`sm:flex items-center gap-3 px-3 py-2 rounded-md ${profileBg} border`}>
                   <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                     {user?.avatar ? (
                       <img src={user.avatar} alt={user.name || user.username || 'user'} className="w-full h-full object-cover" />

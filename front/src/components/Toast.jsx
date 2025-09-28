@@ -83,18 +83,17 @@ const Toast = ({
   };
 
   return (
-    <div className={`fixed ${positionClasses[position]} z-50 pointer-events-none`}>
-      <div
-        className={`
-          ${config.bgColor} ${config.textColor} ${config.borderColor}
-          max-w-sm w-full shadow-lg rounded-lg border-l-4
-          p-4 mb-4 transform transition-all duration-300 ease-in-out
-          ${isAnimating ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
-          flex items-center space-x-3
-          transition-all duration-300 ease-in-out
-          backdrop-blur-sm pointer-events-auto
-        `}
-      >
+    <div
+      className={`
+        ${config.bgColor} ${config.textColor} ${config.borderColor}
+        max-w-sm w-full shadow-lg rounded-lg border-l-4
+        p-4 transform transition-all duration-300 ease-in-out
+        ${isAnimating ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
+        flex items-center space-x-3
+        transition-all duration-300 ease-in-out
+        backdrop-blur-sm pointer-events-auto m-0
+      `}
+    >
         <IconComponent className="text-xl flex-shrink-0" />
 
         <div className="flex-1 min-w-0">
@@ -113,7 +112,6 @@ const Toast = ({
           </button>
         )}
       </div>
-    </div>
   );
 };
 
@@ -273,25 +271,25 @@ export const useToast = () => {
 /**
  * Container de Toasts
  */
-export const ToastContainer = ({ toasts, onRemoveToast, position = 'top-right' }) => {
+export const ToastContainer = ({ toasts, onRemoveToast, position = 'top-center' }) => {
   if (!toasts || toasts.length === 0) return null;
 
-  // Define flex direction based on vertical position
-  const isVertical = position.includes('top') || position.includes('bottom');
-  const flexDirection = isVertical ? 'flex-col' : 'flex-row';
-
-  // Define alignment classes based on position
-  const alignmentClasses = {
-    'top-right': 'items-end',
-    'top-left': 'items-start',
-    'bottom-right': 'items-end justify-end',
-    'bottom-left': 'items-start justify-end',
-    'top-center': 'items-center',
-    'bottom-center': 'items-center justify-end'
+  // Position classes for the container
+  const positionClasses = {
+    'top-right': 'top-4 right-4',
+    'top-left': 'top-4 left-4',
+    'bottom-right': 'bottom-4 right-4',
+    'bottom-left': 'bottom-4 left-4',
+    'top-center': 'top-4 left-1/2 transform -translate-x-1/2',
+    'bottom-center': 'bottom-4 left-1/2 transform -translate-x-1/2'
   };
 
+  // Define flex direction based on vertical position
+  const isTop = position.includes('top');
+  const flexDirection = isTop ? 'flex-col' : 'flex-col-reverse';
+
   return (
-    <div className={`fixed inset-0 pointer-events-none z-50 flex ${flexDirection} ${alignmentClasses[position]} p-4 gap-2`}>
+    <div className={`fixed ml-5 ${positionClasses[position]} z-50 pointer-events-none ${flexDirection} gap-3 max-w-sm`}>
       {toasts.map((toast) => (
         <Toast
           key={toast.id}

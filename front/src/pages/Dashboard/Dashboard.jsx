@@ -49,7 +49,6 @@ const Dashboard = ({ needToPay, plano }) => {
   const { showError, showInfo, showWarning, showSuccess } = useToast();
 
   useEffect(() => {
-    showSuccess('Plano atualizado com sucesso!');
     if (user?.planInfos?.planType === 'free') {
       showWarning('Você está usando o plano gratuito. Para acessar todas as funcionalidades, por favor, atualize seu plano.');
     }
@@ -207,7 +206,7 @@ const Dashboard = ({ needToPay, plano }) => {
   );
 
   return (
-    <div className={`min-h-screen w-full h-full flex flex-col items-center p-4 ${themeClasses}`}>
+    <div className={`min-h-screen w-full flex flex-col items-center p-4 ${themeClasses}`}>
       {/* Onboarding full-screen */}
       {showOnboarding && onboardingStep === 'personal' && (
         <OnboardingPersonalInfo

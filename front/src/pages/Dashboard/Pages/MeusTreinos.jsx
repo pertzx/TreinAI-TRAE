@@ -34,11 +34,18 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   const lastSavedRef = useRef(getBrazilDate());
   const mountedRef = useRef(true);
 
+  // Toast
+  const { showError } = useToast();
+
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
-
+  
+  useEffect(() => {
+    showError('Somente usuarios PRO, MAX ou COACH podem editar os seus treinos.');
+  }, [rebuke]);
+  
   useEffect(() => {
     if (rebuke) {
       const t = setTimeout(() => setRebuke(false), 2000);
@@ -97,6 +104,9 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
           // tenta criar treinos iniciais no backend
           try {
             const resp = await api.post('/criar-meusTreinos', { email: user.email, profissionalId });
+
+            // console.log(resp)
+
             if (resp?.data?.msg) showToast(resp.data.msg, resp.data.success ? 'success' : 'info');
             // se backend retornar user atualizado, sincroniza
             if (resp?.data?.user && typeof setUser === 'function') {
@@ -381,11 +391,11 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
 
   return (
     <div className="space-y-6 mt-6 relative">
-      {rebuke && (
+      {/* {rebuke && (
         <div className={`p-4 border-4 rounded-2xl text-xl font-normal ${isDark ? 'bg-red-800 border-red-900 text-white' : 'bg-red-50 border-red-200 text-red-700'}`}>
           Somente usuarios com o plano <b>PRO, MAX ou COACH</b> podem editar os treinos!
         </div>
-      )}
+      )} */}
 
       {/* Novo treino */}
       <div className="flex items-center justify-end gap-3">
