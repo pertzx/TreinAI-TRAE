@@ -20,6 +20,7 @@ const useChatOptimized = (user, selectedChatId) => {
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState(null);
+  const [usersData, setUsersData] = useState({}); // Cache de dados dos usuários
 
   // Refs para controle de estado
   const lastChatsRef = useRef(null);
@@ -85,6 +86,9 @@ const useChatOptimized = (user, selectedChatId) => {
       if (chatsChanged) {
         lastChatsRef.current = annotated;
         setChats(annotated);
+        
+        // Buscar dados de usuários para chats individuais
+        fetchUsersDataForIndividualChats(annotated);
       }
 
     } catch (err) {
@@ -94,6 +98,61 @@ const useChatOptimized = (user, selectedChatId) => {
       setLoadingChats(false);
     }
   }, [userId]);
+
+  // Função para buscar dados de usuários em chats individuais
+  const fetchUsersDataForIndividualChats = useCallback(async (chatsArray) => {
+    console.log('DEBUG fetchUsersDataForIndividualChats:', { chatsArray, userId });
+    
+    if (!chatsArray || chatsArray.length === 0) return;
+
+    try {
+      // Filtrar chats individuais e extrair userIds dos outros membros
+      const individualChats = chatsArray.filter(chat => chat.isIndividualChat && chat.pairId);
+      console.log('DEBUG individualChats:', individualChats);
+      
+      const otherUserIds = [];
+
+      individualChats.forEach(chat => {
+        if (Array.isArray(chat.userIds)) {
+          const otherUserId = chat.userIds.find(id => String(id) !== String(userId));
+          if (otherUserId && !otherUserIds.includes(otherUserId)) {
+            otherUserIds.push(otherUserId);
+          }
+        }
+      });
+
+      console.log('DEBUG otherUserIds:', otherUserIds);
+
+      if (otherUserIds.length === 0) return;
+
+      // Buscar dados dos usuários que ainda não estão no cache
+      const uncachedUserIds = otherUserIds.filter(id => !usersData[id]);
+      console.log('DEBUG uncachedUserIds:', uncachedUserIds);
+      
+      if (uncachedUserIds.length > 0) {
+        console.log('DEBUG fazendo requisição para:', `/users/basic-no-auth?userIds=${uncachedUserIds.join(',')}`);
+        
+        const res = await api.get('/users/basic-no-auth', { 
+          params: { userIds: uncachedUserIds.join(',') } 
+        });
+        
+        console.log('DEBUG resposta da API:', res.data);
+        
+        if (res.data && Array.isArray(res.data)) {
+          const newUsersData = {};
+          res.data.forEach(user => {
+            const key = user.userId || user._id;
+            newUsersData[key] = user;
+          });
+          
+          console.log('DEBUG newUsersData:', newUsersData);
+          setUsersData(prev => ({ ...prev, ...newUsersData }));
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados de usuários:', error);
+    }
+  }, [userId, usersData]);
 
   // Função para buscar mensagens (otimizada)
   const fetchMessages = useCallback(async (chatId) => {
@@ -209,9 +268,35 @@ const useChatOptimized = (user, selectedChatId) => {
         });
       },
       onMessage: (data) => {
+        console.log('📨 WebSocket recebeu:', data);
+        
         if (data.type === 'new_message' && data.chatId === selectedChatId) {
-          // Adicionar nova mensagem ao estado local
-          setMessages(prev => [...prev, data.message]);
+          console.log('🆕 Nova mensagem via WebSocket:', data.message);
+          console.log('🔍 Dados completos da mensagem:', {
+            messageId: data.message.mensagemId,
+            messageUserId: data.message.userId,
+            messageUserIdType: typeof data.message.userId,
+            currentUserId: userId,
+            currentUserIdType: typeof userId,
+            content: data.message.conteudo
+          });
+          
+          // Verificar se é uma mensagem que acabamos de enviar
+          const isOurMessage = String(data.message.userId) === String(userId);
+          console.log('🤔 É nossa mensagem?', isOurMessage, {
+            messageUserId: data.message.userId,
+            currentUserId: userId,
+            comparison: `"${String(data.message.userId)}" === "${String(userId)}"`
+          });
+          
+          // Adicionar apenas mensagens de outros usuários via WebSocket
+          // Nossas mensagens são atualizadas via fetch após envio
+          if (!isOurMessage) {
+            console.log('➕ Adicionando mensagem de outro usuário via WebSocket');
+            setMessages(prev => [...prev, data.message]);
+          } else {
+            console.log('🚫 Ignorando nossa mensagem - será atualizada via fetch');
+          }
           
           // Atualizar chats para refletir última mensagem
           fetchChats();
@@ -280,19 +365,8 @@ const useChatOptimized = (user, selectedChatId) => {
     if (!chatId || !content.trim() || !userId) return false;
 
     try {
-      // Criar mensagem temporária para exibição imediata
-      const tempMessage = {
-        mensagemId: `temp-${Date.now()}`,
-        userId: String(userId),
-        conteudo: content.trim(),
-        publicadoEm: new Date().toISOString(),
-        vistos: [{ userId: String(userId), vistoEm: new Date().toISOString() }],
-        isTemporary: true
-      };
-
-      // Adicionar mensagem temporária imediatamente
-      setMessages(prev => [...prev, tempMessage]);
-
+      console.log('📤 Enviando mensagem via API REST');
+      
       // Enviar via API REST
       const response = await api.post('/enviar-mensagem', { 
         ChatId: chatId, 
@@ -300,16 +374,11 @@ const useChatOptimized = (user, selectedChatId) => {
         conteudo: content.trim() 
       });
 
-      // Remover mensagem temporária e adicionar a real
-      if (response.data) {
-        const realMessage = response.data;
+      console.log('✅ Mensagem enviada com sucesso:', response.data);
 
-        setMessages(prev => {
-          // Remove a mensagem temporária e adiciona a real
-          const filtered = prev.filter(m => m.mensagemId !== tempMessage.mensagemId);
-          return [...filtered, realMessage];
-        });
-      }
+      // Fazer fetch das mensagens para atualizar a lista
+      console.log('🔄 Fazendo fetch das mensagens após envio');
+      await fetchMessages(chatId);
 
       // Atualizar lista de chats
       setTimeout(() => {
@@ -319,14 +388,10 @@ const useChatOptimized = (user, selectedChatId) => {
       return true;
     } catch (err) {
       console.error('sendMessage error:', err);
-      
-      // Remover mensagem temporária em caso de erro
-      setMessages(prev => prev.filter(m => m.mensagemId !== `temp-${Date.now()}`));
-      
       setError('Erro ao enviar mensagem.');
       return false;
     }
-  }, [userId, fetchChats]);
+  }, [userId, fetchChats, fetchMessages]);
 
   // Cleanup
   useEffect(() => {
@@ -360,6 +425,7 @@ const useChatOptimized = (user, selectedChatId) => {
     loadingChats,
     loadingMessages,
     error,
+    usersData, // Dados dos usuários para chats individuais
     sendMessage,
     fetchChats,
     fetchMessages,

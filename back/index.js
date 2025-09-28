@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes.js';
 import gamificationRoutes from './routes/gamificationRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import chatWebSocketServer from './websocket/websocketServer.js';
 import { StripeWebhook } from './controllers/stripe.js';
 import path from 'path';
@@ -122,6 +123,7 @@ connectRedis();
 app.use('/', apiSecurityHeaders, authRoutes);
 app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
 app.use('/reports', apiSecurityHeaders, reportRoutes);
+app.use('/', apiSecurityHeaders, userRoutes);
 
 // Iniciar servidor
 const PORT = process.env.PORT || 4000;

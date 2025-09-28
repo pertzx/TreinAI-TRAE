@@ -23,7 +23,7 @@ export const pegarChats = async (req, res) => {
 
   try {
     const chats = await Chat.find({ 'membros.userId': String(userId) })
-      .select('ChatName ChatId ChatDesc criadoEm membros mensagens')
+      .select('ChatName ChatId ChatDesc criadoEm membros mensagens pairId')
       .sort({ criadoEm: -1 })
       .lean();
 
@@ -35,7 +35,9 @@ export const pegarChats = async (req, res) => {
       membros: c.membros,
       userIds: (c.membros || []).map(m => String(m.userId)),
       lastMessage: c.mensagens && c.mensagens.length ? c.mensagens[c.mensagens.length - 1] : null,
-      messagesCount: c.mensagens ? c.mensagens.length : 0
+      messagesCount: c.mensagens ? c.mensagens.length : 0,
+      pairId: c.pairId, // Adicionar pairId para identificar chats individuais
+      isIndividualChat: !!c.pairId // Flag para identificar facilmente chats individuais
     }));
 
     return res.status(200).json(chatsShort);
@@ -68,7 +70,11 @@ export const pegarChat = async (req, res) => {
       if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
 
       const userIds = (chat.membros || []).map(m => String(m.userId));
-      return res.status(200).json({ chat, userIds });
+      const chatWithFlags = {
+        ...chat,
+        isIndividualChat: !!chat.pairId
+      };
+      return res.status(200).json({ chat: chatWithFlags, userIds });
     }
 
     // 2) Buscar por memberIds (array) - procura EXATAMENTE esse conjunto de userIds

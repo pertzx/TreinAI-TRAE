@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import useChatOptimized from '../hooks/useChatOptimized';
 import { useToast } from './Toast';
+import UserAvatar from './UserAvatar';
 
 /**
  * ChatsOptimized.jsx
@@ -57,6 +58,7 @@ const ChatsOptimized = ({ user, tema }) => {
     loadingChats,
     loadingMessages,
     error,
+    usersData, // Dados dos usuários para chats individuais
     sendMessage,
     fetchChats,
     fetchMessages,
@@ -128,7 +130,7 @@ const ChatsOptimized = ({ user, tema }) => {
 
     const chatId = getChatId(selectedChat);
     const success = await sendMessage(chatId, newMessage);
-    
+
     if (success) {
       setNewMessage('');
       showSuccess('Mensagem enviada!');
@@ -206,13 +208,12 @@ const ChatsOptimized = ({ user, tema }) => {
               </svg>
             </button>
           </div>
-          
+
           {/* Status de conexão */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-1 text-xs">
-              <div className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-green-500' : isPolling ? 'bg-yellow-500' : 'bg-red-500'
-              }`}></div>
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : isPolling ? 'bg-yellow-500' : 'bg-red-500'
+                }`}></div>
               <span className="text-gray-500">
                 {isConnected ? 'Online' : isPolling ? 'Polling' : 'Offline'}
               </span>
@@ -242,36 +243,48 @@ const ChatsOptimized = ({ user, tema }) => {
                 <div
                   key={chatId}
                   onClick={() => handleChatSelect(chat)}
-                  className={`p-3 sm:p-4 cursor-pointer border-b ${borderClass} ${hoverClass} ${
-                    isSelected ? (isDark ? 'bg-gray-800' : 'bg-blue-50') : ''
-                  } ${hasUnread ? (isDark ? 'bg-blue-900/30 border-l-4 border-l-blue-500' : 'bg-blue-50/70 border-l-4 border-l-blue-500') : ''}`}
+                  className={`p-3 sm:p-4 cursor-pointer border-b ${borderClass} ${hoverClass} ${isSelected ? (isDark ? 'bg-gray-800' : 'bg-blue-50') : ''
+                    } ${hasUnread ? (isDark ? 'bg-blue-900/30 border-l-4 border-l-blue-500' : 'bg-blue-50/70 border-l-4 border-l-blue-500') : ''}`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <h3 className={`font-medium truncate text-sm sm:text-base ${
-                          hasUnread ? 'font-bold text-blue-600 dark:text-blue-400' : ''
-                        }`}>
-                          {otherUserName}
-                        </h3>
-                        {hasUnread && (
-                          <div className="flex items-center space-x-1">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 animate-pulse"></div>
-                            <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full font-medium">
-                              Nova
-                            </span>
-                          </div>
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      {/* Avatar do usuário na lista de chats */}
+                      {chat.isIndividualChat && (() => {
+                        const otherUserId = chat.userIds?.find(id => String(id) !== String(userId));
+                        return otherUserId && usersData[otherUserId] ? (
+                          <UserAvatar
+                            user={usersData[otherUserId]}
+                            size="medium"
+                            className="flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 bg-gray-300 rounded-full flex-shrink-0"></div>
+                        );
+                      })()}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <h3 className={`font-medium truncate text-sm sm:text-base ${hasUnread ? 'font-bold text-blue-600 dark:text-blue-400' : ''
+                            }`}>
+                            {otherUserName}
+                          </h3>
+                          {hasUnread && (
+                            <div className="flex items-center space-x-1">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 animate-pulse"></div>
+                              <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full font-medium">
+                                Nova
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {lastMessage && (
+                          <p className={`text-xs sm:text-sm truncate mt-1 ${hasUnread
+                              ? 'font-medium text-gray-800 dark:text-gray-200'
+                              : 'text-gray-500'
+                            }`}>
+                            {lastMessage.conteudo || lastMessage.text || ''}
+                          </p>
                         )}
                       </div>
-                      {lastMessage && (
-                        <p className={`text-xs sm:text-sm truncate mt-1 ${
-                          hasUnread 
-                            ? 'font-medium text-gray-800 dark:text-gray-200' 
-                            : 'text-gray-500'
-                        }`}>
-                          {lastMessage.conteudo || lastMessage.text || ''}
-                        </p>
-                      )}
                     </div>
                     <div className="flex flex-col items-end space-y-1">
                       {lastMessage && (
@@ -307,11 +320,21 @@ const ChatsOptimized = ({ user, tema }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
+                {/* Avatar do usuário no cabeçalho */}
+                {selectedChat?.isIndividualChat && (() => {
+                  const otherUserId = selectedChat.userIds?.find(id => String(id) !== String(userId));
+                  return otherUserId && usersData[otherUserId] ? (
+                    <UserAvatar
+                      user={usersData[otherUserId]}
+                      size="medium"
+                    />
+                  ) : null;
+                })()}
                 <div>
                   <h3 className="font-semibold text-sm sm:text-base">{getOtherUserName(selectedChat)}</h3>
                   <p className="text-xs sm:text-sm text-gray-500">
-                    {connectionState.message === 'connected' ? 'Online' : 
-                     connectionState.message === 'polling' ? 'Sincronizando...' : 'Offline'}
+                    {connectionState.message === 'connected' ? 'Online' :
+                      connectionState.message === 'polling' ? 'Sincronizando...' : 'Offline'}
                   </p>
                 </div>
               </div>
@@ -326,7 +349,7 @@ const ChatsOptimized = ({ user, tema }) => {
             </div>
 
             {/* Mensagens */}
-            <div 
+            <div
               ref={messagesContainerRef}
               className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4"
             >
@@ -342,12 +365,12 @@ const ChatsOptimized = ({ user, tema }) => {
                 messages.map((message, index) => {
                   const isOwn = String(message.userId) === String(userId);
                   console.log(message)
-                  const showDate = index === 0 || 
+                  const showDate = index === 0 ||
                     formatDate(message.publicadoEm) !== formatDate(messages[index - 1]?.publicadoEm);
-                  
+
                   // Verificar se a mensagem foi vista pelo usuário atual
                   let isMessageSeen = null
-                  isMessageSeen = message && message.vistos && message.vistos.find(visto => 
+                  isMessageSeen = message && message.vistos && message.vistos.find(visto =>
                     String(visto.userId) === String(userId)
                   );
 
@@ -361,28 +384,42 @@ const ChatsOptimized = ({ user, tema }) => {
                           {formatDate(message.publicadoEm)}
                         </div>
                       )}
-                      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-lg relative ${
-                          isOwn 
-                            ? 'bg-blue-500 text-white' 
+                      <div className={`flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                        {/* Avatar para mensagens de outros usuários em chats individuais */}
+                        {!isOwn && selectedChat?.isIndividualChat && (
+                          <UserAvatar
+                            user={usersData[message.userId]}
+                            size="small"
+                            className="mb-1"
+                          />
+                        )}
+                        {/* Avatar para mensagens do usuário atual */}
+                        {isOwn && selectedChat?.isIndividualChat && (
+                          <UserAvatar
+                            user={{ username: username, avatar: user?.avatar }}
+                            size="small"
+                            className="mb-1 order-2"
+                          />
+                        )}
+                        <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-lg relative ${isOwn
+                            ? 'bg-blue-500 text-white'
                             : isUnseenMessage
                               ? (isDark ? 'bg-yellow-800/50 text-white border-2 border-yellow-500/50' : 'bg-yellow-100 text-gray-900 border-2 border-yellow-400/50')
                               : (isDark ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900')
-                        }`}>
+                          }`}>
                           {isUnseenMessage && (
                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
                           )}
                           <p className="text-sm">{message.conteudo}</p>
-                          <div className={`text-xs mt-1 flex items-center justify-between ${
-                            isOwn ? 'text-blue-100' : isUnseenMessage ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-500'
-                          }`}>
+                          <div className={`text-xs mt-1 gap-2 flex items-center justify-between ${isOwn ? 'text-blue-100' : isUnseenMessage ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-500'
+                            }`}>
                             <span>{formatTime(message.publicadoEm)}</span>
                             {isOwn && (
                               <div className="flex items-center gap-1">
-                                {message.vistos && message.vistos.length > 0 ? (
+                                {message.vistos && message.vistos.length > 1 ? (
                                   <>
                                     <span className="text-green-300">✓✓</span>
-                                    <span className="text-xs">({message.vistos.length})</span>
+                                    {/* <span className="text-xs">({message.vistos.length})</span> */}
                                   </>
                                 ) : (
                                   <span className="text-gray-300">✓</span>
@@ -408,11 +445,10 @@ const ChatsOptimized = ({ user, tema }) => {
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Digite sua mensagem..."
-                  className={`flex-1 px-3 sm:px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base ${
-                    isDark 
-                      ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' 
+                  className={`flex-1 px-3 sm:px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base ${isDark
+                      ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400'
                       : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
+                    }`}
                 />
                 <button
                   onClick={handleSendMessage}
