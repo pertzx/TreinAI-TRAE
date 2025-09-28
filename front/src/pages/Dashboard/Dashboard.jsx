@@ -63,9 +63,9 @@ const Dashboard = ({ needToPay, plano }) => {
         if (res.data?.user) setUser(res.data.user);
         else navigate('/login');
       } catch (error) {
-        console.error(error)
         const errorMessage = handleError(error);
         showError(errorMessage);
+        console.error('Dashboard fetch user error:', error);
 
         if (isAuthError(error)) {
           navigate('/login');
@@ -137,7 +137,9 @@ const Dashboard = ({ needToPay, plano }) => {
       });
       window.location.href = res?.data?.url;
     } catch (err) {
-      console.log(err)
+      const errorMessage = handleError(err);
+      showError('Erro ao processar pagamento. Tente novamente.');
+      console.error('Payment processing error:', err);
     } finally {
       setLoading(false);
     }

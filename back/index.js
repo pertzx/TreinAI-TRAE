@@ -39,22 +39,22 @@ app.use(securityHeaders);
 // Configuração CORS baseada no ambiente
 const corsOptions = {
     origin: function (origin, callback) {
-        // Em desenvolvimento, permite qualquer origem
+        // Em desenvolvimento, permite QUALQUER origem
         if (process.env.NODE_ENV !== 'production') {
-            console.log(`🌐 CORS [DEV]: Permitindo origem: ${origin || 'sem origin'}`);
+            console.log(`🔧 CORS [DEV]: Permitindo origem: ${origin || 'sem origin'}`);
             return callback(null, true);
         }
         
-        // Em produção, apenas origens específicas
+        // Em produção, apenas origens específicas do .env
         const allowedOrigins = [
             process.env.FRONTEND_URL, // URL de produção do frontend
-            process.env.ALLOWED_ORIGINS?.split(',') || [], // URLs adicionais do .env
-        ].flat().filter(Boolean); // Remove valores undefined/null
+            ...(process.env.ALLOWED_ORIGINS?.split(',') || []), // URLs adicionais do .env
+        ].filter(Boolean); // Remove valores undefined/null
         
         console.log(`🔒 CORS [PROD]: Verificando origem: ${origin}`);
         console.log(`🔒 CORS [PROD]: Origens permitidas:`, allowedOrigins);
         
-        // Permite requisições sem origin apenas em desenvolvimento
+        // Rejeita requisições sem origin em produção
         if (!origin) {
             console.log('❌ CORS [PROD]: Requisição sem origin rejeitada');
             return callback(new Error('Origem não especificada não permitida em produção'));
@@ -79,7 +79,8 @@ const corsOptions = {
         'X-CSRF-Token'
     ],
     exposedHeaders: ['X-CSRF-Token'],
-    maxAge: 86400 // Cache preflight por 24 horas
+    maxAge: 86400, // Cache preflight por 24 horas
+    optionsSuccessStatus: 200 // Para suporte a navegadores legados
 };
 
 app.use(cors(corsOptions));

@@ -1,26 +1,27 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../Api";
 import Logo from "../components/Logo";
 import { useCSRF } from "../hooks/useCSRF";
 import LoadingSpinner, { ButtonSpinner } from '../components/LoadingSpinner';
 import { handleError, clearErrorAfterDelay, isAuthError } from '../utils/errorHandler';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../contexts/AuthContext';
 
-function Login({ plano, setLogado, logado }) {
+function Login({ plano }) {
   const [mode, setMode] = useState("login"); // login ou signup
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { csrfToken, loading: csrfLoading, getValidToken, clearToken } = useCSRF();
   const { showError, showSuccess } = useToast();
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Evitar redirecionamento dentro do render
   useEffect(() => {
-    if (logado) {
+    if (isAuthenticated && !authLoading) {
       navigate("/dashboard");
     }
-  }, [logado, navigate]);
+  }, [isAuthenticated, authLoading, navigate]);
 
   const handleBack = () => {
     if (window.history.state && window.history.state.idx > 0) {
@@ -72,35 +73,28 @@ function Login({ plano, setLogado, logado }) {
         return;
       }
 
-      const endpoint = mode === "signup" ? "/signup" : "/login";
-      const payload =
-        mode === "signup"
-          ? { email: data.email, password: data.password, username: data.name, plano }
-          : { email: data.email, password: data.password };
+      const credentials = {
+        email: data.email,
+        password: data.password,
+        name: data.name // Para signup
+      };
 
-      // axios lança em caso de 4xx/5xx, então lidamos via try/catch
-      const response = await api.post(endpoint, payload);
-      console.log(response)
-      // sucesso esperado: token presente
-      if (response && response.data && response.data.token) {
-        // Não armazenar mais o token no localStorage - usar apenas cookies httpOnly
-        setLogado(true);
-        setMsg(response.data.msg ?? null);
-        setLoading(false);
-        // redirecionar para dashboard
+      // Usar o método login do contexto de autenticação
+      const result = await login(data.email, data.password);
+      
+      if (result.success) {
+        setMsg(result.message);
+        // Redirecionar para dashboard (será feito pelo useEffect)
         navigate("/dashboard");
-        return;
+      } else {
+        showError(result.message);
       }
       
-      // se não tiver token, tratar como falha e pegar mensagem do body
-      const serverMsg = response?.data?.msg ?? "Falha no login (resposta inesperada).";
-      showError(serverMsg);
       setLoading(false);
     } catch (err) {
       // Usar o sistema centralizado de tratamento de erros
-      console.log(err)
-      const errorMessage = handleError(err, showError);
-      // showError(errorMessage || err?.data?.message);
+      const errorMessage = handleError(err);
+      showError(errorMessage);
       
       // Se for erro de autenticação, limpar tokens
       if (isAuthError(err)) {

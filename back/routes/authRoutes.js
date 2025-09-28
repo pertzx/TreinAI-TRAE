@@ -287,12 +287,7 @@ router.post('/supports', pedirSuporte) // body: adminId, assunto
 
 // Rota de logout para limpar cookies
 router.post('/logout', (req, res) => {
-    res.clearCookie('authToken', {
-        httpOnly: true,
-        secure: false, // Permitir HTTP em desenvolvimento (necessário para cross-site)
-        sameSite: 'none', // Permite cross-origin entre localhost e IP da rede local
-        path: '/'
-    });
+    res.clearCookie('authToken');
     res.json({ msg: 'Logout realizado com sucesso!' });
 });
 

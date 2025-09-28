@@ -1,4 +1,5 @@
 import axios from "axios";
+import { createRetryAxios, RETRY_CONFIGS } from './utils/apiRetry.js';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
@@ -66,4 +67,87 @@ api.interceptors.response.use(
   }
 );
 
-export default api;
+// Aplica retry logic à instância principal da API
+const apiWithRetry = createRetryAxios(api, RETRY_CONFIGS.api);
+
+// Cria instâncias especializadas para diferentes contextos
+const authApi = createRetryAxios(axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
+  timeout: 15000, // Timeout maior para auth
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+}), RETRY_CONFIGS.auth);
+
+const uploadApi = createRetryAxios(axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
+  timeout: 60000, // Timeout muito maior para uploads
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'multipart/form-data'
+  }
+}), RETRY_CONFIGS.upload);
+
+const criticalApi = createRetryAxios(axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
+  timeout: 5000, // Timeout menor para operações críticas
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+}), RETRY_CONFIGS.critical);
+
+// Aplica interceptors de CSRF às instâncias especializadas
+[authApi, uploadApi, criticalApi].forEach(instance => {
+  // Request interceptor para CSRF
+  instance.interceptors.request.use(
+    async (config) => {
+      if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase())) {
+        const csrfToken = localStorage.getItem('csrfToken');
+        if (csrfToken) {
+          config.headers['x-csrf-token'] = csrfToken;
+        }
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+
+  // Response interceptor para CSRF
+  instance.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const originalRequest = error.config;
+      
+      if (error.response?.status === 403 && 
+          error.response?.data?.code === 'CSRF_TOKEN_INVALID' &&
+          !originalRequest._retry) {
+        
+        originalRequest._retry = true;
+        
+        try {
+          const tokenResponse = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/csrf-token`);
+          const newToken = tokenResponse.data.csrfToken;
+          
+          localStorage.setItem('csrfToken', newToken);
+          localStorage.setItem('csrfTokenExpiry', Date.now() + tokenResponse.data.expiresIn);
+          
+          originalRequest.headers['x-csrf-token'] = newToken;
+          return instance(originalRequest);
+          
+        } catch (tokenError) {
+          console.error('Falha ao renovar CSRF token:', tokenError);
+          localStorage.removeItem('csrfToken');
+          localStorage.removeItem('csrfTokenExpiry');
+        }
+      }
+      
+      return Promise.reject(error);
+    }
+  );
+});
+
+// Exporta todas as instâncias da API
+export { authApi, uploadApi, criticalApi };
+export default apiWithRetry;

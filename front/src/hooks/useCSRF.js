@@ -20,9 +20,9 @@ export const useCSRF = () => {
       
       const response = await api.get('/csrf-token');
       
-      console.log(response)
       if (response.data && response.data.csrfToken) {
         setCsrfToken(response.data.csrfToken);
+        // Log removido para evitar exposição de token CSRF
 
         
         // Armazena no localStorage para persistir entre recarregamentos

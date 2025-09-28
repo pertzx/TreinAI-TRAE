@@ -127,13 +127,10 @@ export const login = async (req, res) => {
     // Gera token
     const token = jwt.sign({ email: user.email }, SECRET_JWT, { expiresIn: "7d" });
 
-    // Define cookie httpOnly seguro
+    // Define cookie httpOnly básico
     res.cookie('authToken', token, {
       httpOnly: true,
-      secure: false, // Permitir HTTP em desenvolvimento (necessário para cross-site)
-      sameSite: 'none', // Permite cross-origin entre localhost e IP da rede local
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
-      path: '/' // Garante que o cookie seja enviado para todas as rotas
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
     });
 
     return res.json({
@@ -178,14 +175,8 @@ export const signup = async (req, res) => {
     // Gera token
     const token = jwt.sign({ email }, SECRET_JWT, { expiresIn: "7d" });
 
-    // Define cookie httpOnly seguro (mesmo padrão do login)
-    res.cookie('authToken', token, {
-      httpOnly: true,
-      secure: false, // Permitir HTTP em desenvolvimento (necessário para cross-site)
-      sameSite: 'none', // Permite cross-origin entre localhost e IP da rede local
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
-      path: '/' // Garante que o cookie seja enviado para todas as rotas
-    });
+    // Define cookie httpOnly seguro baseado no ambiente
+    res.cookie('authToken', token, getCookieOptions());
 
     return res.status(201).json({ 
       msg: 'Usuário criado com sucesso!', 
@@ -266,7 +257,10 @@ export const changeTheme = async (req, res) => {
     return res.json({ msg: 'Theme alterado com sucesso.', user: usr });
   } catch (err) {
     console.error('changeTheme error:', err);
-    return res.status(500).json({ msg: 'Erro ao alterar tema', error: err.message });
+    return res.status(500).json({ 
+      msg: 'Erro interno do servidor ao alterar tema',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
@@ -278,7 +272,7 @@ export const completeOnboarding = async (req, res) => {
     const { email, answers, completed, completedAt, startedAt } = req.body;
     if (!email) return res.status(401).json({ msg: 'Usuário não autenticado.' });
 
-    console.log(answers)
+    // Log removido para evitar exposição de dados sensíveis do usuário
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ msg: 'Usuário não encontrado' });
 
@@ -309,6 +303,7 @@ export const completeOnboarding = async (req, res) => {
         }
       } catch (err) {
         console.error('OpenAI summarization failed:', err?.message || err);
+        // Continuar sem resumo se a IA falhar
       }
     }
 
@@ -317,7 +312,10 @@ export const completeOnboarding = async (req, res) => {
 
   } catch (err) {
     console.error('completeOnboarding error:', err);
-    return res.status(500).json({ msg: 'Erro ao processar onboarding', error: err.message });
+    return res.status(500).json({ 
+      msg: 'Erro interno do servidor durante onboarding',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
@@ -476,7 +474,8 @@ export const atualizarPerfil = async (req, res) => {
           }
         }
       } catch (err) {
-        console.warn('Falha ao remover avatar antigo:', err.message || err);
+        console.warn('Falha ao remover avatar antigo (não crítico):', err.message || err);
+        // Continuar com a atualização mesmo se falhar ao remover arquivo antigo
       }
 
       user.avatar = avatarUrl;
@@ -490,7 +489,10 @@ export const atualizarPerfil = async (req, res) => {
     return res.json({ msg: 'Perfil atualizado com sucesso!', user: safeUser, avatarUrl: user.avatar || null });
   } catch (error) {
     console.error('Erro ao atualizar perfil:', error);
-    return res.status(500).json({ msg: `Erro interno do servidor: ${error.message}` });
+    return res.status(500).json({ 
+      msg: 'Erro interno do servidor ao atualizar perfil',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -720,7 +722,10 @@ export const carregarTreinos = async (req, res) => {
     });
   } catch (error) {
     console.error('carregarTreinos error:', error);
-    return res.status(500).json({ msg: 'Erro interno', error: error.message });
+    return res.status(500).json({ 
+      msg: 'Erro interno do servidor ao carregar treinos',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

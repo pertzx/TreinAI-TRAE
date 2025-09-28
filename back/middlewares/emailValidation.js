@@ -87,7 +87,8 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 minutos
 export const validateEmailReal = async (req, res, next) => {
   try {
     const { email } = req.body;
-
+    // Log removido para evitar exposição de emails nos logs
+    
     if (!email) {
       return res.status(400).json({
         message: 'Email é obrigatório',
@@ -97,6 +98,7 @@ export const validateEmailReal = async (req, res, next) => {
 
     // 1. Validação básica de formato
     if (!emailValidator.validate(email)) {
+      // Log removido para evitar exposição de emails nos logs
       return res.status(400).json({
         message: 'Formato de email inválido',
         field: 'email'
@@ -211,6 +213,8 @@ export const validateEmailBasic = (req, res, next) => {
     }
 
     if (!emailValidator.validate(email)) {
+      // Log removido para evitar exposição de emails nos logs
+      
       return res.status(400).json({
         message: 'Formato de email inválido',
         field: 'email'

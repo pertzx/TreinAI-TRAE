@@ -31,13 +31,13 @@ const Toast = ({
   }, [duration]);
 
   const handleClose = () => {
-    console.log('handleClose chamado');
+    // console.log('handleClose chamado');
     setIsAnimating(false);
     setTimeout(() => {
-      console.log('Removendo toast após animação');
+      // console.log('Removendo toast após animação');
       setIsVisible(false);
       if (onClose) {
-        console.log('Chamando onClose callback');
+        // console.log('Chamando onClose callback');
         onClose();
       }
     }, 300);
@@ -134,7 +134,7 @@ export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
   const addToast = (message, type = 'info', options = {}) => {
-    console.log('addToast chamado:', { message, type, options });
+    // console.log('addToast chamado:', { message, type, options });
 
     // Verificar se já existe um toast com a mesma mensagem e tipo
     const existingToast = toasts.find(toast =>
@@ -142,12 +142,12 @@ export const ToastProvider = ({ children }) => {
     );
 
     if (existingToast) {
-      console.log('Toast duplicado detectado, ignorando:', { message, type });
+      // console.log('Toast duplicado detectado, ignorando:', { message, type });
       return existingToast.id;
     }
 
     const id = Date.now() + Math.random();
-    console.log('Criando novo toast:', { id, message, type, options });
+    // console.log('Criando novo toast:', { id, message, type, options });
 
     const toast = {
       id,
@@ -158,7 +158,7 @@ export const ToastProvider = ({ children }) => {
 
     setToasts(prev => {
       const newToasts = [...prev, toast];
-      console.log('Atualizando toasts:', newToasts);
+      // console.log('Atualizando toasts:', newToasts);
       return newToasts;
     });
 
@@ -174,16 +174,16 @@ export const ToastProvider = ({ children }) => {
   };
 
   const removeToast = (id) => {
-    console.log('Removendo toast:', id);
+    // console.log('Removendo toast:', id);
     setToasts(prev => {
       const filtered = prev.filter(toast => toast.id !== id);
-      console.log('Toasts após remoção:', filtered);
+      // console.log('Toasts após remoção:', filtered);
       return filtered;
     });
   };
 
   const clearAllToasts = () => {
-    console.log('Limpando todos os toasts');
+    // console.log('Limpando todos os toasts');
     setToasts([]);
   };
 
@@ -210,7 +210,7 @@ export const ToastProvider = ({ children }) => {
     showInfo
   };
 
-  console.log('ToastProvider render, toasts atuais:', toasts);
+  // console.log('ToastProvider render, toasts atuais:', toasts);
 
   return (
     <ToastContext.Provider value={value}>
@@ -229,7 +229,7 @@ export const useToast = () => {
     throw new Error('useToast deve ser usado dentro de um ToastProvider');
   }
 
-  console.log('useToast chamado, toasts disponíveis:', context.toasts);
+  // console.log('useToast chamado, toasts disponíveis:', context.toasts);
   return context;
 };
 
@@ -239,7 +239,7 @@ export const useToast = () => {
 export const ToastContainer = ({ toasts, onRemoveToast, position = 'top-right' }) => {
   if (!toasts || toasts.length === 0) return null;
 
-  console.log('ToastContainer renderizando com toasts:', toasts);
+  // console.log('ToastContainer renderizando com toasts:', toasts);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50">
@@ -251,7 +251,7 @@ export const ToastContainer = ({ toasts, onRemoveToast, position = 'top-right' }
           duration={0} // Controlado pelo hook
           position={position}
           onClose={() => {
-            console.log('Toast onClose chamado para ID:', toast.id);
+            // console.log('Toast onClose chamado para ID:', toast.id);
             onRemoveToast(toast.id);
           }}
           showCloseButton={toast.showCloseButton !== false}
