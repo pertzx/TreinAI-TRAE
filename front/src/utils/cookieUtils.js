@@ -116,16 +116,16 @@ export const authCookieConfig = {
   // Token de autenticação - mais restritivo
   token: {
     days: 7,
-    secure: window.location.protocol === 'https:',
-    sameSite: 'Strict',
+    secure: false, // Permitir HTTP em desenvolvimento
+    sameSite: 'Lax', // Menos restritivo para desenvolvimento
     path: '/'
   },
   
   // CSRF Token - menos restritivo para permitir acesso via JS
   csrf: {
     days: 1,
-    secure: window.location.protocol === 'https:',
-    sameSite: 'Strict',
+    secure: false, // Permitir HTTP em desenvolvimento
+    sameSite: 'Lax', // Menos restritivo para desenvolvimento
     path: '/'
   },
   

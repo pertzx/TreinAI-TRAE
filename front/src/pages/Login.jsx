@@ -103,7 +103,19 @@ function Login({ plano }) {
 
       if (response.status === 200) {
         // Armazenar token JWT em cookie seguro
+        console.log('🔑 Token recebido do servidor:', response.data.token);
         authCookies.setToken(response.data.token);
+        
+        // Debug: verificar se o cookie foi definido
+        setTimeout(() => {
+          const savedToken = authCookies.getToken();
+          console.log('🍪 Token salvo no cookie:', savedToken);
+          if (savedToken) {
+            console.log('✅ Cookie definido com sucesso!');
+          } else {
+            console.error('❌ Falha ao definir cookie!');
+          }
+        }, 100);
 
         showSuccess(response.data.message || `${mode === 'login' ? 'Login' : 'Cadastro'} realizado com sucesso!`);
         setIsAuthenticated(true);

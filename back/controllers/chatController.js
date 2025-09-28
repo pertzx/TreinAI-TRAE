@@ -2,6 +2,7 @@ import Chat from "../models/Chat.js";
 import { v4 as uuidv4 } from 'uuid'
 import User from "../models/User.js";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
+import { chatWebSocketServer } from '../index.js';
 
 // * pegar todos os chats do usuário (query: ?userId=xxx)
 // GET /pegarChats
@@ -216,6 +217,22 @@ export const enviarMensagem = async (req, res) => {
         { new: true }
       ).lean();
       if (!updated) return res.status(404).json({ error: 'Chat não encontrado' });
+      
+      // Notificar via WebSocket sobre nova mensagem
+      try {
+        chatWebSocketServer.notifyNewMessage(String(ChatId), mensagemObj, String(userId));
+        
+        // Notificar membros do chat sobre atualização
+        const membros = updated.membros || [];
+        membros.forEach(membro => {
+          if (String(membro.userId) !== String(userId)) {
+            chatWebSocketServer.notifyChatUpdate(String(membro.userId), updated);
+          }
+        });
+      } catch (wsError) {
+        console.warn('Erro ao enviar notificação WebSocket:', wsError);
+      }
+      
       return res.status(201).json({ mensagem: mensagemObj, mensagens: updated.mensagens, chat: updated });
     }
 
@@ -253,6 +270,16 @@ export const enviarMensagem = async (req, res) => {
         { $setOnInsert: setOnInsert, $push: { mensagens: mensagemObj } },
         { new: true, upsert: true, setDefaultsOnInsert: true }
       ).lean();
+
+      // Notificar via WebSocket sobre nova mensagem
+      try {
+        chatWebSocketServer.notifyNewMessage(String(updated.ChatId), mensagemObj, String(userId));
+        
+        // Notificar o outro usuário sobre atualização do chat
+        chatWebSocketServer.notifyChatUpdate(String(otherUserId), updated);
+      } catch (wsError) {
+        console.warn('Erro ao enviar notificação WebSocket:', wsError);
+      }
 
       return res.status(201).json({ mensagem: mensagemObj, mensagens: updated.mensagens, chat: updated });
     }

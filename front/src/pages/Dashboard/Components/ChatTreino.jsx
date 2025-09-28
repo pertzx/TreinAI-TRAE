@@ -626,16 +626,16 @@ const ChatTreino = ({ tema = "dark", user }) => {
             </div>
           )}
 
-          <div className="flex gap-3 mt-4">
+          <div className="flex gap-3 mt-4 flex-col sm:flex-row">
             <button
               onClick={() => { setLastRegistro(ultimoRegistroDoMesmoTreino); setSummaryOpen(true); }}
-              className="px-6 py-3 rounded-2xl bg-gray-200 text-black hover:bg-gray-300"
+              className="px-6 py-3 rounded-2xl bg-gray-200 text-black hover:bg-gray-300 w-full sm:w-auto"
             >
               Ver resumo
             </button>
             <button
               onClick={() => navigate('/dashboard/meus-treinos')}
-              className="px-6 py-3 rounded-2xl bg-blue-600 text-white hover:bg-blue-700"
+              className="px-6 py-3 rounded-2xl bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto"
             >
               Meus treinos
             </button>
@@ -645,8 +645,8 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
       {/* Se não iniciou e não fez hoje -> tela normal de iniciar */}
       {!treinoIniciado && !jaFezHoje && (
-        <div className="min-h-[600px] md:min-h-[480px] flex flex-col items-center justify-center text-center p-6">
-          <h2 className="text-2xl font-bold mb-2">{treinoAtual?.treinoName}</h2>
+        <div className="min-h-[400px] sm:min-h-[480px] md:min-h-[600px] flex flex-col items-center justify-center text-center p-4 sm:p-6">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">{treinoAtual?.treinoName}</h2>
           {treinoAtual?.descricao && <p className="text-sm text-gray-500 mb-4">{treinoAtual.descricao}</p>}
           <p className="mb-4 text-sm">Próximo treino determinado pelo seu histórico.</p>
           <button onClick={iniciarTreino} className="bg-blue-600 hover:bg-blue-700 mb-2 text-white font-semibold px-6 py-3 rounded-2xl shadow-md transition-all">Iniciar Treino</button>
@@ -658,13 +658,15 @@ const ChatTreino = ({ tema = "dark", user }) => {
       {treinoIniciado && (
         <>
           {/* header + progresso */}
-          <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold">{treinoAtual?.treinoName}</h3>
-              {treinoAtual?.criadoEm && <p className="text-sm">Criado em: {new Date(treinoAtual.criadoEm).toLocaleString()}</p>}
+          <div className="mb-3 flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-semibold truncate">{treinoAtual?.treinoName}</h3>
+                {treinoAtual?.criadoEm && <p className="text-sm text-gray-500">Criado em: {new Date(treinoAtual.criadoEm).toLocaleString()}</p>}
+              </div>
             </div>
 
-            <div className="w-full sm:w-1/3">
+            <div className="w-full">
               <div className="w-full h-3 rounded-full bg-gray-300 overflow-hidden">
                 <motion.div initial={{ width: 0 }} animate={{ width: `${progresso}%` }} transition={{ duration: 0.45 }} className="h-3 bg-blue-600" />
               </div>
@@ -673,10 +675,10 @@ const ChatTreino = ({ tema = "dark", user }) => {
           </div>
 
           {/* mensagens (chat + exibição) */}
-          <div className="flex flex-col gap-4 max-h-[55vh] overflow-y-auto mb-4 px-1">
+          <div className="flex flex-col gap-4 max-h-[40vh] sm:max-h-[45vh] md:max-h-[55vh] overflow-y-auto mb-4 px-1">
             <AnimatePresence>
               {mensagens.map((msg) => (
-                <motion.div key={msg.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }} className={`p-4 rounded-2xl shadow-md ${msg.tipo === "bot" ? (isDark ? "bg-gray-800 text-gray-100 rounded-bl-none self-start" : "bg-gray-100 text-black rounded-bl-none self-start") : "bg-blue-600 text-white rounded-br-none self-end"} max-w-full md:max-w-[80%]`}>
+                <motion.div key={msg.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }} className={`p-3 sm:p-4 rounded-2xl shadow-md ${msg.tipo === "bot" ? (isDark ? "bg-gray-800 text-gray-100 rounded-bl-none self-start" : "bg-gray-100 text-black rounded-bl-none self-start") : "bg-blue-600 text-white rounded-br-none self-end"} max-w-[90%] sm:max-w-[85%] md:max-w-[80%] text-sm sm:text-base`}>
                   {msg.conteudo}
                 </motion.div>
               ))}
@@ -685,19 +687,23 @@ const ChatTreino = ({ tema = "dark", user }) => {
           </div>
 
           {/* controles específicos do exercício */}
-          <div className="p-4 rounded-xl mb-2 bg-gray-50/5">
-            <div className="flex items-center gap-3 mb-3 flex-wrap">
-              <div className="text-sm font-medium">{currentEx.nome}</div>
-              <div className={`px-3 py-1 rounded-full text-xs ${isDark ? "bg-gray-700 text-gray-100" : "bg-gray-200 text-gray-800"}`}>Sets: {setsRequired}</div>
-              <div className="text-sm text-gray-400">Set atual: {Math.min(currentSetIndex + 1, setsRequired)}</div>
-              <div className="ml-auto text-sm">Timer: <strong>{formatSeconds(elapsedSeconds)}</strong></div>
+          <div className="p-3 sm:p-4 rounded-xl mb-2 bg-gray-50/5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
+              <div className="text-sm font-medium truncate flex-1">{currentEx.nome}</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className={`px-2 sm:px-3 py-1 rounded-full text-xs ${isDark ? "bg-gray-700 text-gray-100" : "bg-gray-200 text-gray-800"}`}>Sets: {setsRequired}</div>
+                <div className="text-xs sm:text-sm text-gray-400">Set atual: {Math.min(currentSetIndex + 1, setsRequired)}</div>
+                <div className="text-xs sm:text-sm">Timer: <strong>{formatSeconds(elapsedSeconds)}</strong></div>
+              </div>
             </div>
 
-            <div className="flex gap-3 flex-wrap">
-              <button onClick={handleStartSet} className={`px-4 py-2 rounded-2xl ${isDark ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"} ${setStarted ? "opacity-70 pointer-events-none" : ""}`}>Iniciar set</button>
-              <button onClick={handleEndSet} className={`px-4 py-2 rounded-2xl ${isDark ? "bg-yellow-500 hover:bg-yellow-600 text-black" : "bg-yellow-500 hover:bg-yellow-600 text-black"} ${!setStarted ? "opacity-60 pointer-events-none" : ""}`}>Terminar set</button>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <div className="flex gap-2 flex-1">
+                <button onClick={handleStartSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-2xl text-sm ${isDark ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"} ${setStarted ? "opacity-70 pointer-events-none" : ""}`}>Iniciar set</button>
+                <button onClick={handleEndSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-2xl text-sm ${isDark ? "bg-yellow-500 hover:bg-yellow-600 text-black" : "bg-yellow-500 hover:bg-yellow-600 text-black"} ${!setStarted ? "opacity-60 pointer-events-none" : ""}`}>Terminar set</button>
+              </div>
 
-              <button onClick={handleProximo} className={`ml-auto px-4 py-2 rounded-2xl ${exerciseComplete ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-400 text-white opacity-60 pointer-events-none"}`}>{indiceAtual < totalExercicios - 1 ? "Próximo Exercício" : "Finalizar Treino"}</button>
+              <button onClick={handleProximo} className={`px-3 sm:px-4 py-2 rounded-2xl text-sm ${exerciseComplete ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-400 text-white opacity-60 pointer-events-none"}`}>{indiceAtual < totalExercicios - 1 ? "Próximo Exercício" : "Finalizar Treino"}</button>
             </div>
 
             {(setTimingsByExercise[indiceAtual] && setTimingsByExercise[indiceAtual].length > 0) && (
@@ -710,9 +716,9 @@ const ChatTreino = ({ tema = "dark", user }) => {
           </div>
 
           {/* campo e botões */}
-          <div className="flex w-full flex-col sm:flex-row gap-2 mb-4">
-            <input type="text" placeholder="Pergunte alguma coisa" value={inputValue} onChange={(e) => setInputValue(e.target.value)} className={`flex-1 w-full px-4 py-3 rounded-2xl border outline-none ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-100 border-gray-300 text-black"}`} />
-            <button onClick={handleEnviarMensagem} className="bg-blue-600 w-full sm:w-20 flex items-center justify-center hover:bg-blue-700 text-white px-4 py-3 rounded-2xl transition-colors"><FaLocationArrow /></button>
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <input type="text" placeholder="Pergunte alguma coisa" value={inputValue} onChange={(e) => setInputValue(e.target.value)} className={`flex-1 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl border outline-none text-sm sm:text-base ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-100 border-gray-300 text-black"}`} />
+            <button onClick={handleEnviarMensagem} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 sm:py-3 rounded-2xl transition-colors flex items-center justify-center min-h-[44px]"><FaLocationArrow className="text-sm sm:text-base" /></button>
           </div>
         </>
       )}

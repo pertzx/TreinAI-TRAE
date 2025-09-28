@@ -144,6 +144,27 @@ Regras:
 
       await user.save();
 
+      // Broadcast via WebSocket para sincronização em tempo real
+      const nutriMessage = {
+        type: 'nutri_message',
+        userId: String(user._id),
+        profissionalId: profissionalId || null,
+        message: parsed.msg || 'Plano nutricional atualizado',
+        timestamp: new Date().toISOString()
+      };
+
+      const nutriUpdate = {
+        type: 'nutri_update',
+        userId: String(user._id),
+        profissionalId: profissionalId || null,
+        nutriInfos: {
+          userId: String(user._id),
+          restricoes: String(nutriInfos.restricoes),
+          planoNutricional: sanitizedPlano,
+          atualizadoEm: user.nutriInfos.atualizadoEm
+        },
+        timestamp: new Date().toISOString()
+      };
 
       return res.status(200).json({
         success: true,

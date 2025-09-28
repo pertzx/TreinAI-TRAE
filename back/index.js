@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes.js';
 import gamificationRoutes from './routes/gamificationRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import chatWebSocketServer from './websocket/websocketServer.js';
 import { StripeWebhook } from './controllers/stripe.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -126,8 +127,15 @@ app.use('/reports', apiSecurityHeaders, reportRoutes);
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || '0.0.0.0'; // Permite conexões de qualquer IP
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`🚀 Servidor rodando em ${HOST}:${PORT}`);
   console.log(`📱 Acesso local: http://localhost:${PORT}`);
   console.log(`🌐 Acesso rede: http://192.168.1.2:${PORT}`);
 });
+
+// Inicializar WebSocket Server
+chatWebSocketServer.initialize(server);
+chatWebSocketServer.startHeartbeat();
+
+// Exportar instância do WebSocket para uso nos controllers
+export { chatWebSocketServer };

@@ -189,14 +189,26 @@ const ChatsOptimized = ({ user, tema }) => {
   const hoverClass = isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50';
 
   return (
-    <div className={`flex h-full ${bgClass} ${textClass}`}>
-      {/* Lista de Chats */}
-      <div className={`w-1/3 border-r ${borderClass} flex flex-col`}>
+    <div className={`flex h-[600px] sm:h-[700px] md:h-[800px] rounded-lg overflow-hidden ${bgClass} ${textClass}`}>
+      {/* Sidebar de Chats */}
+      <div className={`w-full sm:w-80 md:w-96 border-r ${borderClass} flex flex-col ${selectedChat ? 'hidden sm:flex' : 'flex'}`}>
         {/* Header */}
-        <div className={`p-4 border-b ${borderClass} flex items-center justify-between`}>
-          <h2 className="text-lg font-semibold">Conversas</h2>
-          <div className="flex items-center space-x-2">
-            {/* Indicador de conexão */}
+        <div className={`p-3 sm:p-4 border-b ${borderClass}`}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">Conversas</h2>
+            <button
+              onClick={fetchChats}
+              disabled={loadingChats}
+              className={`p-2 rounded-lg ${hoverClass} ${loadingChats ? 'opacity-50' : ''}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
+          
+          {/* Status de conexão */}
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-1 text-xs">
               <div className={`w-2 h-2 rounded-full ${
                 isConnected ? 'bg-green-500' : isPolling ? 'bg-yellow-500' : 'bg-red-500'
@@ -230,28 +242,28 @@ const ChatsOptimized = ({ user, tema }) => {
                 <div
                   key={chatId}
                   onClick={() => handleChatSelect(chat)}
-                  className={`p-4 cursor-pointer border-b ${borderClass} ${hoverClass} ${
+                  className={`p-3 sm:p-4 cursor-pointer border-b ${borderClass} ${hoverClass} ${
                     isSelected ? (isDark ? 'bg-gray-800' : 'bg-blue-50') : ''
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <h3 className={`font-medium truncate ${hasUnread ? 'font-bold' : ''}`}>
+                        <h3 className={`font-medium truncate text-sm sm:text-base ${hasUnread ? 'font-bold' : ''}`}>
                           {otherUserName}
                         </h3>
                         {hasUnread && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
                         )}
                       </div>
                       {lastMessage && (
-                        <p className={`text-sm text-gray-500 truncate mt-1 ${hasUnread ? 'font-medium' : ''}`}>
+                        <p className={`text-xs sm:text-sm text-gray-500 truncate mt-1 ${hasUnread ? 'font-medium' : ''}`}>
                           {lastMessage.conteudo || lastMessage.text || ''}
                         </p>
                       )}
                     </div>
                     {lastMessage && (
-                      <div className="text-xs text-gray-400 ml-2">
+                      <div className="text-xs text-gray-400 ml-2 flex-shrink-0">
                         {formatTime(lastMessage.publicadoEm || lastMessage.createdAt)}
                       </div>
                     )}
@@ -264,17 +276,28 @@ const ChatsOptimized = ({ user, tema }) => {
       </div>
 
       {/* Área de Mensagens */}
-      <div className="flex-1 flex flex-col">
+      <div className={`flex-1 flex flex-col ${selectedChat ? 'flex' : 'hidden sm:flex'}`}>
         {selectedChat ? (
           <>
             {/* Header do Chat */}
-            <div className={`p-4 border-b ${borderClass} flex items-center justify-between`}>
-              <div>
-                <h3 className="font-semibold">{getOtherUserName(selectedChat)}</h3>
-                <p className="text-sm text-gray-500">
-                  {connectionState.message === 'connected' ? 'Online' : 
-                   connectionState.message === 'polling' ? 'Sincronizando...' : 'Offline'}
-                </p>
+            <div className={`p-3 sm:p-4 border-b ${borderClass} flex items-center justify-between`}>
+              <div className="flex items-center gap-3">
+                {/* Botão voltar para mobile */}
+                <button
+                  onClick={() => setSelectedChat(null)}
+                  className="sm:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div>
+                  <h3 className="font-semibold text-sm sm:text-base">{getOtherUserName(selectedChat)}</h3>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    {connectionState.message === 'connected' ? 'Online' : 
+                     connectionState.message === 'polling' ? 'Sincronizando...' : 'Offline'}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setShowChatSettings(!showChatSettings)}
@@ -289,14 +312,14 @@ const ChatsOptimized = ({ user, tema }) => {
             {/* Mensagens */}
             <div 
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto p-4 space-y-4"
+              className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4"
             >
               {loadingMessages && messages.length === 0 ? (
-                <div className="text-center text-gray-500">
+                <div className="text-center text-gray-500 text-sm">
                   Carregando mensagens...
                 </div>
               ) : messages.length === 0 ? (
-                <div className="text-center text-gray-500">
+                <div className="text-center text-gray-500 text-sm">
                   Nenhuma mensagem ainda. Seja o primeiro a enviar!
                 </div>
               ) : (
@@ -313,7 +336,7 @@ const ChatsOptimized = ({ user, tema }) => {
                         </div>
                       )}
                       <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-lg ${
                           isOwn 
                             ? 'bg-blue-500 text-white' 
                             : isDark ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900'
@@ -337,15 +360,15 @@ const ChatsOptimized = ({ user, tema }) => {
             </div>
 
             {/* Input de Mensagem */}
-            <div className={`p-4 border-t ${borderClass}`}>
-              <div className="flex space-x-2">
+            <div className={`p-3 sm:p-4 border-t ${borderClass}`}>
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Digite sua mensagem..."
-                  className={`flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`flex-1 px-3 sm:px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base ${
                     isDark 
                       ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' 
                       : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
@@ -354,7 +377,7 @@ const ChatsOptimized = ({ user, tema }) => {
                 <button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim()}
-                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 sm:px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base min-h-[44px]"
                 >
                   Enviar
                 </button>
@@ -362,12 +385,12 @@ const ChatsOptimized = ({ user, tema }) => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-500">
+          <div className="flex-1 flex items-center justify-center text-gray-500 p-4">
             <div className="text-center">
-              <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-12 sm:w-16 h-12 sm:h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              <p>Selecione uma conversa para começar</p>
+              <p className="text-sm sm:text-base">Selecione uma conversa para começar</p>
             </div>
           </div>
         )}

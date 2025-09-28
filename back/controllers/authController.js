@@ -125,12 +125,14 @@ export const login = async (req, res) => {
     }
 
     // Gera token
-    const token = jwt.sign({ email: user.email }, SECRET_JWT, { expiresIn: "7d" });
+    const token = jwt.sign({ email: user.email, userId: user._id }, SECRET_JWT, { expiresIn: "7d" });
 
-    // Define cookie httpOnly básico
-    res.cookie('authToken', token, {
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
+    // Define cookie acessível via JavaScript para WebSocket
+    res.cookie('auth_token', token, {
+      httpOnly: false, // Permitir acesso via JavaScript para WebSocket
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+      sameSite: 'Lax', // Menos restritivo para desenvolvimento
+      secure: false // Permitir HTTP em desenvolvimento
     });
 
     return res.json({
@@ -173,10 +175,15 @@ export const signup = async (req, res) => {
     });
 
     // Gera token
-    const token = jwt.sign({ email }, SECRET_JWT, { expiresIn: "7d" });
+    const token = jwt.sign({ email, userId: newUser._id }, SECRET_JWT, { expiresIn: "7d" });
 
     // Define cookie httpOnly seguro baseado no ambiente
-    res.cookie('authToken', token, getCookieOptions());
+    res.cookie('auth_token', token, {
+      httpOnly: false,
+      secure: false,
+      sameSite: 'Lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
+    });
 
     return res.status(201).json({ 
       msg: 'Usuário criado com sucesso!', 

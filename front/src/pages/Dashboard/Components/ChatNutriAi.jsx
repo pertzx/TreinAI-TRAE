@@ -31,6 +31,8 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
     setTimeout(() => setNotify(null), timeout);
   };
 
+
+
   // scroll to bottom on new message if at bottom
   useEffect(() => {
 
@@ -59,6 +61,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
     try {
       const body = { email: user.email, conteudo: text };
       if (profissionalId) body.profissionalId = profissionalId;
+      
       const res = await api.post('/conversar-nutri', body);
       const data = res?.data || {};
 
@@ -94,7 +97,8 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
           if (data?.raw) {
             setMessages(prev => [...prev, { id: `ai-${Date.now()}`, from: 'nutri', text: String(data.raw).slice(0, 1000), createdAt: new Date() }]);
           } else {
-            setMessages(prev => [...prev, { id: `ai-${Date.now()}`, from: 'nutri', text: 'Resposta recebida (sem conteúdo estruturado).', createdAt: new Date() }]);
+            // fallback: generic success message
+            setMessages(prev => [...prev, { id: `ai-${Date.now()}`, from: 'nutri', text: 'Resposta da NutriAI recebida.', createdAt: new Date() }]);
           }
         }
       }
@@ -165,20 +169,20 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
   }, [user]);
 
   return (
-    <div className={`w-full max-w-3xl mx-auto p-4 rounded-2xl shadow-md ${theme.container}`}>
-      <div className={`mb-4 p-3 rounded-lg border ${theme.panel}`}>
-        <div className="flex items-center justify-between mb-2">
+    <div className={`w-full max-w-4xl mx-auto p-3 sm:p-4 rounded-2xl shadow-md ${theme.container}`}>
+      <div className={`mb-4 p-3 sm:p-4 rounded-lg border ${theme.panel}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
           <div>
             <div className="text-lg font-semibold">NutriAI</div>
             <div className="text-xs text-gray-400">Converse com o seu nutricionista virtual</div>
           </div>
-          <div className="text-xs text-gray-400">{user ? (user.email || user.username || '') : 'Usuário não autenticado'}</div>
+          <div className="text-xs text-gray-400 truncate">{user ? (user.email || user.username || '') : 'Usuário não autenticado'}</div>
         </div>
 
-        <div ref={containerRef} className={`max-h-[40vh] overflow-auto p-2 mb-3 rounded ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
+        <div ref={containerRef} className={`max-h-[35vh] sm:max-h-[40vh] overflow-auto p-2 mb-3 rounded ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
           {messages.map((m) => (
-            <div key={m.id} className={`mb-3 max-w-[85%] ${m.from === 'user' ? 'ml-auto' : ''}`}>
-              <div className={`p-3 rounded-2xl ${m.from === 'user' ? (isDark ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-gray-900') : (isDark ? 'bg-gray-700 text-gray-100' : 'bg-gray-100 text-gray-900')}`}>
+            <div key={m.id} className={`mb-3 max-w-[90%] sm:max-w-[85%] ${m.from === 'user' ? 'ml-auto' : ''}`}>
+              <div className={`p-2 sm:p-3 rounded-2xl ${m.from === 'user' ? (isDark ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-gray-900') : (isDark ? 'bg-gray-700 text-gray-100' : 'bg-gray-100 text-gray-900')}`}>
                 <div className="text-sm whitespace-pre-wrap">{m.text}</div>
                 <div className="text-[10px] opacity-70 mt-1">{new Date(m.createdAt).toLocaleString('pt-BR')}</div>
               </div>
@@ -187,22 +191,21 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
           <div ref={bottomRef} />
         </div>
 
-        <div className="grid grid-cols-3 w-full gap-2">
+        <div className="flex flex-col sm:flex-row w-full gap-2">
           <input
             type='text'
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={user ? (allowedToUse() ? 'Escreva sua pergunta para a NutriAI...' : 'NutriAI disponível apenas para planos MAX/COACH') : 'Faça login para conversar'}
-            className={`col-span-2 p-3 rounded-lg border ${theme.input}`}
-            rows={2}
+            className={`flex-1 p-2 sm:p-3 rounded-lg border text-sm sm:text-base ${theme.input}`}
             disabled={!user || !allowedToUse()}
           />
-          <div className="col-span-1 flex flex-col gap-2">
+          <div className="flex flex-row sm:flex-col gap-2">
             <button
               onClick={handleSend}
               disabled={!user || !allowedToUse() || loading || !input.trim()}
-              className={`px-4 py-2 rounded-lg ${theme.primaryBtn} ${(!user || !allowedToUse() || loading || !input.trim()) ? 'opacity-60 cursor-not-allowed' : ''}`}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-sm ${theme.primaryBtn} ${(!user || !allowedToUse() || loading || !input.trim()) ? 'opacity-60 cursor-not-allowed' : ''} min-h-[44px]`}
             >
               {loading ? 'Enviando...' : 'Enviar'}
             </button>
@@ -212,7 +215,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
                 if (!allowedToUse()) { showNotify('Disponível apenas para planos MAX/COACH.', 'error'); return; }
                 setInput('');
               }}
-              className="px-3 py-1 rounded-lg border text-sm"
+              className="flex-1 sm:flex-none px-3 py-2 rounded-lg border text-sm min-h-[44px]"
             >
               Limpar
             </button>
@@ -221,15 +224,15 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
       </div>
 
       {/* plano nutricional abaixo do chat */}
-      <div className={`p-4 rounded-lg border ${theme.panel}`}>
-        <div className="flex items-center justify-between mb-3">
+      <div className={`p-3 sm:p-4 rounded-lg border ${theme.panel}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
           <div className="text-lg font-semibold">Plano Nutricional</div>
           <div className="text-xs text-gray-400">Atualizado em: {nutriInfos?.atualizadoEm ? new Date(nutriInfos.atualizadoEm).toLocaleString('pt-BR') : '—'}</div>
         </div>
 
-        <div className="flex items-start flex-col gap-2 border-2 rounded-2xl border-red-400 shadow-md shadow-red-500 p-4 mb-3">
-          <h1 className={`font-semibold`}>Restrições</h1>
-          <p className={`font-light italic`}>{nutriInfos?.restricoes ? nutriInfos?.restricoes : 'Sem restricoes!'}</p>
+        <div className="flex items-start flex-col gap-2 border-2 rounded-2xl border-red-400 shadow-md shadow-red-500 p-3 sm:p-4 mb-3">
+          <h1 className={`font-semibold text-sm sm:text-base`}>Restrições</h1>
+          <p className={`font-light italic text-sm`}>{nutriInfos?.restricoes ? nutriInfos?.restricoes : 'Sem restricoes!'}</p>
         </div>
 
         {renderPlano()}
@@ -238,7 +241,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
       {/* notification absolute (bottom-right) */}
       {notify && (
         <div
-          className={`fixed right-4 bottom-6 z-50 px-4 py-3 rounded-lg shadow-lg ${notify.type === 'error' ? theme.errorBg : theme.notifyBg}`}
+          className={`fixed right-2 sm:right-4 bottom-4 sm:bottom-6 z-50 px-3 sm:px-4 py-2 sm:py-3 rounded-lg shadow-lg max-w-[90%] sm:max-w-none ${notify.type === 'error' ? theme.errorBg : theme.notifyBg}`}
           role="status"
         >
           <div className="text-sm">{notify.text}</div>

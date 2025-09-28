@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import useWebSocket from './useWebSocket';
-import api from '../Api';
+import { authCookies } from '../utils/cookieUtils.js';
+// import { apiRequest } from '../utils/apiUtils.js';
+import webSocketManager from '../utils/websocketUtils.js';
+import api from '../Api.js'
 
 /**
  * Hook otimizado para chat que usa WebSocket com fallback inteligente para polling
@@ -165,14 +167,12 @@ const useChatOptimized = (user, selectedChatId) => {
   }, [selectedChatId, fetchMessages, throttledApiCall]);
 
   // WebSocket para chats
-  const chatWebSocket = useWebSocket(
-    userId ? `ws://localhost:4000/chat-updates/${userId}` : null,
-    {
-      enabled: !!userId,
-      reconnectInterval: 3000,
-      maxReconnectAttempts: 3,
-      pollingInterval: CHAT_POLLING_INTERVAL,
-      pollingFallback: chatPollingFallback,
+  useEffect(() => {
+    if (!userId) return;
+
+    const chatWsUrl = `ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`;
+    
+    const chatWsOptions = {
       onMessage: (data) => {
         if (data.type === 'chat_update') {
           // Atualizar chats em tempo real
@@ -180,53 +180,78 @@ const useChatOptimized = (user, selectedChatId) => {
         }
       },
       onError: (error) => {
-        console.warn('WebSocket chat error:', error);
+        console.warn('Erro WebSocket chat:', error);
+        // Fallback para polling
+        chatPollingFallback();
       }
-    }
-  );
+    };
+
+    webSocketManager.connect(chatWsUrl, chatWsOptions);
+
+    return () => {
+      webSocketManager.disconnect(chatWsUrl);
+    };
+  }, [userId, fetchChats, chatPollingFallback]);
 
   // WebSocket para mensagens do chat selecionado
-  const messageWebSocket = useWebSocket(
-    selectedChatId ? `ws://localhost:4000/messages/${selectedChatId}` : null,
-    {
-      enabled: !!selectedChatId,
-      reconnectInterval: 2000,
-      maxReconnectAttempts: 3,
-      pollingInterval: MESSAGE_POLLING_INTERVAL,
-      pollingFallback: messagePollingFallback,
+  useEffect(() => {
+    if (!userId || !selectedChatId) return;
+
+    const messageWsUrl = `ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`;
+    
+    const messageWsOptions = {
+      onOpen: (ws) => {
+        // Entrar no chat específico
+        webSocketManager.send(messageWsUrl, {
+          type: 'join_chat',
+          chatId: selectedChatId
+        });
+      },
       onMessage: (data) => {
-        if (data.type === 'new_message') {
-          // Adicionar nova mensagem em tempo real
-          const newMsg = {
-            mensagemId: data.message.mensagemId || data.message._id,
-            userId: String(data.message.userId || data.message.from),
-            conteudo: data.message.conteudo || data.message.text,
-            publicadoEm: data.message.publicadoEm || data.message.createdAt,
-            vistos: Array.isArray(data.message.vistos) ? data.message.vistos.map(String) : []
-          };
+        if (data.type === 'new_message' && data.chatId === selectedChatId) {
+          // Adicionar nova mensagem ao estado local
+          setMessages(prev => [...prev, data.message]);
           
-          setMessages(prev => {
-            const exists = prev.find(m => m.mensagemId === newMsg.mensagemId);
-            if (exists) return prev;
-            return [...prev, newMsg];
-          });
-          
-          // Atualizar chats também
+          // Atualizar chats para refletir última mensagem
           fetchChats();
-        } else if (data.type === 'message_update') {
+        } else if (data.type === 'message_update' && data.chatId === selectedChatId) {
           // Atualizar mensagem existente
-          setMessages(prev => prev.map(m => 
-            m.mensagemId === data.messageId 
-              ? { ...m, ...data.updates }
-              : m
-          ));
+          setMessages(prev => 
+            prev.map(msg => 
+              msg._id === data.message._id ? data.message : msg
+            )
+          );
         }
       },
       onError: (error) => {
-        console.warn('WebSocket message error:', error);
+        console.warn('Erro WebSocket mensagens:', error);
+        // Fallback para polling
+        messagePollingFallback();
+      },
+      onClose: () => {
+        // Sair do chat ao desconectar
+        if (webSocketManager.isConnected(messageWsUrl)) {
+          webSocketManager.send(messageWsUrl, {
+            type: 'leave_chat',
+            chatId: selectedChatId
+          });
+        }
       }
-    }
-  );
+    };
+
+    webSocketManager.connect(messageWsUrl, messageWsOptions);
+
+    return () => {
+      // Sair do chat antes de desconectar
+      if (webSocketManager.isConnected(messageWsUrl)) {
+        webSocketManager.send(messageWsUrl, {
+          type: 'leave_chat',
+          chatId: selectedChatId
+        });
+      }
+      webSocketManager.disconnect(messageWsUrl);
+    };
+  }, [userId, selectedChatId, fetchChats, messagePollingFallback]);
 
   // Função para enviar mensagem
   const sendMessage = useCallback(async (chatId, content) => {
@@ -323,11 +348,11 @@ const useChatOptimized = (user, selectedChatId) => {
     fetchChats,
     fetchMessages,
     connectionState: {
-      chat: chatWebSocket.connectionState,
-      message: messageWebSocket.connectionState
+      chat: webSocketManager.getConnectionState(`ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`),
+      message: webSocketManager.getConnectionState(`ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`)
     },
-    isConnected: chatWebSocket.isConnected || messageWebSocket.isConnected,
-    isPolling: chatWebSocket.isPolling || messageWebSocket.isPolling
+    isConnected: webSocketManager.isConnected(`ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`),
+      isPolling: !webSocketManager.isConnected(`ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`)
   };
 };
 
