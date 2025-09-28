@@ -420,6 +420,7 @@ export const marcarMensagensVistas = async (req, res) => {
 
   try {
     // Atualiza todos os elementos do array mensagens cujo mensagemId esteja em mensagemIds
+    // Garante que cada usuário só pode marcar uma mensagem como vista uma única vez
     const vistoObj = {
       userId: String(userId),
       vistoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date()
@@ -429,7 +430,10 @@ export const marcarMensagensVistas = async (req, res) => {
       { ChatId: String(ChatId) },
       { $addToSet: { 'mensagens.$[elem].vistos': vistoObj } },
       {
-        arrayFilters: [{ 'elem.mensagemId': { $in: mensagemIds.map(String) } }],
+        arrayFilters: [{ 
+          'elem.mensagemId': { $in: mensagemIds.map(String) },
+          'elem.vistos.userId': { $ne: String(userId) }
+        }],
         // new não se aplica a updateOne; iremos buscar o documento atualizado depois
       }
     );
@@ -437,6 +441,18 @@ export const marcarMensagensVistas = async (req, res) => {
     // buscar chat atualizado (apenas mensagens afetadas)
     const chat = await Chat.findOne({ ChatId: String(ChatId) }).lean();
     if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
+
+    // Broadcast WebSocket para outros usuários no chat
+    if (chatWebSocketServer && updateResult.modifiedCount > 0) {
+      chatWebSocketServer.broadcastToChat(ChatId, {
+        type: 'messages_seen',
+        chatId: ChatId,
+        mensagemIds: mensagemIds,
+        userId: String(userId),
+        vistoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date(),
+        timestamp: new Date().toISOString()
+      }, String(userId));
+    }
 
     // extrair mensagens atualizadas e retornar
     const updatedMsgs = (chat.mensagens || []).filter(m => mensagemIds.map(String).includes(String(m.mensagemId)));
@@ -600,6 +616,19 @@ export const marcarMensagensVistasV2 = async (req, res) => {
     if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
 
     const updatedMsgs = (chat.mensagens || []).filter(m => mensagemIds.map(String).includes(String(m.mensagemId)));
+    
+    // Broadcast WebSocket para outros usuários no chat
+    if (chatWebSocketServer && updateResult.modifiedCount > 0) {
+      chatWebSocketServer.broadcastToChat(ChatId, {
+        type: 'messages_seen',
+        chatId: ChatId,
+        mensagemIds: mensagemIds,
+        userId: String(userId),
+        vistoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date(),
+        timestamp: new Date().toISOString()
+      }, String(userId));
+    }
+    
     return res.status(200).json({ success: true, updatedCount: updatedMsgs.length, mensagens: updatedMsgs });
   } catch (err) {
     console.error('marcarMensagensVistasV2 error:', err);

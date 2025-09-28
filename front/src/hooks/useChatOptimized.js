@@ -69,9 +69,11 @@ const useChatOptimized = (user, selectedChatId) => {
       // Anotar hasUnread baseado em lastMessage.vistos
       const annotated = raw.map(c => {
         const last = c.lastMessage || (Array.isArray(c.mensagens) ? c.mensagens[c.mensagens.length - 1] : null);
-        const lastVistos = Array.isArray(last?.vistos) ? last.vistos.map(String) : [];
+        // Verificar se o usuário atual já viu a última mensagem
+        const lastVistos = Array.isArray(last?.vistos) ? last.vistos : [];
+        const userHasSeen = lastVistos.some(visto => String(visto.userId) === String(userId));
         const lastUserId = last?.userId ?? last?.from ?? null;
-        const hasUnread = !!last && !lastVistos.includes(String(userId)) && String(lastUserId) !== String(userId);
+        const hasUnread = !!last && !userHasSeen && String(lastUserId) !== String(userId);
         return { ...c, hasUnread };
       });
 
@@ -102,44 +104,43 @@ const useChatOptimized = (user, selectedChatId) => {
       setError(null);
 
       const res = await api.post('/pegarChat', {}, { params: { ChatId: chatId } });
+      console.log(res);
       const chatData = res?.data?.chat || res?.data;
       const msgsRaw = Array.isArray(chatData?.mensagens) ? chatData.mensagens : (chatData?.messages || []);
-      
-      // Normalizar mensagens
-      const normalized = msgsRaw.map(m => ({
-        mensagemId: m.mensagemId ?? m._id ?? String(m.id ?? ''),
-        userId: String(m.userId ?? m.from ?? ''),
-        conteudo: m.conteudo ?? m.text ?? m.mensagem ?? '',
-        publicadoEm: m.publicadoEm ?? m.createdAt ?? m.publicadoEm ?? null,
-        vistos: Array.isArray(m.vistos) ? m.vistos.map(String) : []
-      }));
+
+      // Usar mensagens sem normalização
+      const messages = msgsRaw;
 
       // Comparar com cache
       const messagesChanged = !lastMessagesRef.current || 
-        JSON.stringify(lastMessagesRef.current.map(m => ({ id: m.mensagemId, content: m.conteudo, time: m.publicadoEm }))) !== 
-        JSON.stringify(normalized.map(m => ({ id: m.mensagemId, content: m.conteudo, time: m.publicadoEm })));
+        JSON.stringify(lastMessagesRef.current.map(m => ({ id: m.mensagemId || m._id || m.id, content: m.conteudo || m.text || m.mensagem, time: m.publicadoEm || m.createdAt || m.publicadoEm }))) !== 
+        JSON.stringify(messages.map(m => ({ id: m.mensagemId || m._id || m.id, content: m.conteudo || m.text || m.mensagem, time: m.publicadoEm || m.createdAt || m.publicadoEm })));
 
       if (messagesChanged) {
-        lastMessagesRef.current = normalized;
-        setMessages(normalized);
+        lastMessagesRef.current = messages;
+        setMessages(messages);
 
         // Marcar mensagens como vistas (apenas as não vistas)
-        const unseen = normalized.filter(m => 
-          String(m.userId) !== String(userId) && 
-          !(Array.isArray(m.vistos) && m.vistos.map(String).includes(String(userId)))
-        );
+        const unseen = messages.filter(m => {
+          const msgUserId = String(m.userId ?? m.from ?? '');
+          const vistos = Array.isArray(m.vistos) ? m.vistos : [];
+          return msgUserId !== String(userId) && !vistos.some(v => String(v.userId || v) === String(userId));
+        });
 
         if (unseen.length > 0) {
-          const mensagemIds = unseen.map(m => m.mensagemId);
+          const mensagemIds = unseen.map(m => m.mensagemId || m._id || m.id);
           try {
             await api.post('/marcar-mensagens-vistas', { ChatId: chatId, mensagemIds, userId });
             
-            // Atualizar localmente
-            setMessages(prev => prev.map(m => 
-              mensagemIds.includes(m.mensagemId) 
-                ? { ...m, vistos: Array.from(new Set([...(m.vistos || []).map(String), String(userId)])) }
-                : m
-            ));
+            // Atualizar localmente apenas se ainda não estiver marcado
+            setMessages(prev => prev.map(m => {
+              const vistos = Array.isArray(m.vistos) ? m.vistos : [];
+              const isUnseen = (m.mensagemId || m._id || m.id) && mensagemIds.includes(m.mensagemId || m._id || m.id);
+              if (isUnseen && !vistos.some(v => String(v.userId || v) === String(userId))) {
+                return { ...m, vistos: [...vistos, { userId: String(userId), vistoEm: new Date().toISOString() }] };
+              }
+              return m;
+            }));
           } catch (err) {
             console.warn('Falha ao marcar mensagens vistas:', err);
           }
@@ -221,6 +222,27 @@ const useChatOptimized = (user, selectedChatId) => {
               msg._id === data.message._id ? data.message : msg
             )
           );
+        } else if (data.type === 'messages_seen' && data.chatId === selectedChatId) {
+          // Atualizar status de visto das mensagens
+          setMessages(prev => 
+            prev.map(msg => {
+              if (data.mensagemIds.includes(msg.mensagemId || msg._id)) {
+                const existingVistos = Array.isArray(msg.vistos) ? msg.vistos : [];
+                const newVistos = [...existingVistos];
+                
+                // Adicionar userId se não estiver presente
+                if (!newVistos.some(visto => String(visto.userId || visto) === String(data.userId))) {
+                  newVistos.push({
+                    userId: data.userId,
+                    vistoEm: data.vistoEm
+                  });
+                }
+                
+                return { ...msg, vistos: newVistos };
+              }
+              return msg;
+            })
+          );
         }
       },
       onError: (error) => {
@@ -280,13 +302,7 @@ const useChatOptimized = (user, selectedChatId) => {
 
       // Remover mensagem temporária e adicionar a real
       if (response.data) {
-        const realMessage = {
-          mensagemId: response.data.mensagemId || response.data._id,
-          userId: String(userId),
-          conteudo: content.trim(),
-          publicadoEm: response.data.publicadoEm || new Date().toISOString(),
-          vistos: response.data.vistos || [{ userId: String(userId), vistoEm: new Date().toISOString() }]
-        };
+        const realMessage = response.data;
 
         setMessages(prev => {
           // Remove a mensagem temporária e adiciona a real

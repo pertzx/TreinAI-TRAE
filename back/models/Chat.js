@@ -30,7 +30,7 @@ const ChatSchema = new Schema({
                 tamanho: Number
             }],
             vistos: [{
-                userId: String,
+                userId: { type: String, required: true },
                 vistoEm: { type: Date, default: getBrazilDate }
             }],
             editado: { type: Boolean, default: false },

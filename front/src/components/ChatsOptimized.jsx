@@ -189,7 +189,7 @@ const ChatsOptimized = ({ user, tema }) => {
   const hoverClass = isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50';
 
   return (
-    <div className={`flex h-[600px] sm:h-[700px] md:h-[800px] rounded-lg overflow-hidden ${bgClass} ${textClass}`}>
+    <div className={`flex rounded-lg overflow-hidden ${bgClass} ${textClass}`}>
       {/* Sidebar de Chats */}
       <div className={`w-full sm:w-80 md:w-96 border-r ${borderClass} flex flex-col ${selectedChat ? 'hidden sm:flex' : 'flex'}`}>
         {/* Header */}
@@ -244,29 +244,45 @@ const ChatsOptimized = ({ user, tema }) => {
                   onClick={() => handleChatSelect(chat)}
                   className={`p-3 sm:p-4 cursor-pointer border-b ${borderClass} ${hoverClass} ${
                     isSelected ? (isDark ? 'bg-gray-800' : 'bg-blue-50') : ''
-                  }`}
+                  } ${hasUnread ? (isDark ? 'bg-blue-900/30 border-l-4 border-l-blue-500' : 'bg-blue-50/70 border-l-4 border-l-blue-500') : ''}`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <h3 className={`font-medium truncate text-sm sm:text-base ${hasUnread ? 'font-bold' : ''}`}>
+                        <h3 className={`font-medium truncate text-sm sm:text-base ${
+                          hasUnread ? 'font-bold text-blue-600 dark:text-blue-400' : ''
+                        }`}>
                           {otherUserName}
                         </h3>
                         {hasUnread && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                          <div className="flex items-center space-x-1">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 animate-pulse"></div>
+                            <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full font-medium">
+                              Nova
+                            </span>
+                          </div>
                         )}
                       </div>
                       {lastMessage && (
-                        <p className={`text-xs sm:text-sm text-gray-500 truncate mt-1 ${hasUnread ? 'font-medium' : ''}`}>
+                        <p className={`text-xs sm:text-sm truncate mt-1 ${
+                          hasUnread 
+                            ? 'font-medium text-gray-800 dark:text-gray-200' 
+                            : 'text-gray-500'
+                        }`}>
                           {lastMessage.conteudo || lastMessage.text || ''}
                         </p>
                       )}
                     </div>
-                    {lastMessage && (
-                      <div className="text-xs text-gray-400 ml-2 flex-shrink-0">
-                        {formatTime(lastMessage.publicadoEm || lastMessage.createdAt)}
-                      </div>
-                    )}
+                    <div className="flex flex-col items-end space-y-1">
+                      {lastMessage && (
+                        <div className="text-xs text-gray-400 flex-shrink-0">
+                          {formatTime(lastMessage.publicadoEm || lastMessage.createdAt)}
+                        </div>
+                      )}
+                      {hasUnread && (
+                        <div className="w-3 h-3 bg-red-500 rounded-full flex-shrink-0 animate-bounce"></div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -276,7 +292,7 @@ const ChatsOptimized = ({ user, tema }) => {
       </div>
 
       {/* Área de Mensagens */}
-      <div className={`flex-1 flex flex-col ${selectedChat ? 'flex' : 'hidden sm:flex'}`}>
+      <div className={`flex-1 max-h-full flex flex-col ${selectedChat ? 'flex' : 'hidden sm:flex'}`}>
         {selectedChat ? (
           <>
             {/* Header do Chat */}
@@ -325,8 +341,18 @@ const ChatsOptimized = ({ user, tema }) => {
               ) : (
                 messages.map((message, index) => {
                   const isOwn = String(message.userId) === String(userId);
+                  console.log(message)
                   const showDate = index === 0 || 
                     formatDate(message.publicadoEm) !== formatDate(messages[index - 1]?.publicadoEm);
+                  
+                  // Verificar se a mensagem foi vista pelo usuário atual
+                  let isMessageSeen = null
+                  isMessageSeen = message && message.vistos && message.vistos.find(visto => 
+                    String(visto.userId) === String(userId)
+                  );
+
+                  console.log(isMessageSeen)
+                  const isUnseenMessage = !isOwn && !isMessageSeen;
 
                   return (
                     <div key={message.mensagemId || index}>
@@ -336,18 +362,32 @@ const ChatsOptimized = ({ user, tema }) => {
                         </div>
                       )}
                       <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-lg ${
+                        <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-lg relative ${
                           isOwn 
                             ? 'bg-blue-500 text-white' 
-                            : isDark ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900'
+                            : isUnseenMessage
+                              ? (isDark ? 'bg-yellow-800/50 text-white border-2 border-yellow-500/50' : 'bg-yellow-100 text-gray-900 border-2 border-yellow-400/50')
+                              : (isDark ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900')
                         }`}>
+                          {isUnseenMessage && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                          )}
                           <p className="text-sm">{message.conteudo}</p>
-                          <div className={`text-xs mt-1 ${
-                            isOwn ? 'text-blue-100' : 'text-gray-500'
+                          <div className={`text-xs mt-1 flex items-center justify-between ${
+                            isOwn ? 'text-blue-100' : isUnseenMessage ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-500'
                           }`}>
-                            {formatTime(message.publicadoEm)}
-                            {message.vistos && message.vistos.length > 0 && isOwn && (
-                              <span className="ml-2">✓</span>
+                            <span>{formatTime(message.publicadoEm)}</span>
+                            {isOwn && (
+                              <div className="flex items-center gap-1">
+                                {message.vistos && message.vistos.length > 0 ? (
+                                  <>
+                                    <span className="text-green-300">✓✓</span>
+                                    <span className="text-xs">({message.vistos.length})</span>
+                                  </>
+                                ) : (
+                                  <span className="text-gray-300">✓</span>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>

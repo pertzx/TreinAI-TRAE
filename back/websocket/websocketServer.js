@@ -102,6 +102,9 @@ class ChatWebSocketServer {
         case 'leave_chat':
           this.handleLeaveChat(ws, message);
           break;
+        case 'mark_messages_seen':
+          this.handleMarkMessagesSeen(ws, message);
+          break;
         case 'ping':
           ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
           break;
@@ -111,6 +114,30 @@ class ChatWebSocketServer {
     } catch (error) {
       console.error('Erro ao processar mensagem WebSocket:', error);
     }
+  }
+
+  /**
+   * Manipula marcação de mensagens como vistas
+   * @param {WebSocket} ws - Conexão WebSocket
+   * @param {Object} message - Mensagem com chatId, mensagemIds
+   */
+  handleMarkMessagesSeen(ws, message) {
+    const { chatId, mensagemIds } = message;
+    if (!chatId || !Array.isArray(mensagemIds) || mensagemIds.length === 0) return;
+
+    const userId = ws.userId;
+    
+    // Broadcast para outros usuários no chat que as mensagens foram vistas
+    this.broadcastToChat(chatId, {
+      type: 'messages_seen',
+      chatId: chatId,
+      mensagemIds: mensagemIds,
+      userId: userId,
+      vistoEm: new Date(),
+      timestamp: new Date().toISOString()
+    }, userId); // Excluir o próprio usuário do broadcast
+
+    console.log(`👁️ Usuário ${userId} marcou ${mensagemIds.length} mensagens como vistas no chat ${chatId}`);
   }
 
 
