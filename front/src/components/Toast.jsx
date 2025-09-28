@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useRef, useCallback } from 'react';
 import { FaCheckCircle, FaExclamationTriangle, FaInfoCircle, FaTimes, FaTimesCircle } from 'react-icons/fa';
 
 // Context para compartilhar o estado dos toasts
@@ -31,13 +31,10 @@ const Toast = ({
   }, [duration]);
 
   const handleClose = () => {
-    // console.log('handleClose chamado');
     setIsAnimating(false);
     setTimeout(() => {
-      // console.log('Removendo toast após animação');
       setIsVisible(false);
       if (onClose) {
-        // console.log('Chamando onClose callback');
         onClose();
       }
     }, 300);
@@ -51,34 +48,31 @@ const Toast = ({
       bgColor: 'bg-gradient-to-r from-green-500 to-green-600',
       textColor: 'text-white',
       borderColor: 'border-green-400',
-      shadowColor: 'shadow-green-500/25'
     },
     error: {
       icon: FaTimesCircle,
       bgColor: 'bg-gradient-to-r from-red-500 to-red-600',
       textColor: 'text-white',
       borderColor: 'border-red-400',
-      shadowColor: 'shadow-red-500/25'
     },
     warning: {
       icon: FaExclamationTriangle,
       bgColor: 'bg-gradient-to-r from-yellow-500 to-yellow-600',
       textColor: 'text-white',
       borderColor: 'border-yellow-400',
-      shadowColor: 'shadow-yellow-500/25'
     },
     info: {
       icon: FaInfoCircle,
       bgColor: 'bg-gradient-to-r from-blue-500 to-blue-600',
       textColor: 'text-white',
       borderColor: 'border-blue-400',
-      shadowColor: 'shadow-blue-500/25'
     }
   };
 
   const config = typeConfig[type] || typeConfig.info;
   const IconComponent = config.icon;
 
+  // Position classes
   const positionClasses = {
     'top-right': 'top-4 right-4',
     'top-left': 'top-4 left-4',
@@ -89,17 +83,13 @@ const Toast = ({
   };
 
   return (
-    <div
-      className={`
-        fixed z-50 max-w-full mx-2
-        ${positionClasses[position]}
-        ${isAnimating ? 'animate-slide-in' : 'animate-slide-out'}
-      `}
-    >
+    <div className={`fixed ${positionClasses[position]} z-50 pointer-events-none`}>
       <div
         className={`
-          ${config.bgColor} ${config.textColor} ${config.borderColor} ${config.shadowColor}
-          border-l-4 p-4 rounded-lg shadow-xl
+          ${config.bgColor} ${config.textColor} ${config.borderColor}
+          max-w-sm w-full shadow-lg rounded-lg border-l-4
+          p-4 mb-4 transform transition-all duration-300 ease-in-out
+          ${isAnimating ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
           flex items-center space-x-3
           transition-all duration-300 ease-in-out
           backdrop-blur-sm pointer-events-auto
@@ -132,72 +122,122 @@ const Toast = ({
  */
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
+  const toastTimeouts = useRef(new Map());
+  const debounceTimeouts = useRef(new Map());
 
-  const addToast = (message, type = 'info', options = {}) => {
-    // console.log('addToast chamado:', { message, type, options });
+  // Função para gerar hash único baseado na mensagem e tipo
+  const generateToastHash = useCallback((message, type) => {
+    return `${type}-${message}`.replace(/\s+/g, '-').toLowerCase();
+  }, []);
 
+  // Função para limpar timeouts
+  const clearToastTimeout = useCallback((id) => {
+    if (toastTimeouts.current.has(id)) {
+      clearTimeout(toastTimeouts.current.get(id));
+      toastTimeouts.current.delete(id);
+    }
+  }, []);
+
+  const clearDebounceTimeout = useCallback((hash) => {
+    if (debounceTimeouts.current.has(hash)) {
+      clearTimeout(debounceTimeouts.current.get(hash));
+      debounceTimeouts.current.delete(hash);
+    }
+  }, []);
+
+  const addToast = useCallback((message, type = 'info', options = {}) => {
+    const hash = generateToastHash(message, type);
+    
     // Verificar se já existe um toast com a mesma mensagem e tipo
-    const existingToast = toasts.find(toast =>
-      toast.message === message && toast.type === type
-    );
-
+    const existingToast = toasts.find(toast => toast.hash === hash);
+    
     if (existingToast) {
-      // console.log('Toast duplicado detectado, ignorando:', { message, type });
+      // Se já existe, apenas atualiza o timestamp para "renovar" o toast
+      clearToastTimeout(existingToast.id);
+      
+      const duration = options.duration || 5000;
+      if (duration > 0) {
+        const timeoutId = setTimeout(() => {
+          removeToast(existingToast.id);
+        }, duration);
+        toastTimeouts.current.set(existingToast.id, timeoutId);
+      }
+      
       return existingToast.id;
     }
 
-    const id = Date.now() + Math.random();
-    // console.log('Criando novo toast:', { id, message, type, options });
+    // Implementar debounce para evitar múltiplas chamadas rápidas
+    clearDebounceTimeout(hash);
+    
+    const debounceTimeout = setTimeout(() => {
+      const id = Date.now() + Math.random();
+      const toast = {
+        id,
+        hash,
+        message,
+        type,
+        timestamp: Date.now(),
+        ...options
+      };
 
-    const toast = {
-      id,
-      message,
-      type,
-      ...options
-    };
+      setToasts(prev => {
+        // Verificar novamente se não foi adicionado durante o debounce
+        const stillExists = prev.find(t => t.hash === hash);
+        if (stillExists) {
+          return prev;
+        }
+        return [...prev, toast];
+      });
 
-    setToasts(prev => {
-      const newToasts = [...prev, toast];
-      // console.log('Atualizando toasts:', newToasts);
-      return newToasts;
-    });
+      // Auto-remove após duração especificada
+      const duration = options.duration || 5000;
+      if (duration > 0) {
+        const timeoutId = setTimeout(() => {
+          removeToast(id);
+        }, duration);
+        toastTimeouts.current.set(id, timeoutId);
+      }
+    }, 100); // Debounce de 100ms
 
-    // Auto-remove após duração especificada
-    const duration = options.duration || 5000;
-    if (duration > 0) {
-      setTimeout(() => {
-        removeToast(id);
-      }, duration);
-    }
+    debounceTimeouts.current.set(hash, debounceTimeout);
+    
+    return hash; // Retorna o hash como identificador temporário
+  }, [toasts, generateToastHash, clearToastTimeout, clearDebounceTimeout]);
 
-    return id;
-  };
+  const removeToast = useCallback((id) => {
+    clearToastTimeout(id);
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, [clearToastTimeout]);
 
-  const removeToast = (id) => {
-    // console.log('Removendo toast:', id);
-    setToasts(prev => {
-      const filtered = prev.filter(toast => toast.id !== id);
-      // console.log('Toasts após remoção:', filtered);
-      return filtered;
-    });
-  };
-
-  const clearAllToasts = () => {
-    // console.log('Limpando todos os toasts');
+  const clearAllToasts = useCallback(() => {
+    // Limpar todos os timeouts
+    toastTimeouts.current.forEach(timeout => clearTimeout(timeout));
+    toastTimeouts.current.clear();
+    debounceTimeouts.current.forEach(timeout => clearTimeout(timeout));
+    debounceTimeouts.current.clear();
+    
     setToasts([]);
-  };
+  }, []);
 
-  const showSuccess = (message, options = {}) =>
-    addToast(message, 'success', options);
+  // Cleanup ao desmontar o componente
+  useEffect(() => {
+    return () => {
+      toastTimeouts.current.forEach(timeout => clearTimeout(timeout));
+      debounceTimeouts.current.forEach(timeout => clearTimeout(timeout));
+    };
+  }, []);
 
-  const showError = (message, options = {}) =>
-    addToast(message, 'error', options);
+  const showSuccess = useCallback((message, options = {}) =>
+    addToast(message, 'success', options), [addToast]);
 
-  const showWarning = (message, options = {}) =>
-    addToast(message, 'warning', options);
+  const showError = useCallback((message, options = {}) =>
+    addToast(message, 'error', options), [addToast]);
 
-  const showInfo = (message, options = {}) =>
-    addToast(message, 'info', options);
+  const showWarning = useCallback((message, options = {}) =>
+    addToast(message, 'warning', options), [addToast]);
+
+  const showInfo = useCallback((message, options = {}) =>
+    addToast(message, 'info', options), [addToast]);
 
   const value = {
     toasts,
@@ -209,8 +249,6 @@ export const ToastProvider = ({ children }) => {
     showWarning,
     showInfo
   };
-
-  // console.log('ToastProvider render, toasts atuais:', toasts);
 
   return (
     <ToastContext.Provider value={value}>
@@ -229,7 +267,6 @@ export const useToast = () => {
     throw new Error('useToast deve ser usado dentro de um ToastProvider');
   }
 
-  // console.log('useToast chamado, toasts disponíveis:', context.toasts);
   return context;
 };
 
@@ -239,10 +276,22 @@ export const useToast = () => {
 export const ToastContainer = ({ toasts, onRemoveToast, position = 'top-right' }) => {
   if (!toasts || toasts.length === 0) return null;
 
-  // console.log('ToastContainer renderizando com toasts:', toasts);
+  // Define flex direction based on vertical position
+  const isVertical = position.includes('top') || position.includes('bottom');
+  const flexDirection = isVertical ? 'flex-col' : 'flex-row';
+
+  // Define alignment classes based on position
+  const alignmentClasses = {
+    'top-right': 'items-end',
+    'top-left': 'items-start',
+    'bottom-right': 'items-end justify-end',
+    'bottom-left': 'items-start justify-end',
+    'top-center': 'items-center',
+    'bottom-center': 'items-center justify-end'
+  };
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-50">
+    <div className={`fixed inset-0 pointer-events-none z-50 flex ${flexDirection} ${alignmentClasses[position]} p-4 gap-2`}>
       {toasts.map((toast) => (
         <Toast
           key={toast.id}
@@ -251,7 +300,6 @@ export const ToastContainer = ({ toasts, onRemoveToast, position = 'top-right' }
           duration={0} // Controlado pelo hook
           position={position}
           onClose={() => {
-            // console.log('Toast onClose chamado para ID:', toast.id);
             onRemoveToast(toast.id);
           }}
           showCloseButton={toast.showCloseButton !== false}

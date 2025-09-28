@@ -5,23 +5,25 @@ import { useCSRF } from "../hooks/useCSRF";
 import LoadingSpinner, { ButtonSpinner } from '../components/LoadingSpinner';
 import { handleError, clearErrorAfterDelay, isAuthError } from '../utils/errorHandler';
 import { useToast } from '../components/Toast';
-import { useAuth } from '../contexts/AuthContext';
+import api from '../Api.js';
 
 function Login({ plano }) {
   const [mode, setMode] = useState("login"); // login ou signup
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigate = useNavigate();
   const { csrfToken, loading: csrfLoading, getValidToken, clearToken } = useCSRF();
   const { showError, showSuccess } = useToast();
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // Evitar redirecionamento dentro do render
+  // Verificar se usuário já está autenticado
   useEffect(() => {
-    if (isAuthenticated && !authLoading) {
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsAuthenticated(true);
       navigate("/dashboard");
     }
-  }, [isAuthenticated, authLoading, navigate]);
+  }, [navigate]);
 
   const handleBack = () => {
     if (window.history.state && window.history.state.idx > 0) {
@@ -79,15 +81,34 @@ function Login({ plano }) {
         name: data.name // Para signup
       };
 
-      // Usar o método login do contexto de autenticação
-      const result = await login(data.email, data.password);
+      let response;
       
-      if (result.success) {
-        setMsg(result.message);
-        // Redirecionar para dashboard (será feito pelo useEffect)
+      if (mode === "login") {
+        // Fazer requisição de login diretamente
+        response = await api.post('/login', {
+          email: data.email,
+          password: data.password
+        });
+      } else {
+        // Fazer requisição de signup diretamente
+        response = await api.post('/signup', {
+          name: data.name,
+          email: data.email,
+          password: data.password
+        });
+      }
+      
+      console.log(response)
+
+      if (response.status === 200) {
+        // Armazenar token JWT no localStorage
+        localStorage.setItem('token', response.data.token);
+
+        showSuccess(response.data.message || `${mode === 'login' ? 'Login' : 'Cadastro'} realizado com sucesso!`);
+        setIsAuthenticated(true);
         navigate("/dashboard");
       } else {
-        showError(result.message);
+        showError(response.data.message || 'Erro na autenticação');
       }
       
       setLoading(false);
@@ -240,13 +261,47 @@ function Login({ plano }) {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white rounded-lg py-2.5 font-semibold transition flex items-center justify-center"
+            disabled={loading || csrfLoading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition flex items-center justify-center gap-2"
           >
-            {loading && <ButtonSpinner />}
-            {mode === "login" ? "Entrar" : "Criar conta"}
+            {loading ? (
+              <>
+                <ButtonSpinner />
+                {mode === "login" ? "Entrando..." : "Criando conta..."}
+              </>
+            ) : (
+              mode === "login" ? "Entrar" : "Criar conta"
+            )}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-xs text-slate-400">
+            {mode === "login" ? "Não tem uma conta?" : "Já tem uma conta?"}{" "}
+            <button
+              type="button"
+              onClick={() => setMode(mode === "login" ? "signup" : "login")}
+              className="text-blue-400 hover:text-blue-300 font-medium"
+            >
+              {mode === "login" ? "Criar conta" : "Entrar"}
+            </button>
+          </p>
+        </div>
+
+        {plano && plano !== 'free' && (
+          <div className="mt-4 p-3 bg-blue-600/20 border border-blue-600/30 rounded-lg">
+            <p className="text-xs text-blue-300 text-center">
+              Você selecionou o plano: <strong className="capitalize">{plano}</strong>
+            </p>
+          </div>
+        )}
+
+        {/* Loading overlay */}
+        {(loading || csrfLoading) && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-2xl">
+            <LoadingSpinner />
+          </div>
+        )}
       </div>
     </div>
   );

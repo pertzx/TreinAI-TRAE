@@ -124,6 +124,10 @@ app.use('/reports', apiSecurityHeaders, reportRoutes);
 
 // Iniciar servidor
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+const HOST = process.env.HOST || '0.0.0.0'; // Permite conexões de qualquer IP
+
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Servidor rodando em ${HOST}:${PORT}`);
+  console.log(`📱 Acesso local: http://localhost:${PORT}`);
+  console.log(`🌐 Acesso rede: http://192.168.1.2:${PORT}`);
 });

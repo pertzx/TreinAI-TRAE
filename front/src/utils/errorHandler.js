@@ -167,7 +167,7 @@ export const getErrorMessage = (error, context = 'api') => {
  */
 export const handleError = (error, showError, context = 'api', onError) => {
   const message = getErrorMessage(error, context);
-  
+  console.log(error)
   if (showError) {
     showError(message);
   }
