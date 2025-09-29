@@ -468,7 +468,7 @@ export const atualizarPerfil = async (req, res) => {
 
     // === avatar (req.file) ===
     if (req.file) {
-      const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/image-perfil/${req.file.filename}`;
+      const avatarUrl = `/uploads/image-perfil/${req.file.filename}`;
 
       // tenta remover avatar antigo se local em /uploads/
       try {

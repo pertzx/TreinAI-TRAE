@@ -77,9 +77,10 @@ const validate = (schema) => {
 
 // Sanitização de entrada
 const sanitizeInput = (req, res, next) => {
-    if (req.body) {
+    if (req && req.body) {
         for (const key in req.body) {
             if (typeof req.body[key] === 'string') {
+                console.log(req.body[key])
                 // Remove caracteres perigosos
                 req.body[key] = req.body[key]
                     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')

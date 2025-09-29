@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import Logo from '../../../components/Logo';
 import { LuMenu } from 'react-icons/lu';
+import { buildImageUrl } from '../../../utils/imageUtils';
 
 const Header = ({ user, tema }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -63,7 +64,7 @@ const Header = ({ user, tema }) => {
 
           <NavLink to="/dashboard/perfil" className="w-10 h-10 rounded-full bg-blue-600"
             style={{
-              backgroundImage: `url(${user.avatar})`,
+              backgroundImage: `url(${buildImageUrl(user.avatar)})`,
               backgroundPosition: 'center',
               backgroundSize: 'cover',
               backgroundRepeat: 'no-repeat'

@@ -23,6 +23,7 @@ const __dirname = path.dirname(__filename);
  *   - maxWidth: largura máxima (px) para redimensionamento (default: 2000)
  */
 export const upload = (dir, fieldName, opts = {}) => {
+  console.log('[upload] Iniciando upload com dir:', dir, 'fieldName:', fieldName, 'opts:', opts);
   if (!dir || !fieldName) throw new Error('upload(dir, fieldName) precisa de dois parâmetros.');
 
   const targetMaxBytes = typeof opts.maxBytes === 'number' ? opts.maxBytes : (1 * 1024 * 1024); // 1 MB
@@ -31,15 +32,20 @@ export const upload = (dir, fieldName, opts = {}) => {
 
   // caminho absoluto do diretório de upload
   const uploadDir = path.isAbsolute(dir) ? dir : path.join(process.cwd(), dir);
+  console.log('[upload] uploadDir absoluto:', uploadDir);
 
   // garante que a pasta exista
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+  if (!fs.existsSync(uploadDir)) {
+    console.log('[upload] Criando diretório:', uploadDir);
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
 
   // usar memoryStorage para processar (compressão) antes de persistir
   const storage = multer.memoryStorage();
 
   const fileFilter = (req, file, cb) => {
-    if (/^image\/(jpeg|png|webp|gif|bmp)$/.test(file.mimetype)) cb(null, true);
+    console.log('[upload] fileFilter chamado para arquivo:', file.originalname, 'mimetype:', file.mimetype);
+    if (/^image\/(jpeg|png|webp|gif|bmp|jpg)$/.test(file.mimetype)) cb(null, true);
     else cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'Apenas arquivos de imagem são permitidos.'), false);
   };
 
@@ -50,23 +56,31 @@ export const upload = (dir, fieldName, opts = {}) => {
 
   // middleware final que primeiro guarda em memória (multer), depois processa com sharp e escreve no disco
   return (req, res, next) => {
+    console.log('[upload] Middleware multer executado para fieldName:', fieldName);
     const mw = uploader.single(fieldName);
     mw(req, res, async (err) => {
       if (err) {
-        // multer error (limit, etc)
+        console.error('[upload] Erro no multer:', err);
         return next(err);
       }
 
       // se não houver arquivo (campo vazio), apenas seguir
-      if (!req.file || !req.file.buffer) return next();
+      if (!req.file || !req.file.buffer) {
+        console.log('[upload] Nenhum arquivo enviado ou buffer vazio.');
+        return next();
+      }
+
+      console.log('[upload] Arquivo recebido:', req.file.originalname, 'tamanho:', req.file.size, 'mimetype:', req.file.mimetype);
 
       try {
         const originalBuffer = req.file.buffer;
         let image = sharp(originalBuffer, { failOnError: true });
         const metadata = await image.metadata().catch(() => ({}));
+        console.log('[upload] Metadados obtidos:', metadata);
 
         // tentar redimensionar se muito grande em dimensão
         if (metadata.width && metadata.width > maxWidth) {
+          console.log('[upload] Redimensionando largura de', metadata.width, 'para', maxWidth);
           image = image.resize({ width: maxWidth, withoutEnlargement: true });
         }
 
@@ -84,9 +98,11 @@ export const upload = (dir, fieldName, opts = {}) => {
 
             // gerar buffer
             const buff = await pipeline.toBuffer();
+            console.log(`[upload] Tentativa ${fmt} qualidade ${q}: buffer size = ${buff.length}`);
             if (buff.length <= targetMaxBytes) {
               finalBuffer = buff;
               finalFormat = fmt;
+              console.log('[upload] Formato e qualidade escolhidos:', fmt, 'qualidade:', q);
               break;
             }
             // se ainda não atingiu, continue reduzindo qualidade
@@ -96,15 +112,18 @@ export const upload = (dir, fieldName, opts = {}) => {
 
         // se não conseguimos comprimir abaixo do target, fazer uma última tentativa forcando dimensões menores
         if (!finalBuffer) {
+          console.log('[upload] Tentativa final com resize forcado e webp qualidade 30');
           const reduced = await image.clone().resize({ width: Math.min(1024, maxWidth), withoutEnlargement: true }).webp({ quality: 30 }).toBuffer().catch(() => null);
           if (reduced && reduced.length <= targetMaxBytes) {
             finalBuffer = reduced;
             finalFormat = 'webp';
+            console.log('[upload] Última tentativa bem-sucedida com webp qualidade 30');
           }
         }
 
         if (!finalBuffer) {
           const errMsg = `Não foi possível reduzir a imagem para ${Math.round(targetMaxBytes / 1024)} KB. Escolha uma imagem menor.`;
+          console.error('[upload] Erro:', errMsg);
           const e = new Error(errMsg);
           e.status = 400;
           throw e;
@@ -117,9 +136,11 @@ export const upload = (dir, fieldName, opts = {}) => {
         const unique = `${getBrazilDate()}-${Math.random().toString(36).slice(2, 8)}-${uuidv4().slice(0, 6)}`;
         const filename = `${unique}__${baseName}${ext}`;
         const filepath = path.join(uploadDir, filename);
+        console.log('[upload] Nome do arquivo final:', filename, 'caminho:', filepath);
 
         // escreve arquivo otimizado no disco
         await fs.promises.writeFile(filepath, finalBuffer);
+        console.log('[upload] Arquivo salvo com sucesso em:', filepath);
 
         // preencher req.file com os dados do arquivo gravado
         req.file.filename = filename;
@@ -127,9 +148,10 @@ export const upload = (dir, fieldName, opts = {}) => {
         req.file.size = finalBuffer.length;
         req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : (finalFormat === 'jpeg' ? 'image/jpeg' : req.file.mimetype);
 
+        console.log('[upload] Finalizado com sucesso.');
         return next();
       } catch (e) {
-        // garantir que erros de processamento sejam tratados
+        console.error('[upload] Erro no processamento:', e);
         return next(e);
       }
     });

@@ -15,6 +15,7 @@ import { fileURLToPath } from 'url';
 import rateLimit from 'express-rate-limit';
 import { securityHeaders, apiSecurityHeaders } from './middlewares/securityHeaders.js';
 import redisCache from './config/redis.js';
+import { sanitizeInput } from './middlewares/validationMiddleware.js';
 
 // cria __filename e __dirname em ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -86,6 +87,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(sanitizeInput);
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -132,7 +134,7 @@ const HOST = process.env.HOST || '0.0.0.0'; // Permite conexões de qualquer IP
 const server = app.listen(PORT, HOST, () => {
   console.log(`🚀 Servidor rodando em ${HOST}:${PORT}`);
   console.log(`📱 Acesso local: http://localhost:${PORT}`);
-  console.log(`🌐 Acesso rede: http://192.168.1.2:${PORT}`);
+  console.log(`🌐 Acesso rede: http://192.168.3.102:${PORT}`);
 });
 
 // Inicializar WebSocket Server

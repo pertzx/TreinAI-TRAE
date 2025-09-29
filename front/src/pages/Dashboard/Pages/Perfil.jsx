@@ -3,6 +3,7 @@ import api from '../../../Api';
 import BuscarImagem from '../../../components/BuscarImagens';
 import locationsRaw from '../../../data/locations.json';
 import { useToast } from '../../../components/Toast';
+import { buildImageUrl } from '../../../utils/imageUtils';
 
 const Perfil = ({ user, tema = 'light' }) => {
   const isDark = tema === 'dark';
@@ -361,7 +362,7 @@ const Perfil = ({ user, tema = 'light' }) => {
       {/* Avatar + location badge */}
       <div className="avatar-container flex flex-col items-center gap-2">
         {avatar ? (
-          <img src={avatar} alt="" className={`w-32 h-32 rounded-full object-cover shadow-md ${isDark ? 'bg-blue-700' : 'bg-blue-300'}`} />
+          <img src={buildImageUrl(avatar)} alt="" className={`w-32 h-32 rounded-full object-cover shadow-md ${isDark ? 'bg-blue-700' : 'bg-blue-300'}`} />
         ) : (
           <BuscarImagem query={'foto de perfil icone'} className={`w-32 h-32 rounded-full object-cover shadow-md ${isDark ? 'bg-gray-800' : 'bg-blue-300'}`} />
         )}

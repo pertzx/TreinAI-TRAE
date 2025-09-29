@@ -9,7 +9,7 @@ if (!SECRET_JWT) {
 
 export const verificarToken = (req, res, next) => {
     // Primeiro tenta pegar do cookie httpOnly
-    let token = req.cookies?.authToken;
+    let token = req.cookies?.authToken || req.cookies?.auth_token;
     
     // Fallback para header Authorization (compatibilidade temporária)
     if (!token) {

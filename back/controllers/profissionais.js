@@ -207,9 +207,7 @@ export const publicarProfissional = async (req, res) => {
     if (req.file) {
       try {
         const filename = req.file.filename;
-        const host = req.get && req.get("host") ? req.get("host") : (req.headers && req.headers.host) || "localhost";
-        const protocol = req.protocol || "http";
-        imageUrl = `${protocol}://${host}/uploads/image-profissional/${filename}`;
+        imageUrl = `/uploads/image-profissional/${filename}`;
       } catch (err) {
         console.warn("Falha ao montar imageUrl do arquivo enviado:", err);
         imageUrl = null;
@@ -221,9 +219,7 @@ export const publicarProfissional = async (req, res) => {
           const files = fs.readdirSync(UPLOAD_DIR);
           const found = files.find(f => f.includes(userId));
           if (found) {
-            const host = req.get && req.get("host") ? req.get("host") : (req.headers && req.headers.host) || "localhost";
-            const protocol = req.protocol || "http";
-            imageUrl = `${protocol}://${host}/uploads/image-profissional/${found}`;
+            imageUrl = `/uploads/image-profissional/${found}`;
           }
         }
       } catch (err) {
@@ -298,9 +294,7 @@ export const editarProfissional = async (req, res) => {
     // helper para construir imageUrl a partir do filename
     const buildImageUrl = (filename) => {
       if (!filename) return null;
-      const host = req.get && req.get('host') ? req.get('host') : (req.headers && req.headers.host) || 'localhost';
-      const protocol = req.protocol || 'http';
-      return `${protocol}://${host}/uploads/image-profissional/${filename}`;
+      return `/uploads/image-profissional/${filename}`;
     };
 
     // helper para deletar arquivo antigo se estiver na pasta de uploads

@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { login, dashboard, signup, changeTheme, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser } from '../controllers/authController.js';
 import { verificarToken } from '../middlewares/authMiddleware.js';
-import { validateLogin, validateSignup, validateUpdateProfile, sanitizeInput } from '../middlewares/validationMiddleware.js';
+import { validateLogin, validateSignup, validateUpdateProfile } from '../middlewares/validationMiddleware.js';
 import { validateEmailReal, validateEmailBasic } from '../middlewares/emailValidation.js';
 import { loginRateLimit, signupRateLimit, uploadRateLimit, passwordResetRateLimit, adminRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { validateCSRF, validateCSRFAuth, getCSRFToken, provideCSRFToken } from '../middlewares/csrfMiddleware.js';
@@ -44,14 +44,14 @@ const router = Router();
 // Rota para obter token CSRF
 router.get('/csrf-token', getCSRFToken);
 
-router.post('/login', loginRateLimit, validateCSRFAuth, sanitizeInput, validateEmailBasic, validateLogin, login);
-router.post('/signup', signupRateLimit, validateCSRFAuth, sanitizeInput, validateEmailReal, validateSignup, signup);
+router.post('/login', loginRateLimit, validateCSRFAuth, validateEmailBasic, validateLogin, login);
+router.post('/signup', signupRateLimit, validateCSRFAuth, validateEmailReal, validateSignup, signup);
 router.get('/dashboard', verificarToken, dashboard);
 router.post('/create-checkout-session', CreateCheckoutSession);
 router.get('/session-status', SessionStatus); // verificar status
 router.post('/change-theme', changeTheme)
 router.post('/complete-onboarding', completeOnboarding)
-router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, sanitizeInput, validateUpdateProfile, upload('uploads/image-perfil', 'avatar'), atualizarPerfil)
+router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, upload('uploads/image-perfil', 'avatar'), atualizarPerfil)
 router.post('/criar-meusTreinos', carregarTreinos);
 // IA routes
 router.post('/gerar-exercicio-ia', 
@@ -173,6 +173,8 @@ router.post('/atualizar-plano', atualizarPlano)
 router.get('/procurar-exercicio', procurarExercicio);
 router.post('/adicionar-exercicio', adicionarExercicio);
 router.post('/adicionar-report-exercicio', adicionarReport);
+
+// profissionarl
 router.get('/profissionais', profissionais);
 router.post('/publicar-profissional', uploadRateLimit, uploadSecurityHeaders, upload('uploads/image-profissional', 'image'), publicarProfissional);
 router.post('/editar-profissional', uploadRateLimit, uploadSecurityHeaders, upload('uploads/image-profissional', 'image'), editarProfissional);

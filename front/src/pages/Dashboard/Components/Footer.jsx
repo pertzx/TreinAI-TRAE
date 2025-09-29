@@ -5,6 +5,7 @@ import { FiInstagram, FiMail, FiGithub, FiArrowUp, FiUser, FiLogOut } from 'reac
 import Logo from '../../../components/Logo';
 import { getBrazilDate } from '../../../../../back/helpers/getBrazilDate';
 import api from '../../../Api';
+import { buildImageUrl } from '../../../utils/imageUtils';
 
 export default function Footer({
   tema = 'dark',
@@ -112,7 +113,7 @@ export default function Footer({
                 <div className={`sm:flex items-center gap-3 px-3 py-2 rounded-md ${profileBg} border`}>
                   <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                     {user?.avatar ? (
-                      <img src={user.avatar} alt={user.name || user.username || 'user'} className="w-full h-full object-cover" />
+                <img src={buildImageUrl(user.avatar)} alt={user.name || user.username || 'user'} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-sm font-medium text-gray-700">{(user?.name || user?.username || 'U').charAt(0).toUpperCase()}</span>
                     )}

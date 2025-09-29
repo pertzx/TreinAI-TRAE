@@ -1,4 +1,5 @@
 import React from 'react';
+import { buildImageUrl } from '../utils/imageUtils';
 
 /**
  * Componente de Avatar do Usuário
@@ -64,7 +65,7 @@ const UserAvatar = ({ user, size = 'medium', className = '' }) => {
     return (
       <div className={`${sizeClass} rounded-full overflow-hidden flex-shrink-0 ${className}`}>
         <img
-          src={avatar}
+          src={buildImageUrl(avatar)}
           alt={`Avatar de ${username}`}
           className="w-full h-full object-cover"
           onError={(e) => {

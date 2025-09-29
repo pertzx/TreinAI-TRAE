@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../Api'; // sua instância axios
 import locationsData from '../../../data/locations.json';
+import { buildImageUrl } from '../../../utils/imageUtils';
 
 /* -------------------- Constantes / mocks (mantive os seus) -------------------- */
 const TABS = {
@@ -263,6 +264,7 @@ export default function Encontrar({ user, tema = 'dark' }) {
         const normalized = items.map(it => ({
           id: it._id || it.profissionalId || it.userId || (it.id ?? ''),
           name: it.profissionalName || it.name || it.username || '—',
+          biografia: it.biografia || '',
           title: it.especialidade || it.title || '—',
           cidade: it.city || it.cidade || '',
           estado: it.state || it.estado || '',
@@ -701,20 +703,26 @@ export default function Encontrar({ user, tema = 'dark' }) {
               <div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {profissionais.length ? profissionais.map(p => (
-                    <div key={p.id || p.name} className={`p-4 rounded-xl ${themeClass(temaValue, 'bg-white', 'bg-gray-800')} shadow-sm border`}>
-                      <div className="flex flex-wrap items-start gap-4">
+                    <div key={p.id || p.name} style={{
+                      backgroundImage: `url(${buildImageUrl(p.imageUrl)})`,
+                      backgroundPosition: 'center',
+                      backgroundSize: 'cover',
+                      backgroundRepeat: 'no-repeat'
+                    }} className={`rounded-xl ${themeClass(temaValue, 'bg-white', 'bg-gray-800')} shadow-sm border`}>
+                      <div className="p-2 rounded-xl flex bg-gradient-to-b from-black/80 to-black/0 flex-wrap items-start gap-4">
                         <div className="w-16 h-16 rounded-full overflow-hidden border flex-shrink-0">
                           {p.imageUrl ? (
-                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                  <img src={buildImageUrl(p.imageUrl)} alt={p.name} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gray-200 text-black">{(p.name || '—')[0]}</div>
                           )}
                         </div>
 
                         <div className="flex-1">
-                          <div className="font-semibold">{p.name}</div>
-                          <div className="text-sm text-gray-500">{p.title}</div>
-                          <div className="text-xs text-gray-400 mt-2">{p.cidade} — {p.estado} — {p.country || '—'}</div>
+                          <div className="font-semibold text-white">{p.name}</div>
+                          <div className="font-normal text-white">{p.biografia}</div>
+                          <div className="text-sm text-gray-200 uppercase">{p.title}</div>
+                          <div className="text-xs text-gray-100 mt-2 uppercase">{p.cidade} — {p.estado} — {p.country || '—'}</div>
                         </div>
 
                         <div className="flex flex-col gap-2 items-end">
@@ -772,7 +780,7 @@ export default function Encontrar({ user, tema = 'dark' }) {
                     <div
                       key={l.id || l.localName}
                       style={{
-                        backgroundImage: `url(${l.imageUrl})`,
+                        backgroundImage: `url(${buildImageUrl(l.imageUrl)})`,
                         backgroundPosition: 'center',
                         backgroundSize: 'cover',
                         backgroundRepeat: 'no-repeat',
@@ -781,7 +789,7 @@ export default function Encontrar({ user, tema = 'dark' }) {
                     >
                       <div className="flex flex-wrap p-4 items-start bg-gradient-to-b rounded-2xl from-black/80 to-black/0 gap-4">
                         <div className="w-16 h-16 rounded-md overflow-hidden border flex-shrink-0 bg-gray-200">
-                          {l.imageUrl ? <img src={l.imageUrl} alt={l.localName} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-black">LK</div>}
+                          {l.imageUrl ? <img src={buildImageUrl(l.imageUrl)} alt={l.localName} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-black">LK</div>}
                         </div>
 
                         <div className="flex-1">

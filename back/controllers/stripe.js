@@ -655,9 +655,8 @@ export const StripeWebhook = async (req, res) => {
                 // mesmo se mover falhar, podemos tentar criar local com imageUrl null ou registrar para revisão
               }
 
-              // montar imageUrl a partir de process.env.URL (webhook não tem req)
-              const baseUrl = (process.env.URL || '').replace(/\/$/, '');
-              const imageUrl = pending.filename ? `${baseUrl}/uploads/image-local/${pending.filename}` : null;
+              // montar imageUrl apenas com path relativo
+              const imageUrl = pending.filename ? `/uploads/image-local/${pending.filename}` : null;
 
               // checar duplicidade (por userId+localName+localType)
               let exists = null;

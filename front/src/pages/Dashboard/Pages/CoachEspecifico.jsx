@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../../../Api'; // sua instância axios
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
+import { buildImageUrl } from '../../../utils/imageUtils';
 
 function themeClass(tema, lightClass, darkClass) {
   return tema === 'light' ? lightClass : darkClass;
@@ -216,7 +217,7 @@ const CoachEspecifico = ({ user, tema = 'dark' }) => {
           <div className="flex gap-4">
             <div className="w-28 h-28 rounded overflow-hidden border">
               {profissional.imageUrl ? (
-                <img src={profissional.imageUrl} alt={profissional.profissionalName} className="w-full h-full object-cover" />
+                  <img src={buildImageUrl(profissional.imageUrl)} alt={profissional.profissionalName} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-100 text-xs">Sem imagem</div>
               )}
@@ -256,7 +257,7 @@ const CoachEspecifico = ({ user, tema = 'dark' }) => {
                 </button>
 
                 <button
-                  onClick={() => window.open(profissional.imageUrl || '#', '_blank')}
+                  onClick={() => window.open(buildImageUrl(profissional.imageUrl) || '#', '_blank')}
                   className="px-3 py-2 rounded bg-gray-100 text-black"
                 >
                   Ver imagem

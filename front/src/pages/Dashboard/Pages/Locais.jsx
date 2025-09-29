@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import api from '../../../Api'
 import locationsRaw from '../../../data/locations.json'
+import { buildImageUrl } from '../../../utils/imageUtils'
 
 // Componente Locais — exibe 2 colunas:
 //  - Visualizar Meus Locais (com botão cancelar assinatura / deletar local / editar)
@@ -596,7 +597,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
                   {/* thumbnail: prefer local.imageUrl, se não tiver, mostra placeholder */}
                   <div className="w-20 h-12 bg-slate-100 rounded overflow-hidden flex-shrink-0">
                     {local.imageUrl ? (
-                      <img src={local.imageUrl} alt={local.localName} className="w-full h-full object-cover" />
+                  <img src={buildImageUrl(local.imageUrl)} alt={local.localName} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Sem imagem</div>
                     )}

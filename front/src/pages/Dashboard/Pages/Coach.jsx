@@ -8,6 +8,7 @@ import MeusTreinos from './MeusTreinos';
 import HistoricoChart from '../Components/HistoricoChart';
 import ChatNutriAI from '../Components/ChatNutriAi';
 import { useToast } from '../../../components/Toast';
+import { buildImageUrl } from '../../../utils/imageUtils';
 
 const base = {
   card: 'p-4',
@@ -163,7 +164,7 @@ const Coach = ({ user, tema = 'dark' }) => {
     if (!createForm.country) return 'Escolha o país.';
     if (!createForm.state) return 'Escolha o estado.';
     if (!createForm.city) return 'Escolha a cidade.';
-    if (!createImageFile) return 'Envie uma imagem.';
+    // Imagem é opcional - removida validação obrigatória
     return null;
   };
 
@@ -220,7 +221,7 @@ const Coach = ({ user, tema = 'dark' }) => {
       lat: profissional.location?.coordinates ? String(profissional.location.coordinates[1]) : '',
       lng: profissional.location?.coordinates ? String(profissional.location.coordinates[0]) : ''
     });
-    setEditImageFile(null); setEditImagePreview(profissional.imageUrl || null); setRemoveImageFlag(false);
+    setEditImageFile(null); setEditImagePreview(buildImageUrl(profissional.imageUrl) || null); setRemoveImageFlag(false);
     if (profissional.country) {
       loadStatesForCountry(profissional.country);
       if (profissional.state) loadCitiesForState(profissional.country, profissional.state);
@@ -235,7 +236,7 @@ const Coach = ({ user, tema = 'dark' }) => {
     if (f) {
       const preview = URL.createObjectURL(f);
       setEditImageFile(f); setEditImagePreview(preview); setRemoveImageFlag(false);
-    } else { setEditImageFile(null); setEditImagePreview(profissional?.imageUrl || null); }
+    } else { setEditImageFile(null); setEditImagePreview(profissional?.imageUrl ? buildImageUrl(profissional.imageUrl) : null); }
   };
 
   const handleToggleEditMode = () => { setEditMode(prev => !prev); };
@@ -256,8 +257,10 @@ const Coach = ({ user, tema = 'dark' }) => {
       if (editForm.lat !== '') form.append('lat', String(editForm.lat));
       if (editForm.lng !== '') form.append('lng', String(editForm.lng));
       if (editImageFile) form.append('image', editImageFile);
+      if (editImageFile) console.log('Enviando a imagem...')
       if (removeImageFlag) form.append('removeImage', '1');
       const res = await api.post('/editar-profissional', form);
+      console.log(res)
       const data = res?.data;
       if (data && data.success) {
         const updated = data.profissional || data;
@@ -509,7 +512,7 @@ const Coach = ({ user, tema = 'dark' }) => {
             <div className="flex gap-4 items-start">
               <div className="w-20 h-20 md:w-28 md:h-28 rounded-xl overflow-hidden border flex-shrink-0 bg-gray-200">
                 {profissional?.imageUrl ? (
-                  <img src={profissional.imageUrl} alt={profissional.profissionalName} className="w-full h-full object-cover" />
+                  <img src={buildImageUrl(profissional.imageUrl)} alt={profissional.profissionalName} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-gray-700">Sem imagem</div>
                 )}
@@ -607,7 +610,7 @@ const Coach = ({ user, tema = 'dark' }) => {
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium">Imagem (novo upload)</label>
+                    <label className="text-xs font-medium">Imagem (opcional)</label>
                     <input type="file" accept="image/*" onChange={profissional ? handleEditImageChange : handleCreateImageChange} className="p-2 rounded border w-full bg-white" />
                     <div className="flex items-center gap-3 mt-2">
                       {profissional ? (

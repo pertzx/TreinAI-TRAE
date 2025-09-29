@@ -14,9 +14,7 @@ const UPLOAD_DIR = path.join(__dirname, "..", "uploads", "image-local");
 // --- helpers ---
 const buildImageUrl = (req, filename) => {
   if (!filename) return null;
-  const host = req.get && req.get("host") ? req.get("host") : (req.headers && req.headers.host) || "localhost";
-  const protocol = req.protocol || "http";
-  return `${protocol}://${host}/uploads/image-local/${filename}`;
+  return `/uploads/image-local/${filename}`;
 };
 
 const tryDeleteOldImage = (imageUrl) => {

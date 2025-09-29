@@ -23,6 +23,11 @@ api.interceptors.request.use(
       }
     }
     
+    // Se o data é FormData, remover Content-Type para permitir multipart/form-data
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+    
     return config;
   },
   (error) => {
