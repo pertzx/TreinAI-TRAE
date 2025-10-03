@@ -10,6 +10,7 @@ import { buildImageUrl } from '../utils/imageUtils';
  * @param {string} props.size - Tamanho do avatar ('small', 'medium', 'large')
  * @param {string} props.className - Classes CSS adicionais
  */
+
 const UserAvatar = ({ user, size = 'medium', className = '' }) => {
   if (!user) return null;
 

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
+import { FaMicrophone, FaMicrophoneSlash } from 'react-icons/fa';
 import useChatOptimized from '../hooks/useChatOptimized';
 import { useToast } from './Toast';
 import UserAvatar from './UserAvatar';
+import useSpeechToText from '../hooks/useSpeechToText';
 
 /**
  * ChatsOptimized.jsx
@@ -18,6 +20,19 @@ const ChatsOptimized = ({ user, tema }) => {
   const { showError, showSuccess } = useToast();
   const userId = user?.userId || user?._id || user?.id || null;
   const username = user?.username || user?.name || 'Você';
+
+  // Speech-to-text hook
+  const {
+    isListening,
+    transcript,
+    speechError,
+    isSupported,
+    toggleListening,
+    resetTranscript
+  } = useSpeechToText();
+
+  // Debug log para verificar se o hook está funcionando
+  console.log('Speech-to-text debug:', { isSupported, isListening, transcript, speechError });
 
   // Pegar cId tanto como route param quanto query param
   const params = useParams();
@@ -66,6 +81,13 @@ const ChatsOptimized = ({ user, tema }) => {
     isConnected,
     isPolling
   } = useChatOptimized(user, selectedChat?.ChatId || selectedChat?._id);
+
+  // Atualizar input com transcript
+  useEffect(() => {
+    if (transcript) {
+      setNewMessage(transcript);
+    }
+  }, [transcript]);
 
   // Funções utilitárias
   const getChatId = (chat) => chat?.ChatId || chat?._id || null;
@@ -133,6 +155,8 @@ const ChatsOptimized = ({ user, tema }) => {
 
     if (success) {
       setNewMessage('');
+      // Reset transcript após enviar
+      resetTranscript();
       showSuccess('Mensagem enviada!');
     } else {
       showError('Erro ao enviar mensagem');
@@ -439,17 +463,33 @@ const ChatsOptimized = ({ user, tema }) => {
             {/* Input de Mensagem */}
             <div className={`p-3 sm:p-4 border-t ${borderClass}`}>
               <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Digite sua mensagem..."
-                  className={`flex-1 px-3 sm:px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base ${isDark
-                      ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400'
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                    }`}
-                />
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Digite sua mensagem..."
+                    className={`w-full px-3 sm:px-4 py-2 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base ${isDark
+                        ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400'
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                      }`}
+                  />
+                  {/* Botão de microfone */}
+                  {isSupported && (
+                    <button
+                      onClick={toggleListening}
+                      className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-colors ${
+                        isListening 
+                          ? 'bg-red-500 text-white hover:bg-red-600' 
+                          : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
+                      }`}
+                      title={isListening ? 'Parar gravação' : 'Iniciar gravação de voz'}
+                    >
+                      {!isListening ? <FaMicrophoneSlash className="text-sm" /> : <FaMicrophone className="text-sm" />}
+                    </button>
+                  )}
+                </div>
                 <button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim()}
@@ -458,6 +498,13 @@ const ChatsOptimized = ({ user, tema }) => {
                   Enviar
                 </button>
               </div>
+              
+              {/* Indicador de erro de speech */}
+              {speechError && (
+                <div className="mt-2 p-2 bg-red-100 text-red-700 text-xs rounded-lg">
+                  {speechError}
+                </div>
+              )}
             </div>
           </>
         ) : (

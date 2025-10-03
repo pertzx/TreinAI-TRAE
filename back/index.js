@@ -134,7 +134,7 @@ const HOST = process.env.HOST || '0.0.0.0'; // Permite conexões de qualquer IP
 const server = app.listen(PORT, HOST, () => {
   console.log(`🚀 Servidor rodando em ${HOST}:${PORT}`);
   console.log(`📱 Acesso local: http://localhost:${PORT}`);
-  console.log(`🌐 Acesso rede: http://192.168.3.102:${PORT}`);
+  console.log(`🌐 Acesso rede: http://localhost:${PORT}`);
 });
 
 // Inicializar WebSocket Server
