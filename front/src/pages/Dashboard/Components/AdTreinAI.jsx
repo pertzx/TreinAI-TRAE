@@ -30,7 +30,7 @@ const AdTreinAI = ({ logWhenHidden = false, threshold = 0.1, anuncioObj }) => {
 
   useEffect(() => {
     if (visto) {
-      alert('O anúncio foi visualizado');
+      // alert('O anúncio foi visualizado');
       // logica pra quando o anuncio for visto
     }
   }, [visto]);

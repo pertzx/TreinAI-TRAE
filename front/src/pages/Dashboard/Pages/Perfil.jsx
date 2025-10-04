@@ -388,7 +388,7 @@ const Perfil = ({ user, tema = 'light' }) => {
       <div className={cardClass}>
         <div className="userid-container flex flex-col gap-2">
           <label className="font-semibold text-lg">ID do Usuário:</label>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <code className={`flex-1 px-3 py-2 rounded-lg text-sm font-mono ${isDark
                 ? 'bg-gray-700 text-green-400 border border-gray-600'
                 : 'bg-gray-100 text-gray-800 border border-gray-300'

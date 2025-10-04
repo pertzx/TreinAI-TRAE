@@ -218,8 +218,10 @@ const ChatTreino = ({ tema = "dark", user }) => {
         const exerciseCount = registroLocal.exerciciosFeitos?.length || 0;
         
         const gamificationResponse = await api.post(`/gamification/user/${user._id}/workout`, {
-          workoutDuration,
-          exerciseCount
+          duration: workoutDuration,
+          exercises: exerciseCount,
+          difficulty: 'medium', // Pode ser ajustado baseado no treino
+          completionRate: 100    // Assumindo treino completo
         });
 
         if (gamificationResponse.data.success) {

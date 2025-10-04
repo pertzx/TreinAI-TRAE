@@ -227,8 +227,8 @@ export const updateUserStreak = async (userId, actionType) => {
     const yesterday = new Date(getBrazilDate().getTime() - 24 * 60 * 60 * 1000).toDateString();
 
     if (actionType === 'complete_workout') {
-      const lastWorkoutDate = gamification.streaks.workout.lastDate ? 
-        new Date(gamification.streaks.workout.lastDate).toDateString() : null;
+      const lastWorkoutDate = gamification.lastWorkoutDate ? 
+        new Date(gamification.lastWorkoutDate).toDateString() : null;
 
       if (lastWorkoutDate === today) {
         // Já treinou hoje, não atualizar streak
@@ -237,16 +237,16 @@ export const updateUserStreak = async (userId, actionType) => {
 
       if (lastWorkoutDate === yesterday) {
         // Continuou a sequência
-        gamification.streaks.workout.current += 1;
-        if (gamification.streaks.workout.current > gamification.streaks.workout.best) {
-          gamification.streaks.workout.best = gamification.streaks.workout.current;
+        gamification.currentStreak += 1;
+        if (gamification.currentStreak > gamification.longestStreak) {
+          gamification.longestStreak = gamification.currentStreak;
         }
       } else {
         // Quebrou a sequência ou começou nova
-        gamification.streaks.workout.current = 1;
+        gamification.currentStreak = 1;
       }
 
-      gamification.streaks.workout.lastDate = getBrazilDate();
+      gamification.lastWorkoutDate = getBrazilDate();
       await gamification.save();
     }
 

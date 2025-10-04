@@ -10,8 +10,8 @@ const AUTOMATIC_BADGES = [
     name: 'Primeiro Passo',
     description: 'Complete seu primeiro treino',
     icon: '🏃‍♂️',
-    category: 'training',
-    rarity: 'common',
+    category: 'treino',
+    rarity: 'comum',
     points: 50,
     requirements: {
       type: 'workout_count',
@@ -23,8 +23,8 @@ const AUTOMATIC_BADGES = [
     name: 'Dedicado',
     description: 'Treine por 7 dias consecutivos',
     icon: '🔥',
-    category: 'streak',
-    rarity: 'uncommon',
+    category: 'consistencia',
+    rarity: 'raro',
     points: 200,
     requirements: {
       type: 'workout_streak',
@@ -36,8 +36,8 @@ const AUTOMATIC_BADGES = [
     name: 'Imparável',
     description: 'Treine por 30 dias consecutivos',
     icon: '⚡',
-    category: 'streak',
-    rarity: 'rare',
+    category: 'consistencia',
+    rarity: 'epico',
     points: 1000,
     requirements: {
       type: 'workout_streak',
@@ -49,8 +49,8 @@ const AUTOMATIC_BADGES = [
     name: 'Veterano',
     description: 'Complete 50 treinos',
     icon: '🏆',
-    category: 'training',
-    rarity: 'uncommon',
+    category: 'treino',
+    rarity: 'raro',
     points: 500,
     requirements: {
       type: 'workout_count',
@@ -62,8 +62,8 @@ const AUTOMATIC_BADGES = [
     name: 'Centurião',
     description: 'Complete 100 treinos',
     icon: '👑',
-    category: 'training',
-    rarity: 'rare',
+    category: 'treino',
+    rarity: 'epico',
     points: 1500,
     requirements: {
       type: 'workout_count',
@@ -77,8 +77,8 @@ const AUTOMATIC_BADGES = [
     name: 'Milionário',
     description: 'Acumule 1.000 pontos',
     icon: '💰',
-    category: 'points',
-    rarity: 'common',
+    category: 'progresso',
+    rarity: 'comum',
     points: 100,
     requirements: {
       type: 'total_points',
@@ -90,8 +90,8 @@ const AUTOMATIC_BADGES = [
     name: 'Rico',
     description: 'Acumule 5.000 pontos',
     icon: '💎',
-    category: 'points',
-    rarity: 'uncommon',
+    category: 'progresso',
+    rarity: 'raro',
     points: 300,
     requirements: {
       type: 'total_points',
@@ -103,8 +103,8 @@ const AUTOMATIC_BADGES = [
     name: 'Magnata',
     description: 'Acumule 10.000 pontos',
     icon: '🏰',
-    category: 'points',
-    rarity: 'rare',
+    category: 'progresso',
+    rarity: 'epico',
     points: 800,
     requirements: {
       type: 'total_points',
@@ -118,8 +118,8 @@ const AUTOMATIC_BADGES = [
     name: 'Iniciante Avançado',
     description: 'Alcance o nível 5',
     icon: '⭐',
-    category: 'level',
-    rarity: 'common',
+    category: 'progresso',
+    rarity: 'comum',
     points: 200,
     requirements: {
       type: 'level',
@@ -131,8 +131,8 @@ const AUTOMATIC_BADGES = [
     name: 'Experiente',
     description: 'Alcance o nível 10',
     icon: '🌟',
-    category: 'level',
-    rarity: 'uncommon',
+    category: 'progresso',
+    rarity: 'raro',
     points: 500,
     requirements: {
       type: 'level',
@@ -144,8 +144,8 @@ const AUTOMATIC_BADGES = [
     name: 'Mestre',
     description: 'Alcance o nível 20',
     icon: '✨',
-    category: 'level',
-    rarity: 'rare',
+    category: 'progresso',
+    rarity: 'epico',
     points: 1200,
     requirements: {
       type: 'level',
@@ -159,8 +159,8 @@ const AUTOMATIC_BADGES = [
     name: 'Desafiante',
     description: 'Complete seu primeiro desafio',
     icon: '🎯',
-    category: 'challenge',
-    rarity: 'common',
+    category: 'especial',
+    rarity: 'comum',
     points: 100,
     requirements: {
       type: 'challenges_completed',
@@ -172,8 +172,8 @@ const AUTOMATIC_BADGES = [
     name: 'Mestre dos Desafios',
     description: 'Complete 10 desafios',
     icon: '🏅',
-    category: 'challenge',
-    rarity: 'rare',
+    category: 'especial',
+    rarity: 'epico',
     points: 800,
     requirements: {
       type: 'challenges_completed',
@@ -187,8 +187,8 @@ const AUTOMATIC_BADGES = [
     name: 'Resistente',
     description: 'Acumule 60 minutos de treino',
     icon: '⏱️',
-    category: 'time',
-    rarity: 'common',
+    category: 'treino',
+    rarity: 'comum',
     points: 150,
     requirements: {
       type: 'total_minutes',
@@ -200,8 +200,8 @@ const AUTOMATIC_BADGES = [
     name: 'Maratonista',
     description: 'Acumule 300 minutos de treino',
     icon: '🏃‍♀️',
-    category: 'time',
-    rarity: 'uncommon',
+    category: 'treino',
+    rarity: 'raro',
     points: 400,
     requirements: {
       type: 'total_minutes',
@@ -213,8 +213,8 @@ const AUTOMATIC_BADGES = [
     name: 'Ultra Resistente',
     description: 'Acumule 1000 minutos de treino',
     icon: '🦾',
-    category: 'time',
-    rarity: 'rare',
+    category: 'treino',
+    rarity: 'epico',
     points: 1000,
     requirements: {
       type: 'total_minutes',
@@ -226,53 +226,73 @@ const AUTOMATIC_BADGES = [
 // Verificar e conceder badges automáticos
 export const checkAndAwardBadges = async (userId, gamificationData = null) => {
   try {
+    console.log(`🔍 Verificando badges para usuário ${userId}`);
+    
     let gamification = gamificationData;
     if (!gamification) {
       gamification = await UserGamification.findOne({ userId });
       if (!gamification) return { success: false, message: 'Gamification não encontrada' };
     }
 
+    console.log(`📊 Stats atuais: treinos=${gamification.stats.totalWorkouts}, pontos=${gamification.totalPoints}`);
+
     const newBadges = [];
     const currentBadgeIds = gamification.badges.map(b => b.badgeId);
+    
+    console.log(`🏆 Badges atuais: ${currentBadgeIds.join(', ') || 'nenhuma'}`);
 
     for (const badge of AUTOMATIC_BADGES) {
+      console.log(`🔍 Verificando badge: ${badge.name} (${badge.id})`);
+      
       // Verificar se o usuário já possui este badge
-      if (currentBadgeIds.includes(badge.id)) continue;
+      if (currentBadgeIds.includes(badge.id)) {
+        console.log(`   ⏭️ Já possui este badge`);
+        continue;
+      }
 
       let meetsRequirement = false;
 
       switch (badge.requirements.type) {
         case 'workout_count':
           meetsRequirement = gamification.stats.totalWorkouts >= badge.requirements.value;
+          console.log(`   📊 workout_count: ${gamification.stats.totalWorkouts} >= ${badge.requirements.value} = ${meetsRequirement}`);
           break;
         
         case 'workout_streak':
-          meetsRequirement = gamification.streaks.workout.current >= badge.requirements.value ||
-                           gamification.streaks.workout.best >= badge.requirements.value;
+          meetsRequirement = gamification.currentStreak >= badge.requirements.value ||
+                           gamification.longestStreak >= badge.requirements.value;
+          console.log(`   📊 workout_streak: current=${gamification.currentStreak}, longest=${gamification.longestStreak} >= ${badge.requirements.value} = ${meetsRequirement}`);
           break;
         
         case 'total_points':
           meetsRequirement = gamification.totalPoints >= badge.requirements.value;
+          console.log(`   📊 total_points: ${gamification.totalPoints} >= ${badge.requirements.value} = ${meetsRequirement}`);
           break;
         
         case 'level':
-          meetsRequirement = gamification.level >= badge.requirements.value;
+          meetsRequirement = gamification.currentLevel >= badge.requirements.value;
+          console.log(`   📊 level: ${gamification.currentLevel} >= ${badge.requirements.value} = ${meetsRequirement}`);
           break;
         
         case 'challenges_completed':
-          meetsRequirement = gamification.stats.challengesCompleted >= badge.requirements.value;
+          meetsRequirement = (gamification.stats.challengesCompleted || 0) >= badge.requirements.value;
+          console.log(`   📊 challenges_completed: ${gamification.stats.challengesCompleted || 0} >= ${badge.requirements.value} = ${meetsRequirement}`);
           break;
         
         case 'total_minutes':
           meetsRequirement = gamification.stats.totalMinutes >= badge.requirements.value;
+          console.log(`   📊 total_minutes: ${gamification.stats.totalMinutes} >= ${badge.requirements.value} = ${meetsRequirement}`);
           break;
         
         case 'total_exercises':
           meetsRequirement = gamification.stats.totalExercises >= badge.requirements.value;
+          console.log(`   📊 total_exercises: ${gamification.stats.totalExercises} >= ${badge.requirements.value} = ${meetsRequirement}`);
           break;
       }
 
       if (meetsRequirement) {
+        console.log(`   🎉 Badge conquistada: ${badge.name}!`);
+        
         // Conceder badge
         const newBadge = {
           badgeId: badge.id,
@@ -290,25 +310,26 @@ export const checkAndAwardBadges = async (userId, gamificationData = null) => {
         gamification.stats.badgesEarned += 1;
         newBadges.push(newBadge);
 
-        // Criar notificação
-        await createAutoNotification(
-          userId,
-          'badge_earned',
-          'Nova Conquista!',
-          `Parabéns! Você desbloqueou o badge "${badge.name}" e ganhou ${badge.points} pontos`,
-          {
-            badgeId: badge.id,
-            badgeName: badge.name,
-            badgeIcon: badge.icon,
-            pointsEarned: badge.points
-          }
-        );
+        // Criar notificação automática
+        try {
+          await createAutoNotification(userId, {
+            type: 'badge_earned',
+            title: `Badge Conquistada: ${badge.name}!`,
+            message: badge.description,
+            data: { badge: newBadge }
+          });
+        } catch (notificationError) {
+          console.error('Erro ao criar notificação automática:', notificationError);
+        }
+      } else {
+        console.log(`   ❌ Não atende aos requisitos`);
       }
     }
 
-    // Salvar apenas se não foi passado gamificationData (evitar salvar duas vezes)
-    if (!gamificationData && newBadges.length > 0) {
+    // Salvar as badges conquistadas
+    if (newBadges.length > 0) {
       await gamification.save();
+      console.log(`💾 Salvando ${newBadges.length} nova(s) badge(s)`);
     }
 
     return {
@@ -355,7 +376,7 @@ export const getAvailableBadges = async (req, res) => {
             break;
           
           case 'workout_streak':
-            const currentStreak = Math.max(gamification.streaks.workout.current, gamification.streaks.workout.best);
+            const currentStreak = Math.max(gamification.currentStreak, gamification.longestStreak);
             progress = Math.min(currentStreak / badge.requirements.value, 1);
             progressText = `${currentStreak}/${badge.requirements.value} dias consecutivos`;
             break;

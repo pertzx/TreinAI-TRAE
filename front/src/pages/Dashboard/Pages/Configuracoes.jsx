@@ -417,7 +417,7 @@ const Configuracoes = ({ setTema, tema, user }) => {
           <div className="text-sm font-medium">ID do Usuário</div>
           <div className="text-xs ">Seu identificador único no sistema</div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <code className={`px-3 py-1 rounded-lg text-xs font-mono ${
             tema === 'dark' 
               ? 'bg-gray-700 text-green-400' 

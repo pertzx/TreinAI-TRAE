@@ -216,7 +216,7 @@ export const cleanOldNotifications = async (req, res) => {
 };
 
 // Função utilitária para criar notificações automáticas
-export const createAutoNotification = async (userId, type, title, message, data = {}) => {
+export const createAutoNotification = async (userId, notificationData) => {
   try {
     const gamification = await UserGamification.findOne({ userId });
     if (!gamification) return false;
@@ -226,13 +226,13 @@ export const createAutoNotification = async (userId, type, title, message, data 
     }
 
     // Verificar se o usuário quer receber notificações
-    if (!gamification.preferences.notifications) return false;
+    if (!gamification.preferences || !gamification.preferences.notifications) return false;
 
     const notification = {
-      type,
-      title,
-      message,
-      data,
+      type: notificationData.type,
+      title: notificationData.title,
+      message: notificationData.message,
+      data: notificationData.data || {},
       read: false,
       createdAt: getBrazilDate()
     };
