@@ -37,27 +37,7 @@ export const checkTokenLimit = async (req, res, next) => {
     
     // Obter data atual no Brasil
     const todayMillis = getBrazilDate();
-    
-    // Verificar se getBrazilDate retornou um valor válido
-    if (!todayMillis || typeof todayMillis !== 'number' || isNaN(todayMillis)) {
-      console.error('getBrazilDate retornou valor inválido:', todayMillis);
-      return res.status(500).json({ 
-        msg: 'Erro interno do servidor ao verificar limite de tokens',
-        error: 'Data inválida'
-      });
-    }
-    
     const today = new Date(todayMillis);
-    
-    // Verificar se o objeto Date foi criado corretamente
-    if (isNaN(today.getTime())) {
-      console.error('Não foi possível criar Date válido com millis:', todayMillis);
-      return res.status(500).json({ 
-        msg: 'Erro interno do servidor ao verificar limite de tokens',
-        error: 'Data inválida'
-      });
-    }
-    
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const todayEnd = new Date(todayStart);
     todayEnd.setDate(todayEnd.getDate() + 1);

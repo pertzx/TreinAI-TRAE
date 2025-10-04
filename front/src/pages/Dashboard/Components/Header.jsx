@@ -17,7 +17,6 @@ const Header = ({ user, tema }) => {
     { name: 'Encontrar', href: '/dashboard/encontrar', icon: FaSearch },
     { name: 'Meus Treinos', href: '/dashboard/meus-treinos', icon: FaDumbbell },
     { name: 'Histórico', href: '/dashboard/historico', icon: FaChartLine },
-    { name: 'Gamificação', href: '/dashboard/gamificacao', icon: FaGamepad },
     { name: 'Coach', href: '/dashboard/coach', icon: FaUserTie },
     { name: 'Perfil', href: '/dashboard/perfil', icon: FaUser },
     { name: 'Configurações', href: '/dashboard/configuracoes', icon: FaCog },

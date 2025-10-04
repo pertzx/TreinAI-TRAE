@@ -212,35 +212,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
         treino: registroLocal,
       });
 
-      // Registrar no sistema de gamificação
-      try {
-        const workoutDuration = Math.floor(registroLocal.duracao / 60); // converter segundos para minutos
-        const exerciseCount = registroLocal.exerciciosFeitos?.length || 0;
-        
-        const gamificationResponse = await api.post(`/gamification/user/${user._id}/workout`, {
-          duration: workoutDuration,
-          exercises: exerciseCount,
-          difficulty: 'medium', // Pode ser ajustado baseado no treino
-          completionRate: 100    // Assumindo treino completo
-        });
 
-        if (gamificationResponse.data.success) {
-          const { pointsEarned, currentLevel, currentStreak, leveledUp } = gamificationResponse.data.data;
-          
-          let gamificationMessage = `🎉 +${pointsEarned} pontos ganhos!`;
-          if (leveledUp) {
-            gamificationMessage += ` 🆙 Você subiu para o nível ${currentLevel}!`;
-          }
-          if (currentStreak > 1) {
-            gamificationMessage += ` 🔥 Sequência de ${currentStreak} dias!`;
-          }
-          
-          adicionarMensagem(gamificationMessage, "bot");
-        }
-      } catch (gamificationErr) {
-        console.error("Erro ao registrar gamificação:", gamificationErr);
-        // Não mostrar erro de gamificação para o usuário, apenas log
-      }
 
       adicionarMensagem("✅ Treino registrado no seu histórico!", "bot");
     } catch (err) {

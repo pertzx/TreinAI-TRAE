@@ -11,7 +11,7 @@ import OnboardingQuestionnaireFitness from './Components/OnboardingQuestionnaire
 import OnboardingPersonalInfo from './Components/OnboardingPersonalInfo.jsx';
 import BuscarImagens from '../../components/BuscarImagens.jsx';
 import ChatTreino from './Components/ChatTreino.jsx';
-import BMIChart from './Components/BMIchart.jsx';
+import BMIChart from './Components/BMIChart.jsx';
 import HistoricoChart from './Components/HistoricoChart.jsx';
 import Encontrar from './Pages/Encontrar.jsx';
 import TokensChart from './Components/TokensChart.jsx';
@@ -26,7 +26,6 @@ import Locais from './Pages/Locais.jsx';
 import AdminPage from './Pages/AdminPage/AdminPage.jsx';
 import SupportPage from './Pages/SupportPage.jsx';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import GamificationDashboard from '../../components/Gamification/GamificationDashboard.jsx';
 
 import { handleError, clearErrorAfterDelay, isAuthError } from '../../utils/errorHandler';
 import { useToast } from '../../components/Toast.jsx';
@@ -247,7 +246,6 @@ const Dashboard = ({ needToPay, plano }) => {
               <Route path="ajuda" element={<SupportPage user={user} tema={tema} />} />
               <Route path="meus-treinos" element={<MeusTreinos tema={tema} user={user} setUser={setUser} />} />
               <Route path="historico" element={<Historico historico={user?.historico} tema={tema} />} />
-              <Route path="gamificacao" element={<GamificationDashboard userId={user?._id} tema={tema} />} />
               <Route path="perfil" element={<Perfil user={user} tema={tema} />} />
               <Route path="configuracoes" element={<Configuracoes setTema={setTema} tema={tema} user={user} />} />
               <Route path="encontrar" element={<Encontrar user={user} tema={tema} />} />
