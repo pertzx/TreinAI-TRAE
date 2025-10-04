@@ -384,6 +384,78 @@ const Perfil = ({ user, tema = 'light' }) => {
         </div>
       </div>
 
+      {/* User ID */}
+      <div className={cardClass}>
+        <div className="userid-container flex flex-col gap-2">
+          <label className="font-semibold text-lg">ID do Usuário:</label>
+          <div className="flex items-center gap-3">
+            <code className={`flex-1 px-3 py-2 rounded-lg text-sm font-mono ${isDark
+                ? 'bg-gray-700 text-green-400 border border-gray-600'
+                : 'bg-gray-100 text-gray-800 border border-gray-300'
+              }`}>
+              {user?._id || 'N/A'}
+            </code>
+            <button
+              onClick={() => {
+                const textToCopy = user?._id || '';
+                
+                // Função de fallback para navegadores sem Clipboard API
+                const fallbackCopyTextToClipboard = (text) => {
+                  const textArea = document.createElement("textarea");
+                  textArea.value = text;
+                  
+                  // Evita scroll para o elemento
+                  textArea.style.top = "0";
+                  textArea.style.left = "0";
+                  textArea.style.position = "fixed";
+                  textArea.style.opacity = "0";
+                  
+                  document.body.appendChild(textArea);
+                  textArea.focus();
+                  textArea.select();
+                  
+                  try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                      console.log('User ID copied to clipboard using fallback!');
+                      // Opcional: adicionar notificação de sucesso aqui
+                    } else {
+                      console.error('Fallback: Unable to copy');
+                    }
+                  } catch (err) {
+                    console.error('Fallback: Unable to copy', err);
+                  }
+                  
+                  document.body.removeChild(textArea);
+                };
+                
+                // Tentar usar a Clipboard API moderna primeiro
+                if (navigator.clipboard && window.isSecureContext) {
+                  navigator.clipboard.writeText(textToCopy).then(() => {
+                    console.log('User ID copied to clipboard!');
+                    // Opcional: adicionar notificação de sucesso aqui
+                  }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                    // Usar fallback se a Clipboard API falhar
+                    fallbackCopyTextToClipboard(textToCopy);
+                  });
+                } else {
+                  // Usar método de fallback para navegadores sem suporte
+                  fallbackCopyTextToClipboard(textToCopy);
+                }
+              }}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition ${isDark
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+            >
+              Copiar
+            </button>
+          </div>
+          <p className={mutedText}>Seu identificador único no sistema. Use este ID para que outros usuários possam iniciar conversas com você.</p>
+        </div>
+      </div>
+
       {/* Objetivo */}
       <div className={`${cardClass} ${isDark ? '' : 'bg-yellow-100 border-yellow-300'}`}>
         <h2 className="text-xl font-bold mb-2">Objetivo</h2>

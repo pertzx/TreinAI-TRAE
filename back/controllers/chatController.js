@@ -15,6 +15,91 @@ import { chatWebSocketServer } from '../index.js';
 // removerUsuario (POST /remover-usuario-chat)
 // se após remoção não sobrar membros, remove o chat completo
 
+// * Iniciar chat por userId - busca usuário e cria chat 1:1
+// POST /iniciar-chat-por-userid
+export const iniciarChatPorUserId = async (req, res) => {
+  const { userId, targetUserId } = req.body;
+  
+  if (!userId || !targetUserId) {
+    return res.status(400).json({ error: 'userId e targetUserId são obrigatórios' });
+  }
+
+  if (String(userId) === String(targetUserId)) {
+    return res.status(400).json({ error: 'Não é possível iniciar chat consigo mesmo' });
+  }
+
+  try {
+    // Verificar se o usuário alvo existe
+    const targetUser = await User.findById(targetUserId).select('username').lean();
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    // Verificar se o usuário atual existe
+    const currentUser = await User.findById(userId).select('username').lean();
+    if (!currentUser) {
+      return res.status(404).json({ error: 'Usuário atual não encontrado' });
+    }
+
+    const uid = String(userId);
+    const tid = String(targetUserId);
+    const sortedPair = [uid, tid].sort();
+    const pairId = sortedPair.join(':');
+
+    // Verificar se já existe um chat entre esses usuários
+    let chat = await Chat.findOne({ pairId }).lean();
+    if (chat) {
+      const userIds = (chat.membros || []).map(m => String(m.userId));
+      return res.status(200).json({ 
+        chat, 
+        userIds, 
+        message: 'Chat já existe entre esses usuários' 
+      });
+    }
+
+    // Criar novo chat 1:1
+    const setOnInsert = {
+      ChatId: uuidv4(),
+      pairId,
+      ChatName: `${currentUser.username} & ${targetUser.username}`,
+      ChatDesc: 'Conversa privada',
+      criadoEm: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date(),
+      membros: [
+        { 
+          userId: uid, 
+          username: currentUser.username, 
+          membroDesde: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date() 
+        },
+        { 
+          userId: tid, 
+          username: targetUser.username, 
+          membroDesde: typeof getBrazilDate === 'function' ? getBrazilDate() : new Date() 
+        }
+      ]
+    };
+
+    const newChat = await Chat.findOneAndUpdate(
+      { pairId },
+      { $setOnInsert: setOnInsert },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    if (!newChat) {
+      return res.status(500).json({ error: 'Erro ao criar chat' });
+    }
+
+    return res.status(201).json({ 
+      chat: newChat, 
+      userIds: (newChat.membros || []).map(m => String(m.userId)),
+      message: 'Chat criado com sucesso'
+    });
+
+  } catch (error) {
+    console.error('iniciarChatPorUserId error:', error);
+    return res.status(500).json({ error: 'Erro no servidor ao iniciar chat' });
+  }
+};
+
 // * pegar todos os chats do usuário (query: ?userId=xxx)
 // GET /pegarChats
 export const pegarChats = async (req, res) => {

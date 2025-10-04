@@ -411,6 +411,80 @@ const Configuracoes = ({ setTema, tema, user }) => {
         </div>
       </div>
 
+      {/* User ID */}
+      <div className={`flex items-center justify-between w-full max-w-2xl p-4 rounded-2xl border ${cardClass}`}>
+        <div>
+          <div className="text-sm font-medium">ID do Usuário</div>
+          <div className="text-xs ">Seu identificador único no sistema</div>
+        </div>
+        <div className="flex items-center gap-3">
+          <code className={`px-3 py-1 rounded-lg text-xs font-mono ${
+            tema === 'dark' 
+              ? 'bg-gray-700 text-green-400' 
+              : 'bg-gray-100 text-gray-800'
+          }`}>
+            {user?._id || 'N/A'}
+          </code>
+          <button
+            onClick={() => {
+              const textToCopy = user?._id || '';
+              
+              // Função de fallback para navegadores sem Clipboard API
+              const fallbackCopyTextToClipboard = (text) => {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                
+                // Evita scroll para o elemento
+                textArea.style.top = "0";
+                textArea.style.left = "0";
+                textArea.style.position = "fixed";
+                textArea.style.opacity = "0";
+                
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                  const successful = document.execCommand('copy');
+                  if (successful) {
+                    console.log('User ID copied to clipboard using fallback!');
+                    // Opcional: adicionar notificação de sucesso aqui
+                  } else {
+                    console.error('Fallback: Unable to copy');
+                  }
+                } catch (err) {
+                  console.error('Fallback: Unable to copy', err);
+                }
+                
+                document.body.removeChild(textArea);
+              };
+              
+              // Tentar usar a Clipboard API moderna primeiro
+              if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                  console.log('User ID copied to clipboard!');
+                  // Opcional: adicionar notificação de sucesso aqui
+                }).catch(err => {
+                  console.error('Failed to copy text: ', err);
+                  // Usar fallback se a Clipboard API falhar
+                  fallbackCopyTextToClipboard(textToCopy);
+                });
+              } else {
+                // Usar método de fallback para navegadores sem suporte
+                fallbackCopyTextToClipboard(textToCopy);
+              }
+            }}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+              tema === 'dark' 
+                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                : 'bg-blue-500 hover:bg-blue-600 text-white'
+            }`}
+          >
+            Copiar
+          </button>
+        </div>
+      </div>
+
       {/* Logout */}
       <div className={`flex items-center justify-between w-full max-w-2xl p-4 rounded-2xl border ${cardClass}`}>
         <div>

@@ -23,7 +23,7 @@ import { upload, uploadMidiaAnuncio } from '../controllers/multerConfig.js';
 import { aceitarAluno, editarProfissional, profissionais, publicarProfissional, queroSerAluno, removerAluno } from '../controllers/profissionais.js';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
-import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVistas, pegarChat, pegarChats, removerUsuario, editarMensagem, responderMensagem, marcarMensagensVistasV2, configurarChat, buscarHistorico } from '../controllers/chatController.js';
+import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVistas, pegarChat, pegarChats, removerUsuario, editarMensagem, responderMensagem, marcarMensagensVistasV2, configurarChat, buscarHistorico, iniciarChatPorUserId } from '../controllers/chatController.js';
 import { conversarNutri } from '../controllers/NutriAI.js';
 import { editarLocal } from '../controllers/LocalController.js';
 import { getLocais } from '../controllers/LocalController.js';
@@ -191,6 +191,7 @@ router.post('/deletar-mensagem', deletarMensagem);
 router.post('/adicionar-usuario-chat', adicionarUsuario);
 router.post('/remover-usuario-chat', removerUsuario);
 router.post('/marcar-mensagens-vistas', marcarMensagensVistas);
+router.post('/iniciar-chat-por-userid', iniciarChatPorUserId);
 
 // Novas funcionalidades de chat
 router.post('/editar-mensagem', editarMensagem);

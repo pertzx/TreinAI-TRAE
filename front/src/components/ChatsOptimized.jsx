@@ -5,6 +5,7 @@ import useChatOptimized from '../hooks/useChatOptimized';
 import { useToast } from './Toast';
 import UserAvatar from './UserAvatar';
 import useSpeechToText from '../hooks/useSpeechToText';
+import api from '../Api'
 
 /**
  * ChatsOptimized.jsx
@@ -20,6 +21,46 @@ const ChatsOptimized = ({ user, tema }) => {
   const { showError, showSuccess } = useToast();
   const userId = user?.userId || user?._id || user?.id || null;
   const username = user?.username || user?.name || 'Você';
+
+  // Estado para controlar o input de adicionar chat
+  const [showAddChatInput, setShowAddChatInput] = useState(false);
+  const [newChatUserId, setNewChatUserId] = useState('');
+
+  // Função para iniciar chat por userId
+  const iniciarChatPorUserId = async (targetUserId) => {
+    try {
+      const payload = {
+        userId: user._id,
+        targetUserId: targetUserId.trim()
+      }
+      const response = await api.post('/iniciar-chat-por-userid', payload)
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showSuccess(data.message || 'Chat iniciado com sucesso!');
+        // Recarregar chats para mostrar o novo chat
+        await fetchChats();
+        // Selecionar o chat criado/encontrado
+        if (data.chat) {
+          setSelectedChat(data.chat);
+        }
+      } else {
+        showError(data.error || 'Erro ao iniciar chat');
+      }
+    } catch (error) {
+      console.error('Erro ao iniciar chat:', error);
+      showError('Erro ao conectar com o servidor');
+    }
+  };
+
+  // Função para lidar com o envio do formulário de adicionar chat
+  const handleAddChatSubmit = (e) => {
+    e.preventDefault();
+    if (newChatUserId.trim()) {
+      iniciarChatPorUserId(newChatUserId.trim());
+    }
+  };
 
   // Speech-to-text hook
   const {
@@ -222,16 +263,76 @@ const ChatsOptimized = ({ user, tema }) => {
         <div className={`p-3 sm:p-4 border-b ${borderClass}`}>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-semibold">Conversas</h2>
-            <button
-              onClick={fetchChats}
-              disabled={loadingChats}
-              className={`p-2 rounded-lg ${hoverClass} ${loadingChats ? 'opacity-50' : ''}`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowAddChatInput(!showAddChatInput)}
+                className={`p-2 rounded-lg ${hoverClass}`}
+                title="Iniciar chat por ID do usuário"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </button>
+              <button
+                onClick={fetchChats}
+                disabled={loadingChats}
+                className={`p-2 rounded-lg ${hoverClass} ${loadingChats ? 'opacity-50' : ''}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
           </div>
+
+          {/* Input para adicionar chat */}
+          {showAddChatInput && (
+            <form onSubmit={handleAddChatSubmit} className="mt-3">
+              <div className="grid grid-cols-5 gap-y-1 mb-2 items-center gap-x-2">
+                <input
+                  type="text"
+                  value={newChatUserId}
+                  onChange={(e) => setNewChatUserId(e.target.value)}
+                  placeholder="Digite o ID do usuário..."
+                  className={`col-span-5 px-3 py-2 rounded-lg border text-sm ${
+                    tema === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+                  } focus:outline-none focus:ring-1 focus:ring-blue-500`}
+                  autoFocus
+                />
+                <div className="grid grid-cols-3 col-span-5 gap-2 sm:gap-1">
+                  <button
+                    type="submit"
+                    disabled={!newChatUserId.trim()}
+                    className={`col-span-2 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${
+                      !newChatUserId.trim()
+                        ? 'opacity-50 cursor-not-allowed'
+                        : tema === 'dark'
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    }`}
+                  >
+                    Iniciar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddChatInput(false);
+                      setNewChatUserId('');
+                    }}
+                    className={`col-span-1 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${
+                      tema === 'dark'
+                        ? 'bg-gray-600 hover:bg-gray-700 text-white'
+                        : 'bg-gray-500 hover:bg-gray-600 text-white'
+                    }`}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
 
           {/* Status de conexão */}
           <div className="flex items-center justify-between">
@@ -302,8 +403,8 @@ const ChatsOptimized = ({ user, tema }) => {
                         </div>
                         {lastMessage && (
                           <p className={`text-xs sm:text-sm truncate mt-1 ${hasUnread
-                              ? 'font-medium text-gray-800 dark:text-gray-200'
-                              : 'text-gray-500'
+                            ? 'font-medium text-gray-800 dark:text-gray-200'
+                            : 'text-gray-500'
                             }`}>
                             {lastMessage.conteudo || lastMessage.text || ''}
                           </p>
@@ -426,10 +527,10 @@ const ChatsOptimized = ({ user, tema }) => {
                           />
                         )}
                         <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-lg relative ${isOwn
-                            ? 'bg-blue-500 text-white'
-                            : isUnseenMessage
-                              ? (isDark ? 'bg-yellow-800/50 text-white border-2 border-yellow-500/50' : 'bg-yellow-100 text-gray-900 border-2 border-yellow-400/50')
-                              : (isDark ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900')
+                          ? 'bg-blue-500 text-white'
+                          : isUnseenMessage
+                            ? (isDark ? 'bg-yellow-800/50 text-white border-2 border-yellow-500/50' : 'bg-yellow-100 text-gray-900 border-2 border-yellow-400/50')
+                            : (isDark ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900')
                           }`}>
                           {isUnseenMessage && (
                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
@@ -471,19 +572,18 @@ const ChatsOptimized = ({ user, tema }) => {
                     onKeyPress={handleKeyPress}
                     placeholder="Digite sua mensagem..."
                     className={`w-full px-3 sm:px-4 py-2 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base ${isDark
-                        ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400'
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                      ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400'
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                       }`}
                   />
                   {/* Botão de microfone */}
                   {isSupported && (
                     <button
                       onClick={toggleListening}
-                      className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-colors ${
-                        isListening 
-                          ? 'bg-red-500 text-white hover:bg-red-600' 
+                      className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-colors ${isListening
+                          ? 'bg-red-500 text-white hover:bg-red-600'
                           : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
-                      }`}
+                        }`}
                       title={isListening ? 'Parar gravação' : 'Iniciar gravação de voz'}
                     >
                       {!isListening ? <FaMicrophoneSlash className="text-sm" /> : <FaMicrophone className="text-sm" />}
@@ -498,7 +598,7 @@ const ChatsOptimized = ({ user, tema }) => {
                   Enviar
                 </button>
               </div>
-              
+
               {/* Indicador de erro de speech */}
               {speechError && (
                 <div className="mt-2 p-2 bg-red-100 text-red-700 text-xs rounded-lg">

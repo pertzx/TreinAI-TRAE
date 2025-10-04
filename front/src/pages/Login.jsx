@@ -93,7 +93,7 @@ function Login({ plano }) {
       } else {
         // Fazer requisição de signup diretamente
         response = await api.post('/signup', {
-          name: data.name,
+          username: data.name,
           email: data.email,
           password: data.password
         });
