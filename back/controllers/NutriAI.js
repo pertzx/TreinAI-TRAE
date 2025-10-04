@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import { v4 as uuidv4 } from "uuid";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import Profissional from "../models/Profissional.js";
+import { registerTokenUsage } from "../middlewares/tokenLimitMiddleware.js";
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL;
@@ -90,6 +91,12 @@ Regras:
       ],
       temperature: 0.2
     });
+
+    // Registrar uso de tokens usando o novo sistema
+    const tokensUsed = Number(resp?.usage?.total_tokens || 0);
+    if (tokensUsed > 0) {
+      await registerTokenUsage(email, tokensUsed);
+    }
 
     const text = resp?.choices?.[0]?.message?.content || null;
 

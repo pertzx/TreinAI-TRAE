@@ -9,6 +9,7 @@ import api from "../../../Api";
 import SummaryOverlay from "./SummaryOverlay";
 import { getBrazilDate } from "../../../../helpers/getBrazilDate.js";
 import AdTreinAI from "./AdTreinAI.jsx";
+import { useToast } from "../../../components/Toast.jsx";
 
 /* Fallback simples */
 const exerciciosMock = [
@@ -167,6 +168,9 @@ const ChatTreino = ({ tema = "dark", user }) => {
   // summary
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [lastRegistro, setLastRegistro] = useState(null);
+
+  // toast
+  const { showError } = useToast();
 
   // scroll
   useEffect(() => {
@@ -578,6 +582,10 @@ const ChatTreino = ({ tema = "dark", user }) => {
       setMensagens(prev => prev.filter(m => m.id !== typingId));
       typingRef.current = null;
 
+      if (res.status !== 200 || data?.success === false) {
+        showError(data?.msg ? data?.msg : 'Erro ao enviar mensagem.')
+      }
+
       if (data?.res) {
         adicionarMensagem(data.res, "bot");
       } else if (data?.message) {
@@ -591,6 +599,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
       setMensagens(prev => prev.filter(m => m.id !== typingId));
       typingRef.current = null;
       adicionarMensagem("Ocorreu um erro ao tentar enviar a mensagem. 😅", "bot");
+      showError(err?.response?.data?.msg ? err?.response?.data?.msg : 'Erro ao enviar mensagem.')
     }
   };
 

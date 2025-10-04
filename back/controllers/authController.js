@@ -13,6 +13,7 @@ import * as dateFnsTz from 'date-fns-tz';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import Profissional from '../models/Profissional.js';
 import mongoose from 'mongoose';
+import { registerTokenUsage } from '../middlewares/tokenLimitMiddleware.js';
 
 dotenv.config();
 
@@ -60,7 +61,7 @@ function mapSummaryToObjective(text) {
  * Summarize answers via OpenAI Chat API.
  * Returns { summary: string|null, objective_hint: string|null, raw: string|null }
  */
-async function summarizeWithOpenAI(answers) {
+async function summarizeWithOpenAI(answers, userEmail = null) {
   if (!openai) throw new Error('OpenAI client not configured.');
   const systemPrompt = `Você é um assistente que recebe respostas de um questionário sobre treino físico.
   se o usuario praticar algum esporte deixe o resumo mais focado neste esporte.
@@ -80,6 +81,12 @@ Retorne apenas o JSON.`;
     max_tokens: 300,
     temperature: 0.2
   });
+
+  // Registrar uso de tokens usando o novo sistema
+  const tokensUsed = Number(resp?.usage?.total_tokens || 0);
+  if (tokensUsed > 0 && userEmail) {
+    await registerTokenUsage(userEmail, tokensUsed);
+  }
 
   const text = resp?.choices?.[0]?.message?.content || null;
   if (!text) return { summary: null, objective_hint: null, raw: null };
@@ -298,7 +305,7 @@ export const completeOnboarding = async (req, res) => {
     // OpenAI resumindo respostas
     if (sanitizedAnswers.length > 0 && openai) {
       try {
-        const aiResult = await summarizeWithOpenAI(answers);
+        const aiResult = await summarizeWithOpenAI(answers, email);
         const candidate = aiResult.objective_hint || null;
         const mapped = mapSummaryToObjective(candidate || aiResult.summary || '');
 
@@ -503,7 +510,7 @@ export const atualizarPerfil = async (req, res) => {
   }
 };
 
-const criarTreinos = async (objetivo) => {
+const criarTreinos = async (objetivo, userEmail = null) => {
   // Verificar se OpenAI está configurado
   if (!openai) {
     console.error('OpenAI client não configurado na função criarTreinos');
@@ -568,6 +575,12 @@ Retorne APENAS o JSON válido sem texto adicional.`;
       max_tokens: 2000
     });
 
+    // Registrar uso de tokens usando o novo sistema
+    const tokensUsed = Number(resp?.usage?.total_tokens || 0);
+    if (tokensUsed > 0 && userEmail) {
+      await registerTokenUsage(userEmail, tokensUsed);
+    }
+
     console.log('Resposta OpenAI recebida:', resp?.choices?.[0]?.message?.content?.substring(0, 200) + '...');
 
     const text = resp?.choices?.[0]?.message?.content || null;
@@ -627,7 +640,7 @@ export const carregarTreinos = async (req, res) => {
     }
 
     // Sem treinos: gerar via IA
-    const meusTreinosResp = await criarTreinos(user.perfil?.objetivo);
+    const meusTreinosResp = await criarTreinos(user.perfil?.objetivo, email);
     console.log('meusTreinosResp', meusTreinosResp);
     const treinosGPT = meusTreinosResp?.treinos || meusTreinosResp || [];
     const totalTokens = Number(meusTreinosResp?.total_tokens) || 0;
@@ -649,40 +662,6 @@ export const carregarTreinos = async (req, res) => {
         pse: ex.pse || 0
       }))
     }));
-
-    // Atualiza user.stats.tokens agregando por dia (America/Sao_Paulo)
-    let stats = user.stats || {};
-    if (!Array.isArray(stats.tokens)) stats.tokens = [];
-
-    try {
-      if (totalTokens > 0) {
-        const nowBrazil = getBrazilDate(); // Date
-        const keyOf = (d) => {
-          if (!d) return null;
-          try {
-            return new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // YYYY-MM-DD
-          } catch {
-            return null;
-          }
-        };
-        const todayKey = keyOf(nowBrazil);
-
-        const idxSameDay = stats.tokens.findIndex(entry => {
-          const entryKey = keyOf(entry?.data);
-          return entryKey && todayKey && entryKey === todayKey;
-        });
-
-        if (idxSameDay !== -1) {
-          const prev = Number(stats.tokens[idxSameDay].valor || 0);
-          stats.tokens[idxSameDay].valor = prev + totalTokens;
-          stats.tokens[idxSameDay].data = nowBrazil;
-        } else {
-          stats.tokens.push({ valor: totalTokens, data: nowBrazil });
-        }
-      }
-    } catch (err) {
-      console.warn('Não foi possível atualizar user.stats.tokens em carregarTreinos:', err);
-    }
 
     // se existir o profissionalId entao atualizar
     try {
@@ -715,8 +694,7 @@ export const carregarTreinos = async (req, res) => {
       user._id,
       {
         $set: {
-          meusTreinos,
-          stats
+          meusTreinos
         }
       },
       { new: true }

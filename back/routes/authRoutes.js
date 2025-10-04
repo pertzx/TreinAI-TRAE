@@ -37,6 +37,7 @@ import {
     getCacheMonitoring,
     configureCacheAlerts
 } from '../controllers/CacheAdminController.js';
+import { checkTokenLimit } from '../middlewares/tokenLimitMiddleware.js';
 import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
 
 const router = Router();
@@ -50,14 +51,22 @@ router.get('/dashboard', verificarToken, dashboard);
 router.post('/create-checkout-session', CreateCheckoutSession);
 router.get('/session-status', SessionStatus); // verificar status
 router.post('/change-theme', changeTheme)
-router.post('/complete-onboarding', completeOnboarding)
+router.post('/complete-onboarding', 
+  checkTokenLimit,
+  completeOnboarding
+)
 router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, upload('uploads/image-perfil', 'avatar'), atualizarPerfil)
-router.post('/criar-meusTreinos', carregarTreinos);
+router.post('/criar-meusTreinos', 
+  checkTokenLimit,
+  carregarTreinos
+);
 // IA routes
 router.post('/gerar-exercicio-ia', 
+  checkTokenLimit,
   criarExercicioIA
 );
 router.post('/gerar-treino-ia', 
+  checkTokenLimit,
   criarTreinoIA
 );
 router.delete('/excluir-treino', async (req, res) => {
@@ -165,7 +174,8 @@ router.delete('/excluir-exercicio', async (req, res) => {
 });
 router.put('/atualizar-meusTreinos', atualizarMeusTreinos)
 // Chat and AI conversation routes
-router.post('/conversar', 
+router.post('/conversar',
+  checkTokenLimit,
   conversar
 );
 router.post('/publicar-no-historico', publicarNoHistorico);
@@ -201,7 +211,8 @@ router.post('/configurar-chat', configurarChat);
 router.get('/buscar-historico', buscarHistorico);
 
 // nutri
-router.post('/conversar-nutri', 
+router.post('/conversar-nutri',
+  checkTokenLimit,
   conversarNutri
 );
 

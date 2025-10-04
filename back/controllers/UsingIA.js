@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import { v4 as uuidv4 } from "uuid";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import Profissional from "../models/Profissional.js";
+import { registerTokenUsage } from "../middlewares/tokenLimitMiddleware.js";
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
@@ -94,37 +95,10 @@ Use tipos coerentes (strings para texto, numbers para números). Não inclua com
       temperature: 0.2
     });
 
-    // contabiliza tokens (se disponível)
-    try {
-      const token = Number(resp?.usage?.total_tokens || 0);
-      user.stats = user.stats || {};
-      if (!Array.isArray(user.stats.tokens)) user.stats.tokens = [];
-
-      const nowBrazil = getBrazilDate();
-      const brazilDateKey = (d) => {
-        if (!d) return null;
-        try {
-          return new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-        } catch (err) {
-          return null;
-        }
-      };
-      const todayKey = brazilDateKey(nowBrazil);
-
-      const idxSameDay = user.stats.tokens.findIndex(entry => {
-        const entryKey = brazilDateKey(entry?.data);
-        return entryKey && todayKey && entryKey === todayKey;
-      });
-
-      if (idxSameDay !== -1) {
-        const prev = Number(user.stats.tokens[idxSameDay].valor || 0);
-        user.stats.tokens[idxSameDay].valor = prev + token;
-        user.stats.tokens[idxSameDay].data = nowBrazil;
-      } else {
-        user.stats.tokens.push({ valor: token, data: nowBrazil });
-      }
-    } catch (err) {
-      console.warn('Não foi possível atualizar user.stats.tokens:', err);
+    // Registrar uso de tokens usando o novo sistema
+    const tokensUsed = Number(resp?.usage?.total_tokens || 0);
+    if (tokensUsed > 0) {
+      await registerTokenUsage(email, tokensUsed);
     }
 
     const text = resp?.choices?.[0]?.message?.content || null;
@@ -253,37 +227,10 @@ Retorne apenas JSON puro. Use tipos corretos.
       temperature: 0.2
     });
 
-    // Atualiza tokens (tolerante)
-    try {
-      const token = Number(resp?.usage?.total_tokens || 0);
-      user.stats = user.stats || {};
-      if (!Array.isArray(user.stats.tokens)) user.stats.tokens = [];
-
-      const nowBrazil = getBrazilDate();
-      const brazilDateKey = (d) => {
-        if (!d) return null;
-        try {
-          return new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-        } catch (err) {
-          return null;
-        }
-      };
-      const todayKey = brazilDateKey(nowBrazil);
-
-      const idxSameDay = user.stats.tokens.findIndex(entry => {
-        const entryKey = brazilDateKey(entry?.data);
-        return entryKey && todayKey && entryKey === todayKey;
-      });
-
-      if (idxSameDay !== -1) {
-        const prev = Number(user.stats.tokens[idxSameDay].valor || 0);
-        user.stats.tokens[idxSameDay].valor = prev + token;
-        user.stats.tokens[idxSameDay].data = nowBrazil;
-      } else {
-        user.stats.tokens.push({ valor: token, data: nowBrazil });
-      }
-    } catch (err) {
-      console.warn('Falha ao atualizar user.stats.tokens em criarExercicioIA:', err);
+    // Registrar uso de tokens usando o novo sistema
+    const tokensUsed = Number(resp?.usage?.total_tokens || 0);
+    if (tokensUsed > 0) {
+      await registerTokenUsage(email, tokensUsed);
     }
 
     const text = resp?.choices?.[0]?.message?.content || null;
@@ -385,44 +332,11 @@ export const conversar = async (req, res) => {
             temperature: 0.2
         });
 
-        // --- Atualiza user.stats.tokens (mesma lógica) ---
-        try {
-            const token = Number(resp?.usage?.total_tokens || 0);
-
-            user.stats = user.stats || {};
-            if (!Array.isArray(user.stats.tokens)) user.stats.tokens = [];
-
-            const nowBrazil = getBrazilDate();
-            const brazilDateKey = (d) => {
-                if (!d) return null;
-                try {
-                    return new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-                } catch (err) {
-                    return null;
-                }
-            };
-            const todayKey = brazilDateKey(nowBrazil);
-
-            const idxSameDay = user.stats.tokens.findIndex(entry => {
-                const entryKey = brazilDateKey(entry?.data);
-                return entryKey && todayKey && entryKey === todayKey;
-            });
-
-            if (idxSameDay !== -1) {
-                const prev = Number(user.stats.tokens[idxSameDay].valor || 0);
-                user.stats.tokens[idxSameDay].valor = prev + token;
-                user.stats.tokens[idxSameDay].data = nowBrazil;
-            } else {
-                user.stats.tokens.push({ valor: token, data: nowBrazil });
-            }
-
-            // salva alteração de tokens
-            await user.save();
-        } catch (err) {
-            console.warn('Falha ao atualizar user.stats.tokens em conversar:', err);
-            // não interrompe o retorno ao cliente
+        // Registrar uso de tokens usando o novo sistema
+        const tokensUsed = Number(resp?.usage?.total_tokens || 0);
+        if (tokensUsed > 0) {
+            await registerTokenUsage(email, tokensUsed);
         }
-        // --- fim atualização tokens ---
 
         const text = resp?.choices?.[0]?.message?.content || null;
         if (!text) return res.status(500).json({ msg: 'Resposta vazia da IA' });
