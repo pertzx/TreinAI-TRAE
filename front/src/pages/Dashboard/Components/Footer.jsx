@@ -2,6 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { FiInstagram, FiMail, FiGithub, FiArrowUp, FiUser, FiLogOut } from 'react-icons/fi';
+import { FaMapMarkerAlt, FaBullhorn, FaQuestionCircle } from 'react-icons/fa';
+import { NavLink } from 'react-router-dom';
 import Logo from '../../../components/Logo';
 import { getBrazilDate } from '../../../../../back/helpers/getBrazilDate';
 import api from '../../../Api';
@@ -93,19 +95,72 @@ export default function Footer({
               </div>
             </div>
 
-            {/* Center: links */}
-            <nav className="flex gap-4 flex-wrap justify-center">
-              {links.map((l, i) => (
-                <a
-                  key={i}
-                  href={l.href}
-                  className={`text-sm ${muted} ${linkHover} transition-colors`}
-                  aria-label={l.label}
+            {/* Center: links + Locais e Anúncios */}
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <nav className="flex gap-4 flex-wrap justify-center">
+                {links.map((l, i) => (
+                  <a
+                    key={i}
+                    href={l.href}
+                    className={`text-sm ${muted} ${linkHover} transition-colors`}
+                    aria-label={l.label}
+                  >
+                    {l.label}
+                  </a>
+                ))}
+              </nav>
+
+              {/* Botões de Locais e Anúncios */}
+              <div className="flex gap-3">
+                <NavLink
+                  to="/dashboard/locais"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${isActive
+                      ? 'bg-blue-600 text-white'
+                      : isDark
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                    }`
+                  }
+                  title="Locais"
                 >
-                  {l.label}
-                </a>
-              ))}
-            </nav>
+                  <FaMapMarkerAlt />
+                  <span>Locais</span>
+                </NavLink>
+
+                <NavLink
+                  to="/dashboard/anuncios"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${isActive
+                      ? 'bg-blue-600 text-white'
+                      : isDark
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                    }`
+                  }
+                  title="Anúncios"
+                >
+                  <FaBullhorn />
+                  <span>Anúncios</span>
+                </NavLink>
+
+                <NavLink
+                  to="/dashboard/ajuda"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${isActive
+                      ? 'bg-blue-600 text-white'
+                      : isDark
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                    }`
+                  }
+                  title="ajuda"
+                >
+                  <FaQuestionCircle />
+                  <span>Ajuda</span>
+                </NavLink>
+              </div>
+            </div>
 
             {/* Right: user (if any) + social */}
             <div className="flex items-center gap-3">
@@ -113,7 +168,7 @@ export default function Footer({
                 <div className={`sm:flex items-center gap-3 px-3 py-2 rounded-md ${profileBg} border`}>
                   <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                     {user?.avatar ? (
-                <img src={buildImageUrl(user.avatar)} alt={user.name || user.username || 'user'} className="w-full h-full object-cover" />
+                      <img src={buildImageUrl(user.avatar)} alt={user.name || user.username || 'user'} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-sm font-medium text-gray-700">{(user?.name || user?.username || 'U').charAt(0).toUpperCase()}</span>
                     )}

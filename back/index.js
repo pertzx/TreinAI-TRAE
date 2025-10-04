@@ -29,7 +29,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), StripeWebhook);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
-  max: 100, // 100 requisições por IP
+  max: 500, // 500 requisições por IP (aumentado para navegação normal)
   message: "Muitas requisiçoes. Tente novamente mais tarde."
 })
 

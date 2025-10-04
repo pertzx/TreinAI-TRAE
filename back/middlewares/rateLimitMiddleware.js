@@ -28,7 +28,7 @@ export const signupRateLimit = rateLimit({
 // Rate limiting para uploads
 export const uploadRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 10, // máximo 10 uploads por IP
+    max: 50, // máximo 50 uploads por IP (aumentado para navegação normal)
     message: {
         error: "Muitos uploads. Tente novamente em 15 minutos.",
         retryAfter: 15 * 60
@@ -40,7 +40,7 @@ export const uploadRateLimit = rateLimit({
 // Rate limiting para operações sensíveis (atualização de perfil, etc.)
 export const sensitiveRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 35, // máximo 35 operações por IP
+    max: 100, // máximo 100 operações por IP (aumentado para navegação normal)
     message: {
         error: "Muitas operações sensíveis. Tente novamente em 15 minutos.",
         retryAfter: 15 * 60
@@ -64,7 +64,7 @@ export const passwordResetRateLimit = rateLimit({
 // Rate limiting para rotas administrativas - muito restritivo
 export const adminRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 100, // máximo 100 requisições por IP (aumentado para admin dashboard)
+    max: 200, // máximo 200 requisições por IP (aumentado para admin dashboard)
     message: {
         error: "Muitas requisições administrativas. Tente novamente em 15 minutos.",
         retryAfter: 15 * 60

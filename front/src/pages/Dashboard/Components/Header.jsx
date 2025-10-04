@@ -2,20 +2,32 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import Logo from '../../../components/Logo';
 import { LuMenu } from 'react-icons/lu';
+import { FaHome, FaSearch, FaDumbbell, FaChartLine, FaGamepad, FaUser, FaCog, FaUserShield, FaQuestionCircle, FaUserTie, FaComments } from 'react-icons/fa';
 import { buildImageUrl } from '../../../utils/imageUtils';
+import { useUnreadChats } from '../../../hooks/useUnreadChats';
 
 const Header = ({ user, tema }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  
+  // Hook para detectar chats não lidos
+  const { hasUnreadChats } = useUnreadChats(user?.userId || user?._id || user?.id);
 
   const navLinks = [
-    { name: 'Home', href: '/dashboard' },
-    { name: 'Encontrar', href: '/dashboard/encontrar' },
-    { name: 'Meus Treinos', href: '/dashboard/meus-treinos' },
-    { name: 'Histórico', href: '/dashboard/historico' },
-    { name: 'Gamificação', href: '/dashboard/gamificacao' },
-    { name: 'Perfil', href: '/dashboard/perfil' },
-    { name: 'Configurações', href: '/dashboard/configuracoes' },
+    { name: 'Home', href: '/dashboard', icon: FaHome },
+    { name: 'Encontrar', href: '/dashboard/encontrar', icon: FaSearch },
+    { name: 'Meus Treinos', href: '/dashboard/meus-treinos', icon: FaDumbbell },
+    { name: 'Histórico', href: '/dashboard/historico', icon: FaChartLine },
+    { name: 'Gamificação', href: '/dashboard/gamificacao', icon: FaGamepad },
+    { name: 'Coach', href: '/dashboard/coach', icon: FaUserTie },
+    { name: 'Perfil', href: '/dashboard/perfil', icon: FaUser },
+    { name: 'Configurações', href: '/dashboard/configuracoes', icon: FaCog },
+    { name: 'Ajuda', href: '/dashboard/ajuda', icon: FaQuestionCircle },
   ];
+
+  // Adicionar Admin apenas se o usuário for admin
+  if (user?.role === 'admin' || user?.isAdmin) {
+    navLinks.splice(-1, 0, { name: 'Admin', href: '/dashboard/admin', icon: FaUserShield });
+  }
 
   // Classes do tema
   const themeClasses = tema === 'dark'
@@ -49,9 +61,10 @@ const Header = ({ user, tema }) => {
               to={link.href}
               end={link.href === '/dashboard'} // Aplica end apenas no Home
               className={({ isActive }) =>
-                `${themeClasses.linkHover} transition ${isActive ? 'font-bold' : ''}`
+                `${themeClasses.linkHover} transition ${isActive ? 'font-bold' : ''} flex items-center gap-2`
               }
             >
+              <link.icon />
               {link.name}
             </NavLink>
           ))}
@@ -61,6 +74,26 @@ const Header = ({ user, tema }) => {
         <div className="flex items-center gap-4">
 
           <p>Olá, {user.username}</p>
+
+          {/* Botão de Chat com notificação */}
+          <NavLink 
+            to="/dashboard/chat" 
+            className={({ isActive }) =>
+              `relative p-2 rounded-full transition-colors ${
+                isActive 
+                  ? 'bg-blue-600 text-white' 
+                  : tema === 'dark' 
+                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`
+            }
+            title="Chat"
+          >
+            <FaComments className="text-lg" />
+            {hasUnreadChats && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-white"></span>
+            )}
+          </NavLink>
 
           <NavLink to="/dashboard/perfil" className="w-10 h-10 rounded-full bg-blue-600"
             style={{
@@ -90,10 +123,11 @@ const Header = ({ user, tema }) => {
               to={link.href}
               end={link.href === '/dashboard'} // Aplica end apenas no Home
               className={({ isActive }) =>
-                `${themeClasses.linkHover} transition ${isActive ? 'font-bold' : ''}`
+                `${themeClasses.linkHover} transition ${isActive ? 'font-bold' : ''} flex items-center gap-2`
               }
               onClick={() => setMenuOpen(false)} // fecha menu ao clicar
             >
+              <link.icon />
               {link.name}
             </NavLink>
           ))}
