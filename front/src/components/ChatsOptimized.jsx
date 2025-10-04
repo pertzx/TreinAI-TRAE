@@ -307,7 +307,9 @@ const ChatsOptimized = ({ user, tema }) => {
                     disabled={!newChatUserId.trim()}
                     className={`col-span-2 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${
                       !newChatUserId.trim()
-                        ? 'opacity-50 cursor-not-allowed'
+                        ? tema === 'dark' 
+                          ? 'ring-2 ring-gray-700 cursor-not-allowed'
+                          : 'ring-2 ring-gray-600 cursor-not-allowed'
                         : tema === 'dark'
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
                           : 'bg-blue-500 hover:bg-blue-600 text-white'
