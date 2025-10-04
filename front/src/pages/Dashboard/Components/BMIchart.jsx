@@ -100,22 +100,37 @@ const BMIChart = ({
       id: "bmi-chart",
       toolbar: { show: true },
       zoom: { enabled: true },
-      animations: { enabled: false },
+      animations: { enabled: true, speed: 800, animateGradually: { enabled: true, delay: 150 } },
       foreColor: theme === "dark" ? "#E5E7EB" : "#111827",
       background: "transparent",
     },
     stroke: { curve: "smooth", width: 3 },
-    colors: [theme === "dark" ? "#60A5FA" : "#2563EB"],
+    colors: [theme === "dark" ? "#3B82F6" : "#1D4ED8"], // Azul mais consistente
     grid: {
-      borderColor: theme === "dark" ? "#374151" : "#E6E6E6",
+      borderColor: theme === "dark" ? "#374151" : "#E5E7EB",
       padding: { left: 8, right: 8 },
+      strokeDashArray: 3,
     },
     xaxis: {
       categories: labels,
-      labels: { rotate: labels.length > 6 ? -45 : 0, style: { colors: labels.map(() => (theme === "dark" ? "#D1D5DB" : "#374151")), fontSize: "12px" } },
+      labels: { 
+        rotate: labels.length > 6 ? -45 : 0, 
+        style: { 
+          colors: labels.map(() => (theme === "dark" ? "#D1D5DB" : "#374151")), 
+          fontSize: "12px",
+          fontWeight: 500
+        } 
+      },
     },
     yaxis: {
-      labels: { formatter: (v) => Number.isFinite(v) ? v.toFixed(1) : v, style: { colors: theme === "dark" ? "#D1D5DB" : "#374151" } },
+      labels: { 
+        formatter: (v) => Number.isFinite(v) ? v.toFixed(1) : v, 
+        style: { 
+          colors: theme === "dark" ? "#D1D5DB" : "#374151",
+          fontSize: "12px",
+          fontWeight: 500
+        } 
+      },
     },
     tooltip: {
       theme: theme === "dark" ? "dark" : "light",
@@ -183,27 +198,28 @@ const BMIChart = ({
         {/* summary column */}
         <div className="flex-shrink-0 items-center justify-center w-full flex flex-col gap-3">
           <div className={`${theme === "dark" ? "bg-gray-700 border-gray-600" : "bg-gray-50 border-gray-200"} w-full p-3 rounded-lg border`}>
-            <div className="text-xs text-gray-400">IMC Atual</div>
-            <div className="text-xl font-semibold">{currentBMI ?? "--"}</div>
-            <div className="text-xs text-gray-400">{currentPeso ? `${currentPeso} kg — altura usada ${usedHeightCm ?? "--"} cm` : "Sem amostra atual"}</div>
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">IMC Atual</div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-1">{currentBMI ?? "--"}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{currentPeso ? `${currentPeso} kg — altura usada ${usedHeightCm ?? "--"} cm` : "Sem amostra atual"}</div>
           </div>
 
           <div className={`${theme === "dark" ? "bg-gray-700 border-gray-600" : "bg-gray-50 border-gray-200"} w-full p-3 rounded-lg border`}>
-            <div className="text-xs text-gray-400">IMC Alvo</div>
-            <div className="text-xl font-semibold" style={{ color: theme === "dark" ? "#FCA5A5" : "#EF4444" }}>{resolvedTargetBMI}</div>
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">IMC Alvo</div>
+            <div className="text-2xl sm:text-3xl font-bold mt-1" style={{ color: theme === "dark" ? "#FCA5A5" : "#EF4444" }}>{resolvedTargetBMI}</div>
             {pesoNecessario !== null && (
-              <div className="text-xs text-gray-400">
-                Peso necessário: <strong>{pesoNecessario} kg</strong>
-                {pesoDiff !== null && <div className={`mt-1 text-sm ${pesoDiff > 0 ? "text-red-400" : "text-green-400"}`}>{pesoDiff > 0 ? `Precisa ganhar ${Math.abs(pesoDiff)} kg` : `Precisa perder ${Math.abs(pesoDiff)} kg`}</div>}
+              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Peso necessário: <span className="font-semibold">{pesoNecessario} kg</span>
+                {pesoDiff !== null && <div className={`mt-1 text-sm font-medium ${pesoDiff > 0 ? "text-red-500 dark:text-red-400" : "text-green-500 dark:text-green-400"}`}>{pesoDiff > 0 ? `Precisa ganhar ${Math.abs(pesoDiff)} kg` : `Precisa perder ${Math.abs(pesoDiff)} kg`}</div>}
               </div>
             )}
           </div>
 
-          <div className={`${theme === "dark" ? "bg-gray-700 border-gray-600" : "bg-gray-50 border-gray-200"} w-full p-3 rounded-lg border text-sm text-gray-400`}>
-            <div className="font-medium mb-1">Detalhes</div>
-            <div>Última amostra: {latestPoint ? latestPoint.date.toLocaleString() : "—"}</div>
-            <div>Altura utilizada: {usedHeightCm ? `${usedHeightCm} cm` : "—"}</div>
-            <div className="mt-2 text-xs">ApexCharts fornece responsividade nativa. Se o gráfico ainda ficar desalinhado, adicione <code>min-w-0</code> no contêiner pai flex.</div>
+          <div className={`${theme === "dark" ? "bg-gray-700 border-gray-600" : "bg-gray-50 border-gray-200"} w-full p-3 rounded-lg border`}>
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Detalhes</div>
+            <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
+              <div><span className="font-medium">Última amostra:</span> {latestPoint ? latestPoint.date.toLocaleString() : "—"}</div>
+              <div><span className="font-medium">Altura utilizada:</span> {usedHeightCm ? `${usedHeightCm} cm` : "—"}</div>
+            </div>
           </div>
         </div>
       </div>

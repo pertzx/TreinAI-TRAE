@@ -41,11 +41,11 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
-  
+
   useEffect(() => {
     showError('Somente usuarios PRO, MAX ou COACH podem editar os seus treinos.');
   }, [rebuke]);
-  
+
   useEffect(() => {
     if (rebuke) {
       const t = setTimeout(() => setRebuke(false), 2000);
@@ -268,7 +268,11 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   const handleDragStart = (e, treinoId) => {
     setDraggingId(treinoId);
     e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', treinoId); } catch (err) { }
+    try {
+      e.dataTransfer.setData('text/plain', treinoId);
+    } catch {
+      // Fallback para navegadores que não suportam setData
+    }
   };
   const handleDragOver = (e, targetId) => { e.preventDefault(); if (dragOverId !== targetId) setDragOverId(targetId); };
   const handleDragLeave = () => setDragOverId(null);
@@ -414,7 +418,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
         )}
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {meusTreinos.map((treino) => {
           const isDragging = draggingId === treino.treinoId;
           const isDragOver = dragOverId === treino.treinoId;
@@ -433,77 +437,154 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
               onDrop={(e) => handleDrop(e, treino.treinoId)}
               tabIndex={0}
               aria-grabbed={isDragging}
-              className={`p-6 border rounded-2xl shadow-md transition-all duration-300 ${isDark ? 'bg-gray-800 text-white' : 'bg-gray-50 text-black'} ${isDragging ? 'opacity-70 border-dashed' : ''} ${isDragOver ? 'ring-2 ring-blue-300' : ''} ${isNextSlot ? 'border-2 border-green-500 ring-2 ring-green-200' : ''} w-full`}
+              className={`border w-full h-fit p-4 sm:p-6 rounded-2xl shadow-md transition-all duration-300 ${isDark ? 'bg-gray-800 text-white' : 'bg-gray-50 text-black'} ${isDragging ? 'opacity-70 border-dashed' : ''} ${isDragOver ? 'ring-2 ring-blue-300' : ''} ${isNextSlot ? 'border-2 border-green-500 ring-2 ring-green-200' : ''}`}
               style={{ touchAction: 'manipulation' }}
             >
-              <div className="flex justify-between flex-col md:flex-row items-center mb-4 gap-3">
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-lg sm:text-xl font-bold truncate break-words">{treino.treinoName}</h2>
-                  <p className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>ordem: {treino.ordem}</p>
+              <div className="mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg sm:text-xl font-bold truncate break-words">{treino.treinoName}</h2>
+                    <p className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>ordem: {treino.ordem}</p>
+                    <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                      {(treino.exercicios || []).length} exercícios
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {isNextSlot && (
+                      <div className="bg-green-100 text-green-800 px-2 sm:px-3 py-1 rounded-full text-xs font-semibold">
+                        Próximo treino
+                      </div>
+                    )}
+                    <button
+                      onClick={() => toggleExpand(treino.treinoId)}
+                      aria-expanded={isExpanded}
+                      className="p-2 rounded-md hover:bg-gray-100 transition"
+                      title={isExpanded ? 'Mostrar menos' : 'Mostrar mais'}
+                    >
+                      {isExpanded ? <FiChevronUp size={20} /> : <FiChevronDown size={20} />}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap justify-between items-center mb-4 gap-2 sm:gap-3">
-                  {isNextSlot && <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold mr-2">Próximo treino</div>}
-
-                  <button onClick={() => toggleExpand(treino.treinoId)} aria-expanded={isExpanded} className="p-2 rounded-md hover:bg-gray-100 transition" title={isExpanded ? 'Mostrar menos' : 'Mostrar mais'}>
-                    {isExpanded ? <FiChevronUp size={20} /> : <FiChevronDown size={20} />}
-                  </button>
-
-                  <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 mr-2">
+                <div className="flex flex-wrap justify-between items-center gap-2 sm:gap-3">
+                  <div className="hidden md:flex items-center gap-2 text-sm text-gray-500">
                     <span className="select-none">Arraste</span>
                     <svg className="w-5 h-5 opacity-60" viewBox="0 0 24 24" fill="none">
                       <path d="M7 10l5-5 5 5M7 14l5 5 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
 
-                  <button onClick={() => moveUp(treino.treinoId)} title="Mover para cima" className={`px-2 sm:px-3 py-1 rounded-lg border ${isDark ? 'border-gray-700 text-white hover:bg-gray-800' : 'border-gray-300 text-gray-800 hover:bg-gray-100'}`}>↑</button>
-                  <button onClick={() => moveDown(treino.treinoId)} title="Mover para baixo" className={`px-2 sm:px-3 py-1 rounded-lg border ${isDark ? 'border-gray-700 text-white hover:bg-gray-800' : 'border-gray-300 text-gray-800 hover:bg-gray-100'}`}>↓</button>
-
-                  <button onClick={() => deletarTreino(treino.treinoId)} title="Excluir treino" className={`px-3 py-1 rounded-lg border ${isDark ? 'border-red-700 text-red-300 hover:bg-red-900/20' : 'border-red-300 text-red-600 hover:bg-red-100'}`}>Excluir</button>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <button
+                      onClick={() => moveUp(treino.treinoId)}
+                      title="Mover para cima"
+                      className={`px-2 sm:px-3 py-1 text-sm rounded-lg border ${isDark ? 'border-gray-700 text-white hover:bg-gray-800' : 'border-gray-300 text-gray-800 hover:bg-gray-100'}`}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => moveDown(treino.treinoId)}
+                      title="Mover para baixo"
+                      className={`px-2 sm:px-3 py-1 text-sm rounded-lg border ${isDark ? 'border-gray-700 text-white hover:bg-gray-800' : 'border-gray-300 text-gray-800 hover:bg-gray-100'}`}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      onClick={() => deletarTreino(treino.treinoId)}
+                      title="Excluir treino"
+                      className={`px-2 sm:px-3 py-1 text-sm rounded-lg border ${isDark ? 'border-red-700 text-red-300 hover:bg-red-900/20' : 'border-red-300 text-red-600 hover:bg-red-100'}`}
+                    >
+                      Excluir
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {treino.descricao && <p className={`${isDark ? 'text-gray-200' : 'text-gray-700'} mb-4`}>{treino.descricao}</p>}
 
               {!isExpanded ? (
-                <div className={`${isDark ? 'bg-gray-700' : 'bg-white'} p-4 rounded-xl border`}>
-                  <div><p className="font-medium">{(treino.exercicios || []).length} exercícios</p><p className="text-sm text-gray-400">Clique para ver detalhes.</p></div>
-                  <div className="text-sm text-gray-400"><span className="block">{treino.exercicios?.[0]?.nome}</span><span className="block text-xs">{treino.exercicios && treino.exercicios.length > 1 ? `+${treino.exercicios.length - 1} outros` : ''}</span></div>
+                <div className={`${isDark ? 'bg-gray-700' : 'bg-white'} p-3 sm:p-4 rounded-xl border`}>
+                  <div className="mb-2">
+                    <p className="font-medium text-sm sm:text-base">{(treino.exercicios || []).length} exercícios</p>
+                    <p className="text-xs sm:text-sm text-gray-400">Clique para ver detalhes.</p>
+                  </div>
+                  <div className="text-xs sm:text-sm text-gray-400">
+                    <span className="block">{treino.exercicios?.[0]?.nome}</span>
+                    <span className="block text-xs">
+                      {treino.exercicios && treino.exercicios.length > 1 ? `+${treino.exercicios.length - 1} outros` : ''}
+                    </span>
+                  </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 sm:gap-4">
                   {(treino.exercicios || []).map((ex) => (
-                    <div key={ex.exercicioId} className={`p-4 border rounded-xl ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white shadow-sm'}`}>
-                      <div className="flex justify-between items-center mb-2">
-                        <p className="font-medium">{ex.nome}</p>
-                        <p className="text-sm text-gray-500">{ex.musculo}</p>
+                    <div key={ex.exercicioId} className={`p-3 sm:p-4 border rounded-xl ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white shadow-sm'}`}>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-1 sm:gap-2">
+                        <p className="font-medium text-sm sm:text-base">{ex.nome}</p>
+                        <p className="text-xs sm:text-sm text-gray-500">{ex.musculo}</p>
                       </div>
-                      <p className="text-sm text-gray-500">Ordem: {ex.ordem}</p>
-                      {ex.instrucoes && <p className="text-sm mb-2">{ex.instrucoes}</p>}
-                      <p className="text-sm">Séries: {ex.series} | Reps: {ex.repeticoes} {ex.pse ? `| pse: ${ex.pse}/10` : ''}</p>
+                      <p className="text-xs sm:text-sm text-gray-500 mb-1">Ordem: {ex.ordem}</p>
+                      {ex.instrucoes && <p className="text-xs sm:text-sm mb-2">{ex.instrucoes}</p>}
+                      <p className="text-xs sm:text-sm mb-3">
+                        Séries: {ex.series} | Reps: {ex.repeticoes} {ex.pse ? `| pse: ${ex.pse}/10` : ''}
+                      </p>
 
                       <div className="mt-2 flex gap-2">
-                        <button onClick={() => deletarExercicio(ex.exercicioId, treino.treinoId)} className={`px-3 py-1 rounded-lg border ${isDark ? 'border-gray-700 text-white hover:bg-gray-800' : 'border-gray-300 text-gray-800 hover:bg-gray-100'}`}>Excluir</button>
+                        <button
+                          onClick={() => deletarExercicio(ex.exercicioId, treino.treinoId)}
+                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-lg border ${isDark ? 'border-gray-700 text-white hover:bg-gray-800' : 'border-gray-300 text-gray-800 hover:bg-gray-100'}`}
+                        >
+                          Excluir
+                        </button>
                       </div>
                     </div>
                   ))}
 
                   {/* Adicionar exercício */}
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
                     {addVisible ? (
                       <>
-                        <input ref={(el) => { addExRefs.current[treino.treinoId] = el; }} value={addName} onChange={(e) => setAddExNameMap(prev => ({ ...prev, [treino.treinoId]: e.target.value }))} placeholder="Nome do exercício..." className={`px-3 py-2 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-black'}`} />
-                        <button onClick={() => handleToggleAddExercise(treino.treinoId)} className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg" disabled={loadingIA[treino.treinoId]}>{loadingIA[treino.treinoId] ? 'Criando...' : 'Criar (IA)'}</button>
-                        <button onClick={() => { setAddExVisibleMap(prev => ({ ...prev, [treino.treinoId]: false })); setAddExNameMap(prev => ({ ...prev, [treino.treinoId]: '' })); }} className={`px-3 py-2 rounded-lg border ${isDark ? 'border-gray-700 text-white hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-100'}`}>Cancelar</button>
+                        <input
+                          ref={(el) => { addExRefs.current[treino.treinoId] = el; }}
+                          value={addName}
+                          onChange={(e) => setAddExNameMap(prev => ({ ...prev, [treino.treinoId]: e.target.value }))}
+                          placeholder="Nome do exercício..."
+                          className={`px-3 py-2 text-sm rounded-lg border flex-1 sm:flex-none ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-black'}`}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleToggleAddExercise(treino.treinoId)}
+                            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-sm rounded-lg flex-1 sm:flex-none justify-center"
+                            disabled={loadingIA[treino.treinoId]}
+                          >
+                            {loadingIA[treino.treinoId] ? 'Criando...' : 'Criar (IA)'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setAddExVisibleMap(prev => ({ ...prev, [treino.treinoId]: false }));
+                              setAddExNameMap(prev => ({ ...prev, [treino.treinoId]: '' }));
+                            }}
+                            className={`px-3 py-2 text-sm rounded-lg border ${isDark ? 'border-gray-700 text-white hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-100'}`}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
                       </>
                     ) : (
-                      <button onClick={() => handleToggleAddExercise(treino.treinoId)} className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg"><FiPlus /> Adicionar Exercício</button>
+                      <button
+                        onClick={() => setAddExVisibleMap(prev => ({ ...prev, [treino.treinoId]: true }))}
+                        className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-2 text-sm rounded-lg w-full sm:w-auto justify-center"
+                      >
+                        <FiPlus size={16} />
+                        Adicionar Exercício
+                      </button>
                     )}
                   </div>
                 </div>
               )}
             </div>
-          );
+          )
         })}
       </div>
     </div>

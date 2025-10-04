@@ -177,27 +177,92 @@ const Dashboard = ({ needToPay, plano }) => {
       {/* NutriAi */}
       <ChatNutriAI user={user} tema={tema} />
 
-      {/* Card Perfil */}
+      {/* Card Desempenho - Responsivo e Otimizado */}
       <div
-        className={`flex flex-col gap-2 p-6 rounded-2xl shadow-sm hover:shadow-lg transition-colors duration-300 ${tema === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+        className={`flex flex-col gap-4 p-4 sm:p-6 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 ${tema === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
       >
-        <h2 className="text-xl font-semibold mb-2">Desempenho</h2>
-        <div className="flex flex-col gap-3 items-center xl:items-start justify-center xl:flex-row">
-          <div className={`${tema === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} p-3 rounded-2xl`}>
-            <BMIChart alturaHistory={user?.perfil?.altura} pesoHistory={user?.perfil?.pesoAtual} targetBMI={22.5} tema={tema} />
+        {/* Título da Seção */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900 dark:text-white">
+            Desempenho
+          </h2>
+          <div className={`w-2 h-8 rounded-full ${tema === 'dark' ? 'bg-blue-400' : 'bg-blue-500'}`}></div>
+        </div>
+
+        {/* Grid de Gráficos Responsivo */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          {/* Container BMI Chart */}
+          <div className={`
+            ${tema === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'} 
+            p-4 sm:p-5 rounded-xl border 
+            ${tema === 'dark' ? 'border-gray-600' : 'border-gray-200'}
+            hover:shadow-md transition-all duration-200
+            min-h-[280px] sm:min-h-[320px]
+          `}>
+            <div className="h-full flex flex-col">
+              <h3 className={`text-sm sm:text-base font-medium mb-3 ${tema === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                Índice de Massa Corporal
+              </h3>
+              <div className="flex-1">
+                <BMIChart 
+                  alturaHistory={user?.perfil?.altura} 
+                  pesoHistory={user?.perfil?.pesoAtual} 
+                  targetBMI={22.5} 
+                  tema={tema} 
+                />
+              </div>
+            </div>
           </div>
-          <div className={`${tema === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} p-3 rounded-2xl`}>
-            <HistoricoChart tema={tema} historico={user?.historico} />
+
+          {/* Container Histórico Chart */}
+          <div className={`
+            ${tema === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'} 
+            p-4 sm:p-5 rounded-xl border 
+            ${tema === 'dark' ? 'border-gray-600' : 'border-gray-200'}
+            hover:shadow-md transition-all duration-200
+            min-h-[280px] sm:min-h-[320px]
+          `}>
+            <div className="h-full flex flex-col">
+              <h3 className={`text-sm sm:text-base font-medium mb-3 ${tema === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                Histórico de Treinos
+              </h3>
+              <div className="flex-1">
+                <HistoricoChart tema={tema} historico={user?.historico} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Card Estatísticas - ficará abaixo do Perfil em telas md+, ou abaixo no mobile */}
+      {/* Card Estatísticas - Responsivo e Otimizado */}
       <div
-        className={`p-6 rounded-2xl shadow-sm hover:shadow-lg transition-colors duration-300 ${tema === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+        className={`flex flex-col gap-4 p-4 sm:p-6 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 ${tema === "dark" ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
       >
-        <h2 className="text-xl font-semibold mb-2">Estatísticas</h2>
-        <TokensChart user={user} tokens={user?.stats?.tokens} tema={tema} />
+        {/* Título da Seção */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900 dark:text-white">
+            Estatísticas
+          </h2>
+          <div className={`w-2 h-8 rounded-full ${tema === 'dark' ? 'bg-green-400' : 'bg-green-500'}`}></div>
+        </div>
+
+        {/* Container Tokens Chart */}
+        <div className={`
+          ${tema === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'} 
+          p-4 sm:p-5 rounded-xl border 
+          ${tema === 'dark' ? 'border-gray-600' : 'border-gray-200'}
+          hover:shadow-md transition-all duration-200
+          min-h-[280px] sm:min-h-[320px]
+        `}>
+          <div className="h-full flex flex-col">
+            <h3 className={`text-sm sm:text-base font-medium mb-3 ${tema === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+              Consumo de Tokens
+            </h3>
+            <div className="flex-1">
+              <TokensChart user={user} tokens={user?.stats?.tokens} tema={tema} />
+            </div>
+          </div>
+        </div>
       </div>
 
 

@@ -97,10 +97,10 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
   }, [aggregated]);
 
   const options = useMemo(() => {
-    const primaryColor = isLight ? "#2563eb" : "#60a5fa"; // azul
-    const lineColor = isLight ? "#059669" : "#34d399"; // verde
-    const textColor = isLight ? "#111827" : "#e5e7eb";
-    const gridColor = isLight ? "#e6edf3" : "#1f2937";
+    const primaryColor = isLight ? "#1D4ED8" : "#3B82F6"; // azul consistente com BMI
+    const lineColor = isLight ? "#059669" : "#10B981"; // verde mais vibrante
+    const textColor = isLight ? "#111827" : "#E5E7EB";
+    const gridColor = isLight ? "#E5E7EB" : "#374151";
 
     return {
       chart: {
@@ -109,7 +109,12 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
         type: "line",
         zoom: { enabled: false },
         foreColor: textColor,
-        animations: { enabled: true },
+        animations: { 
+          enabled: true, 
+          speed: 800,
+          animateGradually: { enabled: true, delay: 150 }
+        },
+        background: "transparent",
       },
       stroke: {
         width: [0, 3],
@@ -187,20 +192,38 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
 
   if (!aggregated.length) {
     return (
-      <div className={`p-4 rounded-lg ${isLight ? "bg-white" : "bg-gray-800"}`}>
-        <div className={`text-sm ${isLight ? "text-gray-700" : "text-gray-200"}`}>Nenhum registro de tokens disponível.</div>
+      <div className={`p-6 rounded-lg text-center ${isLight ? "bg-white" : "bg-gray-800"}`}>
+        <div className={`text-sm font-medium ${isLight ? "text-gray-600" : "text-gray-300"}`}>
+          Nenhum registro de tokens disponível
+        </div>
+        <div className={`text-xs mt-1 ${isLight ? "text-gray-500" : "text-gray-400"}`}>
+          Os dados aparecerão aqui conforme você usar o sistema
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-2">
-        <div className={`text-sm font-medium ${isLight ? "text-gray-700" : "text-gray-200"}`}>Tokens (últimos {days} dias)</div>
-        <div className={`text-xs ${isLight ? "text-gray-500" : "text-gray-400"}`}>Fuso: America/Sao_Paulo</div>
+    <div className="w-full h-full flex flex-col">
+      {/* Header com informações */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col">
+          <div className={`text-sm font-semibold ${isLight ? "text-gray-800" : "text-gray-100"}`}>
+            Consumo de Tokens
+          </div>
+          <div className={`text-xs ${isLight ? "text-gray-600" : "text-gray-400"}`}>
+            Últimos {days} dias
+          </div>
+        </div>
+        <div className={`text-xs px-2 py-1 rounded-full ${isLight ? "bg-gray-100 text-gray-600" : "bg-gray-700 text-gray-300"}`}>
+          Fuso: SP
+        </div>
       </div>
 
-      <Chart options={options} series={series} type="line" height={320} />
+      {/* Gráfico */}
+      <div className="flex-1 min-h-0">
+        <Chart options={options} series={series} type="line" height="100%" />
+      </div>
     </div>
   );
 }

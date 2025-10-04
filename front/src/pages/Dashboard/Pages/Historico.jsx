@@ -43,14 +43,16 @@ const Historico = ({ historico = [], tema = 'light', limit = 5 }) => {
     }
   };
 
-  const formatDuration = (mins) => {
-    if (mins == null) return '—';
-    const m = Number(mins) || 0;
-    if (m === 0) return '0 min';
-    const hours = Math.floor(m / 60);
-    const minutes = m % 60;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes} min`;
+  const formatDuration = (s) => {
+    if (s == null) return '—';
+    const total = Number(s) || 0;
+    if (total === 0) return '0s';
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
   };
 
   const resumoExercicios = (arr = []) => {
@@ -83,7 +85,7 @@ const Historico = ({ historico = [], tema = 'light', limit = 5 }) => {
         </div>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {mostrados.map((item, idx) => {
           const id = item.treinoId ?? `${idx}-${item.treinoName}`;
           const exercicios = item.exerciciosFeitos ?? item.exerciciosFeitos ?? [];
@@ -91,7 +93,7 @@ const Historico = ({ historico = [], tema = 'light', limit = 5 }) => {
           const expanded = expandedId === id;
 
           return (
-            <div key={id} className={`p-3 rounded-xl border ${cardClass} shadow-sm`}>
+            <div key={id} className={`p-3 rounded-xl border col-span-3 ${cardClass} shadow-sm`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">

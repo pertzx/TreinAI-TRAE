@@ -169,6 +169,10 @@ const ChatTreino = ({ tema = "dark", user }) => {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [lastRegistro, setLastRegistro] = useState(null);
 
+  // finalização do treino
+  const [treinoFinalizado, setTreinoFinalizado] = useState(false);
+  const [finalizandoTreino, setFinalizandoTreino] = useState(false);
+
   // toast
   const { showError } = useToast();
 
@@ -197,6 +201,29 @@ const ChatTreino = ({ tema = "dark", user }) => {
     const a = new Date(d1);
     const b = new Date(d2);
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  };
+
+  // função para resetar o treino após finalização
+  const resetarTreino = () => {
+    setTreinoFinalizado(false);
+    setFinalizandoTreino(false);
+    setTreinoIniciado(false);
+    setIndiceAtual(0);
+    setCurrentSetIndex(0);
+    setExerciseComplete(false);
+    setSetStarted(false);
+    setElapsedSeconds(0);
+    setSetTimingsByExercise([]);
+    setSummaryOpen(false);
+    setLastRegistro(null);
+    setMensagens([]);
+    setHistorico([]);
+    setExercicioExibido(false);
+    
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current);
+      elapsedIntervalRef.current = null;
+    }
   };
 
   // registrar histórico
@@ -478,6 +505,11 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
   // próximo exercício
   const handleProximo = () => {
+    // Verificar se o treino já foi finalizado ou está sendo finalizado
+    if (treinoFinalizado || finalizandoTreino) {
+      return;
+    }
+
     const treino = treinosDisponiveis[treinoIndex] || treinosDisponiveis[0];
     const exercicios = treino.exercicios || [];
     if (!exerciseComplete) {
@@ -491,49 +523,65 @@ const ChatTreino = ({ tema = "dark", user }) => {
       adicionarMensagem("Excelente! Próximo exercício chegando...", "bot");
       setTimeout(() => exibirExercicio(next), 700);
     } else {
-      // finalizou treino -> monta registro
-      const perExercise = (treino.exercicios || []).map((ex, idx) => {
-        const arr = setTimingsByExercise[idx] || [];
-        const sum = arr.reduce((s, t) => s + (t.durationSeconds || 0), 0);
-        return { nome: ex.nome, sum, sets: arr };
-      });
-      const total = perExercise.reduce((s, e) => s + e.sum, 0);
-      setDuracaoTotal(total);
+      // Finalizar treino - definir estado de loading
+      setFinalizandoTreino(true);
+      
+      try {
+        // finalizou treino -> monta registro
+        const perExercise = (treino.exercicios || []).map((ex, idx) => {
+          const arr = setTimingsByExercise[idx] || [];
+          const sum = arr.reduce((s, t) => s + (t.durationSeconds || 0), 0);
+          return { nome: ex.nome, sum, sets: arr };
+        });
+        const total = perExercise.reduce((s, e) => s + e.sum, 0);
+        setDuracaoTotal(total);
 
-      const detalhes = (
-        <div className="text-left">
-          <div className="font-semibold mb-2">🎉 Parabéns! Você finalizou o treino.</div>
-          <div className="mb-2">Tempo total: <strong>{formatSeconds(total)}</strong></div>
-          <div className="text-xs">
-            {perExercise.map((p, i) => (
-              <div key={i} className="mb-1">
-                <div className="font-medium">{p.nome} — {formatSeconds(p.sum)}</div>
-                <div className="text-xs">{p.sets.map((s, j) => <div key={j}>Set {s.setNumber}: {formatSeconds(s.durationSeconds)}</div>)}</div>
-              </div>
-            ))}
+        const detalhes = (
+          <div className="text-left">
+            <div className="font-semibold mb-2">🎉 Parabéns! Você finalizou o treino.</div>
+            <div className="mb-2">Tempo total: <strong>{formatSeconds(total)}</strong></div>
+            <div className="text-xs">
+              {perExercise.map((p, i) => (
+                <div key={i} className="mb-1">
+                  <div className="font-medium">{p.nome} — {formatSeconds(p.sum)}</div>
+                  <div className="text-xs">{p.sets.map((s, j) => <div key={j}>Set {s.setNumber}: {formatSeconds(s.durationSeconds)}</div>)}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      );
-      adicionarMensagem(detalhes, "bot");
-      setExercicioExibido(false);
+        );
+        adicionarMensagem(detalhes, "bot");
+        setExercicioExibido(false);
 
-      const registro = {
-        treinoId: treino.treinoId || treino._id || `treino-${treinoIndex}`,
-        treinoName: treino.treinoName || `Treino ${treinoIndex}`,
-        dataExecucao: new Date(),
-        duracao: total,
-        exerciciosFeitos: perExercise.map((p, idx) => ({
-          exercicioId: treino.exercicios[idx]?.id || `ex-${idx}`,
-          nome: p.nome,
-          seriesConcluidas: (p.sets || []).length,
-          tempoTotalExercicio: p.sum,
-          sets: p.sets,
-        })),
-      };
+        const registro = {
+          treinoId: treino.treinoId || treino._id || `treino-${treinoIndex}`,
+          treinoName: treino.treinoName || `Treino ${treinoIndex}`,
+          dataExecucao: new Date(),
+          duracao: total,
+          exerciciosFeitos: perExercise.map((p, idx) => ({
+            exercicioId: treino.exercicios[idx]?.id || `ex-${idx}`,
+            nome: p.nome,
+            seriesConcluidas: (p.sets || []).length,
+            tempoTotalExercicio: p.sum,
+            sets: p.sets,
+          })),
+        };
 
-      registrarTreinoHistorico(registro);
-      setLastRegistro(registro);
-      setSummaryOpen(true);
+        registrarTreinoHistorico(registro);
+        setLastRegistro(registro);
+        setSummaryOpen(true);
+        setTreinoFinalizado(true);
+        
+        // Aguardar um pouco antes de resetar o estado de loading
+        setTimeout(() => {
+          setFinalizandoTreino(false);
+        }, 1000);
+        
+      } catch (error) {
+        console.error("Erro ao finalizar treino:", error);
+        setFinalizandoTreino(false);
+        showError("Erro ao finalizar treino. Tente novamente.");
+      }
     }
   };
 
@@ -638,7 +686,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
       )}
 
       {/* Se já iniciou, mostra o fluxo do treino */}
-      {treinoIniciado && (
+      {treinoIniciado && !treinoFinalizado && (
         <>
           {/* header + progresso */}
           <div className="mb-3 flex flex-col gap-3">
@@ -686,7 +734,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
                 <button onClick={handleEndSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-2xl text-sm ${isDark ? "bg-yellow-500 hover:bg-yellow-600 text-black" : "bg-yellow-500 hover:bg-yellow-600 text-black"} ${!setStarted ? "opacity-60 pointer-events-none" : ""}`}>Terminar set</button>
               </div>
 
-              <button onClick={handleProximo} className={`px-3 sm:px-4 py-2 rounded-2xl text-sm ${exerciseComplete ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-400 text-white opacity-60 pointer-events-none"}`}>{indiceAtual < totalExercicios - 1 ? "Próximo Exercício" : "Finalizar Treino"}</button>
+              <button onClick={handleProximo} disabled={finalizandoTreino} className={`px-3 sm:px-4 py-2 rounded-2xl text-sm ${exerciseComplete && !finalizandoTreino ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-400 text-white opacity-60 pointer-events-none"}`}>{finalizandoTreino ? "Finalizando..." : (indiceAtual < totalExercicios - 1 ? "Próximo Exercício" : "Finalizar Treino")}</button>
             </div>
 
             {(setTimingsByExercise[indiceAtual] && setTimingsByExercise[indiceAtual].length > 0) && (
@@ -706,9 +754,43 @@ const ChatTreino = ({ tema = "dark", user }) => {
         </>
       )}
 
+      {/* Feedback visual após finalização */}
+      {treinoFinalizado && !summaryOpen && (
+        <div className="min-h-[400px] flex flex-col items-center justify-center text-center p-6">
+          <div className="text-6xl mb-4">🎉</div>
+          <h2 className="text-2xl font-bold mb-2 text-green-600">Treino Finalizado!</h2>
+          <p className="text-gray-600 mb-6">Parabéns! Você completou seu treino com sucesso.</p>
+          <div className="flex gap-3 flex-col sm:flex-row">
+            <button
+              onClick={() => setSummaryOpen(true)}
+              className="px-6 py-3 rounded-2xl bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Ver Resumo
+            </button>
+            <button
+              onClick={resetarTreino}
+              className="px-6 py-3 rounded-2xl bg-gray-200 text-black hover:bg-gray-300"
+            >
+              Novo Treino
+            </button>
+          </div>
+        </div>
+      )}
+
       {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && <AdBanner showPlaceholder={true} className="rounded-2xl mt-5 h-1/5" />}
 
-      <SummaryOverlay open={summaryOpen} tema={tema} onClose={() => setSummaryOpen(false)} registro={lastRegistro} onSave={registrarTreinoHistorico} userHistorico={user?.historico || []} />
+      <SummaryOverlay 
+        open={summaryOpen} 
+        tema={tema} 
+        onClose={() => {
+          setSummaryOpen(false);
+          window.location.reload();
+          resetarTreino();
+        }} 
+        registro={lastRegistro} 
+        onSave={registrarTreinoHistorico} 
+        userHistorico={user?.historico || []} 
+      />
     </div>
   );
 };

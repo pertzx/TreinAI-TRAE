@@ -2,6 +2,47 @@ import React, { useMemo, useRef, useEffect, useState } from "react";
 import Chart from "react-apexcharts";
 
 /**
+ * Formata duração de segundos para formato legível
+ * @param {number} seconds - Duração em segundos
+ * @param {boolean} short - Se true, usa formato curto (ex: "2m 30s"), se false usa formato longo (ex: "2 min 30 seg")
+ * @returns {string} Duração formatada
+ */
+const formatDuration = (seconds, short = true) => {
+  const totalSeconds = Math.floor(Number(seconds) || 0);
+  
+  if (totalSeconds === 0) return short ? "0s" : "0 segundos";
+  
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = totalSeconds % 60;
+  
+  const parts = [];
+  
+  if (hours > 0) {
+    parts.push(short ? `${hours}h` : `${hours} ${hours === 1 ? 'hora' : 'horas'}`);
+  }
+  
+  if (minutes > 0) {
+    parts.push(short ? `${minutes}m` : `${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`);
+  }
+  
+  if (remainingSeconds > 0 || parts.length === 0) {
+    parts.push(short ? `${remainingSeconds}s` : `${remainingSeconds} ${remainingSeconds === 1 ? 'segundo' : 'segundos'}`);
+  }
+  
+  return parts.join(' ');
+};
+
+/**
+ * Converte segundos para minutos com decimais (para uso no gráfico)
+ * @param {number} seconds - Duração em segundos
+ * @returns {number} Duração em minutos
+ */
+const secondsToMinutes = (seconds) => {
+  return +(Number(seconds) / 60 || 0).toFixed(2);
+};
+
+/**
  * HistoricoChart (responsive)
  * Props:
  *  - tema: 'dark' | 'light' (default: 'dark')
@@ -60,7 +101,7 @@ const HistoricoChart = ({ tema = "dark", historico = [], summary = false }) => {
       labels.push(label);
 
       const durSec = Number(r.duracao) || 0;
-      const durMin = +(durSec / 60).toFixed(2); // minutes, 2 decimals
+      const durMin = secondsToMinutes(durSec); // minutes, 2 decimals
       duracaoMin.push(durMin);
       totalDuracao += durMin;
 
@@ -136,9 +177,11 @@ const HistoricoChart = ({ tema = "dark", historico = [], summary = false }) => {
     tooltip: {
       shared: true,
       y: {
-        formatter: (val, { seriesIndex }) => {
+        formatter: (val, { seriesIndex, dataPointIndex }) => {
           if (seriesIndex === 0) return `${val} séries`;
-          return `${val} min`;
+          // Para duração, converter de volta para segundos e formatar
+          const durationInSeconds = rows[dataPointIndex]?.duracao || 0;
+          return formatDuration(durationInSeconds);
         },
       },
       x: { format: "dd/MM/yyyy" },
@@ -189,7 +232,7 @@ const HistoricoChart = ({ tema = "dark", historico = [], summary = false }) => {
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-gray-400">Média</div>
-                    <div className="font-semibold">{meta.avgDur} min • {meta.avgSeries} séries</div>
+                    <div className="font-semibold">{formatDuration(meta.avgDur * 60)} • {meta.avgSeries} séries</div>
                   </div>
                 </div>
               </div>
@@ -208,7 +251,7 @@ const HistoricoChart = ({ tema = "dark", historico = [], summary = false }) => {
                 <div key={i} className={`${isDark ? "bg-gray-700" : "bg-gray-50"} p-2 rounded-lg border ${isDark ? "border-gray-600" : "border-gray-200"}`}>
                   <div className="font-medium truncate">{r.treinoName}</div>
                   <div className="text-[11px] text-gray-400">{r.dataExecucao?.toLocaleDateString()}</div>
-                  <div className="mt-1 text-sm font-semibold">{((Number(r.duracao) || 0) / 60).toFixed(1)}m</div>
+                  <div className="mt-1 text-sm font-semibold">{formatDuration(r.duracao)}</div>
                   <div className="text-[11px] text-gray-500">{(r.exerciciosFeito || r.exerciciosFeitos || []).reduce((a, ex) => a + (Number(ex.seriesConcluidas) || 0), 0)} séries</div>
                 </div>
               ))}
@@ -221,7 +264,7 @@ const HistoricoChart = ({ tema = "dark", historico = [], summary = false }) => {
                   <div key={i} style={{ minWidth: 180 }} className={`${isDark ? "bg-gray-700" : "bg-gray-50"} p-3 rounded-lg border ${isDark ? "border-gray-600" : "border-gray-200"}`}>
                     <div className="font-medium truncate">{r.treinoName}</div>
                     <div className="text-[11px] text-gray-400">{r.dataExecucao?.toLocaleDateString()}</div>
-                    <div className="mt-1 text-sm font-semibold">{((Number(r.duracao) || 0) / 60).toFixed(1)}m</div>
+                    <div className="mt-1 text-sm font-semibold">{formatDuration(r.duracao)}</div>
                     <div className="text-[11px] text-gray-500">{(r.exerciciosFeito || r.exerciciosFeitos || []).reduce((a, ex) => a + (Number(ex.seriesConcluidas) || 0), 0)} séries</div>
                   </div>
                 ))}
@@ -239,7 +282,7 @@ const HistoricoChart = ({ tema = "dark", historico = [], summary = false }) => {
                 <>
                   <div className="font-semibold">{meta.latest.treinoName}</div>
                   <div className="text-xs text-gray-400">{meta.latest.dataExecucao?.toLocaleString()}</div>
-                  <div className="mt-2 text-sm">Duração: <strong>{((Number(meta.latest.duracao) || 0) / 60).toFixed(1)} min</strong></div>
+                  <div className="mt-2 text-sm">Duração: <strong>{formatDuration(meta.latest.duracao, false)}</strong></div>
                   <div className="mt-2 text-sm">Séries totais: <strong>{(meta.latest.exerciciosFeito || meta.latest.exerciciosFeitos || []).reduce((a, ex) => a + (Number(ex.seriesConcluidas) || 0), 0)}</strong></div>
 
                   <div className="mt-3 text-xs text-gray-400">Exercícios</div>
