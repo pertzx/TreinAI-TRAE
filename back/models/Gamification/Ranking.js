@@ -11,6 +11,9 @@ const RankingSchema = new mongoose.Schema({
         avatar: { type: String, default: null },
         points: { type: Number, required: true },
         workouts: { type: Number, default: 0 },
+        exercises: { type: Number, default: 0 },
+        duration: { type: Number, default: 0 },
+        sets: { type: Number, default: 0 },
         location: {
             country: { type: String, required: true },
             state: { type: String, required: true },

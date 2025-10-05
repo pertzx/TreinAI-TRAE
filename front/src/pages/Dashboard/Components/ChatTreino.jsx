@@ -25,14 +25,14 @@ const ChatTreino = ({ tema = "dark", user }) => {
   // Função para interpretar markdown básico (**texto** -> negrito)
   const parseMarkdown = (text) => {
     if (typeof text !== 'string') return text;
-    
+
     // Regex para encontrar **texto** e converter em negrito
     // Suporta múltiplas ocorrências e trata casos onde ** não é fechado
     const parts = [];
     let lastIndex = 0;
     let inBold = false;
     let boldStart = -1;
-    
+
     for (let i = 0; i < text.length - 1; i++) {
       if (text[i] === '*' && text[i + 1] === '*') {
         if (!inBold) {
@@ -53,7 +53,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
         }
       }
     }
-    
+
     // Se ainda está em negrito (** não foi fechado), adiciona o resto como negrito
     if (inBold && boldStart !== -1) {
       const boldText = text.slice(boldStart);
@@ -64,11 +64,11 @@ const ChatTreino = ({ tema = "dark", user }) => {
         parts.push(text.slice(lastIndex));
       }
     }
-    
+
     // Se não há partes JSX, retorna o texto original
     if (parts.length === 0) return text;
     if (parts.length === 1 && typeof parts[0] === 'string') return parts[0];
-    
+
     // Retorna um span com as partes formatadas
     return <span key={`parsed-${Date.now()}`}>{parts}</span>;
   };
@@ -219,7 +219,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
     setMensagens([]);
     setHistorico([]);
     setExercicioExibido(false);
-    
+
     if (elapsedIntervalRef.current) {
       clearInterval(elapsedIntervalRef.current);
       elapsedIntervalRef.current = null;
@@ -239,9 +239,60 @@ const ChatTreino = ({ tema = "dark", user }) => {
         treino: registroLocal,
       });
 
-
-
       adicionarMensagem("✅ Treino registrado no seu histórico!", "bot");
+
+      // Finalizar treino gamificação
+      const gmSubmit = await api.post("/gamification/finalizar-treino", {
+        user,
+        payloadTreino: registroLocal,
+      });
+
+      if (gmSubmit.reponse.data.success == true) {
+        adicionarMensagem((
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-5 shadow-lg ring-1 ring-emerald-200 dark:ring-emerald-500/30 space-y-3 text-gray-800 dark:text-gray-100">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🎉</span>
+              <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                Você ganhou <span className="text-emerald-600 dark:text-emerald-400 font-bold">{gmSubmit.reponse.data.pointsEarned}</span> pontos!
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-blue-500">💎</span>
+                <p>Total de pontos: <span className="font-semibold">{gmSubmit.reponse.data.totalPoints}</span></p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-orange-500">🔥</span>
+                <p>Seu streak: <span className="font-semibold">{gmSubmit.reponse.data.streak}</span></p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-purple-500">🏋️</span>
+                <p>Exercícios completados: <span className="font-semibold">{gmSubmit.reponse.data.exercisesCompleted}</span></p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-green-500">✅</span>
+                <p>Séries completadas: <span className="font-semibold">{gmSubmit.reponse.data.setsCompleted}</span></p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-cyan-500">⏱️</span>
+                <p>Duração do treino: <span className="font-semibold">{formatSeconds(gmSubmit.reponse.data.duration)}</span></p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-yellow-500">🏆</span>
+                <p>Posição no ranking: <span className="font-bold text-yellow-600 dark:text-yellow-400">#{gmSubmit.reponse.data.rankingPosition}</span></p>
+              </div>
+            </div>
+          </div>
+        ), "bot");
+      } else {
+        adicionarMensagem("❌ Não foi possível finalizar o treino.", "bot");
+      }
     } catch (err) {
       console.error("Erro ao registrar treino:", err);
       adicionarMensagem("❌ Não foi possível registrar o treino no histórico.", "bot");
@@ -250,10 +301,10 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
   const adicionarMensagem = (conteudo, tipo) => {
     // Aplica formatação de markdown apenas para mensagens da IA
-    const conteudoFormatado = tipo === 'bot' && typeof conteudo === 'string' 
-      ? parseMarkdown(conteudo) 
+    const conteudoFormatado = tipo === 'bot' && typeof conteudo === 'string'
+      ? parseMarkdown(conteudo)
       : conteudo;
-    
+
     setMensagens(prev => [...prev, { id: getBrazilDate() + Math.random(), conteudo: conteudoFormatado, tipo }]);
     const role = tipo === 'bot' ? 'ia' : 'user';
     let contentString = "";
@@ -525,7 +576,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
     } else {
       // Finalizar treino - definir estado de loading
       setFinalizandoTreino(true);
-      
+
       try {
         // finalizou treino -> monta registro
         const perExercise = (treino.exercicios || []).map((ex, idx) => {
@@ -571,12 +622,12 @@ const ChatTreino = ({ tema = "dark", user }) => {
         setLastRegistro(registro);
         setSummaryOpen(true);
         setTreinoFinalizado(true);
-        
+
         // Aguardar um pouco antes de resetar o estado de loading
         setTimeout(() => {
           setFinalizandoTreino(false);
         }, 1000);
-        
+
       } catch (error) {
         console.error("Erro ao finalizar treino:", error);
         setFinalizandoTreino(false);
@@ -779,17 +830,17 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
       {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && <AdBanner showPlaceholder={true} className="rounded-2xl mt-5 h-1/5" />}
 
-      <SummaryOverlay 
-        open={summaryOpen} 
-        tema={tema} 
+      <SummaryOverlay
+        open={summaryOpen}
+        tema={tema}
         onClose={() => {
           setSummaryOpen(false);
           window.location.reload();
           resetarTreino();
-        }} 
-        registro={lastRegistro} 
-        onSave={registrarTreinoHistorico} 
-        userHistorico={user?.historico || []} 
+        }}
+        registro={lastRegistro}
+        onSave={registrarTreinoHistorico}
+        userHistorico={user?.historico || []}
       />
     </div>
   );

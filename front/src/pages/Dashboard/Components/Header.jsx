@@ -53,7 +53,7 @@ const Header = ({ user, tema }) => {
         </NavLink>
 
         {/* NavLinks desktop */}
-        <nav className="hidden xl:flex gap-6">
+        <nav className="hidden 2xl:flex gap-5">
           {navLinks.map((link) => (
             <NavLink
               key={link.href}
@@ -105,7 +105,7 @@ const Header = ({ user, tema }) => {
 
           {/* Botão mobile para abrir menu */}
           <button
-            className="xl:hidden ml-2"
+            className="2xl:hidden ml-2"
             onClick={() => setMenuOpen(!menuOpen)}
           >
             <LuMenu className="text-2xl" />
@@ -115,7 +115,7 @@ const Header = ({ user, tema }) => {
 
       {/* Menu mobile */}
       {menuOpen && (
-        <nav className="flex flex-col gap-3 mt-3 xl:hidden">
+        <nav className="flex flex-col gap-3 mt-3 2xl:hidden">
           {navLinks.map((link) => (
             <NavLink
               key={link.href}

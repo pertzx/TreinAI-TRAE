@@ -114,7 +114,7 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
       `).join('')}
       </body></html>
     `;
-        
+
         // Usa função segura em vez de document.write
         safePrintWindow(content, `Resumo - ${registro.treinoName}`);
     };
@@ -412,7 +412,7 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
             if (!toBlobFn) throw new Error('html-to-image não expõe toBlob / toPng / toJpeg');
 
             if (htmlToImage.toBlob) {
-                const blob = await htmlToImage.toBlob(clone, options);
+                const blob = await htmlToImage.toBlob(node, options);
                 if (!blob) throw new Error('Failed to generate blob');
                 return blob;
             }
@@ -467,27 +467,40 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
             const safeName = (registro.treinoName || 'resumo').replace(/[^a-z0-9_\-]/gi, '_').toLowerCase();
             const file = new File([blob], `${safeName}_${new Date().toISOString().replace(/[:.]/g, '-')}.png`, { type: 'image/png' });
 
+            // 1) Tentativa nativa de compartilhamento com arquivo
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
-                    await navigator.share({ files: [file], title: `Resumo ${registro.treinoName}`, text: `Resumo do treino ${registro.treinoName} — ${hasValue(total) ? formatSeconds(total) : '-'}'` });
+                    await navigator.share({
+                        files: [file],
+                        title: `Resumo ${registro.treinoName}`,
+                        text: `Resumo do treino ${registro.treinoName} — ${hasValue(total) ? formatSeconds(total) : '-'}`
+                    });
                     setSharing(false);
-                    return;
-                } catch (err) { /* continue to fallback */ }
+                    return; // sucesso
+                } catch (err) {
+                    // Falha silenciosa → segue para fallback
+                }
             }
 
+            // 2) Tentativa de copiar imagem para área de transferência
             try {
                 await copyImageToClipboard(blob);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1600);
                 setSharing(false);
-                return;
-            } catch (err) { /* fallback to download */ }
+                return; // sucesso
+            } catch (err) {
+                // Falha silenciosa → segue para download
+            }
 
+            // 3) Fallback: download direto
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `${safeName}_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+            document.body.appendChild(a); // necessário para Firefox
             a.click();
+            document.body.removeChild(a);
             URL.revokeObjectURL(url);
         } catch (err) {
             console.error('shareImage error:', err);
@@ -542,19 +555,21 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
                             <p className="text-xs md:text-sm text-gray-400 mt-1">Ótimo trabalho — aqui está um resumo do seu treino.</p>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                            <div className="text-right">
+                        <div className="flex items-center flex-wrap-reverse justify-center gap-3">
+                            <div className="text-center">
                                 <div className="text-xs text-gray-400">Tempo total</div>
                                 <div className="text-lg md:text-2xl font-semibold">{hasValue(total) ? formatSeconds(total) : "-"}</div>
                                 <div className="text-xs text-gray-400">{registro.dataExecucao ? new Date(registro.dataExecucao).toLocaleString() : ""}</div>
                             </div>
 
-                            {/* logo visível no canto superior direito — será capturada junto com o summary */}
-                            <img src={getAppLogoDataUrl(240)} alt="logo" style={{ width: 140, height: 40, objectFit: 'contain' }} />
+                            <div className="flex items-center flex-wrap-reverse justify-end">
+                                {/* logo visível no canto superior direito — será capturada junto com o summary */}
+                                <img src={getAppLogoDataUrl(240)} alt="logo" style={{ width: 140, height: 40, objectFit: 'contain' }} />
 
-                            <button onClick={() => onClose && onClose()} aria-label="Fechar" className={`p-2 rounded-md hover:opacity-90 ${themeClass(tema, "bg-gray-100 text-gray-700", "bg-gray-800 text-gray-200")}`}>
-                                <FaTimes />
-                            </button>
+                                <button onClick={() => onClose && onClose()} aria-label="Fechar" className={`p-2 rounded-md hover:opacity-90 ${themeClass(tema, "bg-gray-100 text-gray-700", "bg-gray-800 text-gray-200")}`}>
+                                    <FaTimes />
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -605,7 +620,7 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
                         <div className={`rounded-xl p-3 mb-4 ${themeClass(tema, 'bg-white', 'bg-gray-800')} shadow-sm border ${isLight ? 'border-gray-100' : 'border-gray-800'}`}>
                             <div className="text-sm font-medium mb-2">Comparativo</div>
                             {userHistorico && userHistorico.length ? (
-                                <div className="w-full h-40 md:h-44 overflow-hidden">
+                                <div className="w-full overflow-hidden">
                                     <HistoricoChart historico={userHistorico} tema={tema} summary={true} />
                                 </div>
                             ) : (
@@ -616,8 +631,8 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
                         <div className={`rounded-xl p-3 mb-4 ${themeClass(tema, 'bg-white', 'bg-gray-800')} shadow-sm border ${isLight ? 'border-gray-100' : 'border-gray-800'}`}>
                             <div className="text-sm font-medium mb-2">Exportar / Compartilhar</div>
                             <div className="flex flex-col gap-2">
-                                <button onClick={exportCSV} className={`w-full px-3 py-2 rounded-md ${primaryBtnClass} flex items-center justify-center gap-2 text-sm`}><FaDownload /> Exportar CSV</button>
-                                <button onClick={exportPDF} className={`w-full px-3 py-2 rounded-md ${secondaryBtnClass} font-medium text-sm`}><FaDownload /> Exportar PDF</button>
+                                <button onClick={exportCSV} className={`w-full px-3 py-2 rounded-md ${primaryBtnClass} flex items-center justify-center gap-2 font-medium text-sm`}><FaDownload /> Exportar CSV</button>
+                                <button onClick={exportPDF} className={`w-full px-3 py-2 rounded-md ${secondaryBtnClass} flex items-center justify-center gap-2 font-medium text-sm`}><FaDownload /> Exportar PDF</button>
 
                                 <div className="flex gap-2">
                                     <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={triggerTakePhoto} className={`flex-1 px-3 py-3 rounded-md flex items-center justify-center gap-3 text-sm ${isLight ? 'bg-green-600 text-white' : 'bg-green-500 text-white'}`}>

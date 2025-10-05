@@ -1,9 +1,11 @@
 import mongoose from 'mongoose';
-import { getBrazilDate } from '../helpers/getBrazilDate';
 
 const UserGamificationSchema = new mongoose.Schema({
     streak: { type: Number, default: 0 },
     workouts: { type: Number, default: 0 },
+    sets: { type: Number, default: 0 },
+    duration: { type: Number, default: 0 },
+    exercises: { type: Number, default: 0 },
     points: { type: Number, default: 0 },
     userId: { type: String, required: true },
     location: {

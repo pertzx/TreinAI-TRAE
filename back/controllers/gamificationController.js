@@ -1,19 +1,198 @@
-import Ranking from "../models/Gamification/Ranking";
+import { getBrazilDate } from "../helpers/getBrazilDate.js";
+import Ranking from "../models/Gamification/Ranking.js";
+import UserGamification from "../models/Gamification/UserGamification.js";
 
 export const finalizarTreino = async (req, res) => {
   try {
-    const { userId } = req.user;
-    const { duration, exercises } = req.body;
+    const { payloadTreino = {}, user = {} } = req.body;
+    /* 
+      {
+          dataExecucao: new Date(),
+          duracao: total, // em segundos
+          exerciciosFeitos: perExercise.map((p, idx) => ({
+            nome: p.nome,
+            seriesConcluidas: (p.sets || []).length,
+            tempoTotalExercicio: p.sum,
+            sets: p.sets,
+          })),
+        };
+    */
 
-    // Atualizar estatísticas do usuário no ranking e no userGamification
-    // encontrar um ranking que ainda não acabou
-    const ranking = await Ranking.findOne({ endDate: null });
-    if (!ranking) {
-      return res.status(404).json({ success: false, msg: 'Ranking não encontrado' });
+    // Verificações de entrada mais robustas
+    if (!payloadTreino || !user || !user._id) {
+      return res.status(400).json({ success: false, msg: 'Dados incompletos: payloadTreino e user são obrigatórios' });
     }
 
-    res.status(200).json({ success: true, msg: 'Treino finalizado com sucesso' });
+    if (!payloadTreino.exerciciosFeitos || !Array.isArray(payloadTreino.exerciciosFeitos) || payloadTreino.exerciciosFeitos.length === 0) {
+      return res.status(400).json({ success: false, msg: 'Exercícios realizados são obrigatórios' });
+    }
+
+    if (!payloadTreino.duracao || typeof payloadTreino.duracao !== 'number' || payloadTreino.duracao <= 0) {
+      return res.status(400).json({ success: false, msg: 'Duração do treino deve ser um número positivo' });
+    }
+
+    if (!user.username || !user.perfil) {
+      return res.status(400).json({ success: false, msg: 'Dados do usuário incompletos' });
+    }
+
+    // Encontrar um ranking valido pro cliente, endDate > data atual e startDate, ja começou
+    const ranking = await Ranking.findOne({
+      endDate: { $gt: new Date(getBrazilDate()) },
+      startDate: { $lt: new Date(getBrazilDate()) }
+    });
+
+    if (!ranking) {
+      return res.status(404).json({ success: false, msg: 'Nenhum ranking encontrado.' });
+    }
+
+    // Calcular os pontos do usuario
+    let setsExecutados = 0;
+    let exerciseExecutadas = 0;
+
+    // Calcular os sets e workouts executados
+    payloadTreino.exerciciosFeitos.forEach((ex) => {
+      if (ex && typeof ex.seriesConcluidas === 'number' && ex.seriesConcluidas > 0) {
+        setsExecutados += ex.seriesConcluidas;
+        exerciseExecutadas++;
+      }
+    });
+
+    // Validar se pelo menos um exercício foi executado
+    if (exerciseExecutadas === 0) {
+      return res.status(400).json({ success: false, msg: 'Nenhum exercício válido foi executado' });
+    }
+
+    // Calcular os pontos do usuario
+    const points = Math.round(setsExecutados * exerciseExecutadas * (payloadTreino.duracao * 0.001));
+
+    // Atualizar os dados do usuario no ranking e no userGamification
+    const userRanking = ranking.competitors.find((u) => u.userId === user._id);
+    if (!userRanking) {
+      ranking.competitors.push({
+        userId: user._id,
+        username: user.username,
+        avatar: user.avatar,
+        points: points,
+        workouts: 1,
+        sets: setsExecutados,
+        duration: payloadTreino.duracao,
+        exercises: exerciseExecutadas,
+        location: {
+          country: user.perfil.country,
+          state: user.perfil.state,
+          city: user.perfil.city,
+        },
+      });
+
+      await ranking.save();
+    } else {
+      userRanking.points += points;
+      userRanking.workouts += 1;
+      userRanking.exercises += exerciseExecutadas;
+      userRanking.sets += setsExecutados;
+      userRanking.duration += payloadTreino.duracao;
+      userRanking.location.country = user.perfil.country;
+      userRanking.location.state = user.perfil.state;
+      userRanking.location.city = user.perfil.city;
+
+      await ranking.save(); // Corrigido: salvar o ranking, não o userRanking
+    }
+
+    const userGamification = await UserGamification.findOne({ userId: user._id });
+
+    // Verificar se o usuário já finalizou um treino hoje
+    if (userGamification && userGamification.lastWorkoutDate && userGamification.lastWorkoutDate.length > 0) {
+      const lastWorkoutDate = userGamification.lastWorkoutDate[userGamification.lastWorkoutDate.length - 1];
+      const currentDate = new Date(getBrazilDate());
+
+      // Normalizar as datas para comparação (apenas dia/mês/ano)
+      const lastDate = new Date(lastWorkoutDate);
+      lastDate.setHours(0, 0, 0, 0);
+
+      const today = new Date(currentDate);
+      today.setHours(0, 0, 0, 0);
+
+      // Se as datas são iguais, o usuário já treinou hoje
+      if (lastDate.getTime() === today.getTime()) {
+        return res.status(400).json({
+          success: false,
+          msg: 'Você já finalizou um treino hoje. Volte amanhã para continuar sua jornada!',
+          data: {
+            lastWorkoutDate: lastWorkoutDate,
+            nextWorkoutAvailable: new Date(today.getTime() + 24 * 60 * 60 * 1000) // Próximo dia
+          }
+        });
+      }
+    }
+    if (!userGamification) {
+      await UserGamification.create({
+        userId: user._id,
+        streak: 1,
+        workouts: 1,
+        sets: setsExecutados,
+        duration: payloadTreino.duracao,
+        exercises: exerciseExecutadas,
+        points: points,
+        lastWorkoutDate: [new Date(getBrazilDate())],
+        location: {
+          country: user.perfil.country,
+          state: user.perfil.state,
+          city: user.perfil.city,
+        },
+      });
+    } else {
+
+      // Verificação do streak melhorada
+      const lastWorkoutDate = userGamification.lastWorkoutDate[userGamification.lastWorkoutDate.length - 1];
+      const currentDate = new Date(getBrazilDate());
+
+      // Normalizar as datas para comparação (apenas dia/mês/ano)
+      const lastDate = new Date(lastWorkoutDate);
+      lastDate.setHours(0, 0, 0, 0);
+
+      const today = new Date(currentDate);
+      today.setHours(0, 0, 0, 0);
+
+      const diffTime = today.getTime() - lastDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        // Treino no dia seguinte - mantém streak
+        userGamification.streak += 1;
+      } else if (diffDays === 0) {
+        // Mesmo dia - não altera streak
+        // Streak permanece o mesmo
+      } else {
+        // Mais de 1 dia de diferença - reset streak
+        userGamification.streak = 1;
+      }
+
+      userGamification.workouts += 1;
+      userGamification.sets += setsExecutados;
+      userGamification.duration += payloadTreino.duracao;
+      userGamification.exercises += exerciseExecutadas;
+      userGamification.points += points;
+      userGamification.lastWorkoutDate.push(new Date(getBrazilDate()));
+      await userGamification.save();
+    }
+
+    // Resposta de sucesso com dados relevantes
+    return res.status(200).json({
+      success: true,
+      msg: 'Treino finalizado com sucesso!',
+      data: {
+        pointsEarned: points,
+        totalPoints: userGamification ? userGamification.points + points : points,
+        streak: userGamification ? userGamification.streak : 1,
+        exercisesCompleted: exerciseExecutadas,
+        setsCompleted: setsExecutados,
+        duration: payloadTreino.duracao,
+        rankingPosition: ranking.competitors.findIndex(c => c.userId === user._id) + 1
+      }
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, msg: 'Erro ao finalizar treino', error: error.message });
+    console.error('Erro ao finalizar treino:', error);
+    res.status(500).json({ success: false, msg: 'Erro interno do servidor ao finalizar treino', error: error.message });
   }
 };
