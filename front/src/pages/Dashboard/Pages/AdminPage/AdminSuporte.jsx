@@ -129,7 +129,7 @@ export default function AdminSuporte({ tema, user }) {
       // If your backend expects boolean, adjust accordingly (e.g. responded=true/false)
       if (rf && rf !== 'all') params.responded = rf
 
-      const res = await api.get('/supports-by-admin', { params })
+      const res = await api.get('/admin/supports-by-admin', { params })
       console.log('fetchSupports =>', res?.data)
       const supportsData = res?.data?.supports ?? res?.data?.data ?? res?.data ?? []
       setSupports(Array.isArray(supportsData) ? supportsData : [])
@@ -199,7 +199,7 @@ export default function AdminSuporte({ tema, user }) {
     setItemLoading(id, true)
 
     try {
-      const res = await api.post('/adicionarRespostaSuportAdmin', { adminId: user._id, supportId: id, resposta: texto })
+      const res = await api.post('/admin/adicionarRespostaSuportAdmin', { adminId: user._id, supportId: id, resposta: texto })
       if (res?.data?.success) {
         setMsg('Resposta salva')
         // atualiza da fonte de verdade
@@ -249,7 +249,7 @@ export default function AdminSuporte({ tema, user }) {
     // setItemLoading(id, true)
 
     try {
-      const res = await api.post('/alterarVisibilidade-by-admin', { adminId: user._id, supportId: id, boolean: !!novoPrivado })
+      const res = await api.post('/admin/alterarVisibilidade-by-admin', { adminId: user._id, supportId: id, boolean: !!novoPrivado })
       if (res?.data?.success) {
         setMsg(`Visibilidade atualizada`)
         // re-fetch para garantir consistência

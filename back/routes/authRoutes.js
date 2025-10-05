@@ -4,9 +4,9 @@ import { login, dashboard, signup, changeTheme, completeOnboarding, atualizarPer
 import { verificarToken } from '../middlewares/authMiddleware.js';
 import { validateLogin, validateSignup, validateUpdateProfile } from '../middlewares/validationMiddleware.js';
 import { validateEmailReal, validateEmailBasic } from '../middlewares/emailValidation.js';
-import { loginRateLimit, signupRateLimit, uploadRateLimit, passwordResetRateLimit, adminRateLimit } from '../middlewares/rateLimitMiddleware.js';
+import { loginRateLimit, signupRateLimit, uploadRateLimit, passwordResetRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { validateCSRF, validateCSRFAuth, getCSRFToken, provideCSRFToken } from '../middlewares/csrfMiddleware.js';
-import { adminSecurityHeaders, uploadSecurityHeaders } from '../middlewares/securityHeaders.js';
+import { uploadSecurityHeaders } from '../middlewares/securityHeaders.js';
 import {
   CreateCheckoutSession,
   SessionStatus,
@@ -28,15 +28,7 @@ import { conversarNutri } from '../controllers/NutriAI.js';
 import { editarLocal } from '../controllers/LocalController.js';
 import { getLocais } from '../controllers/LocalController.js';
 import { criarAnuncio, editarAnuncio, getAnuncios } from '../controllers/AnunciosController.js';
-import { getLocaisAdmin, updateLocalStatus, deleteLocal, editLocal } from '../controllers/AdminLocalController.js';
 import { deletarAnuncio } from '../controllers/AnunciosController.js';
-import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError } from '../controllers/AdminController.js';
-import { 
-    getCacheDashboard,
-    performCacheMaintenance,
-    getCacheMonitoring,
-    configureCacheAlerts
-} from '../controllers/CacheAdminController.js';
 import { checkTokenLimit } from '../middlewares/tokenLimitMiddleware.js';
 import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
 
@@ -51,24 +43,12 @@ router.get('/dashboard', verificarToken, dashboard);
 router.post('/create-checkout-session', CreateCheckoutSession);
 router.get('/session-status', SessionStatus); // verificar status
 router.post('/change-theme', changeTheme)
-router.post('/complete-onboarding', 
-  checkTokenLimit,
-  completeOnboarding
-)
+router.post('/complete-onboarding', checkTokenLimit, completeOnboarding)
 router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, upload('uploads/image-perfil', 'avatar'), atualizarPerfil)
-router.post('/criar-meusTreinos', 
-  checkTokenLimit,
-  carregarTreinos
-);
+router.post('/criar-meusTreinos', checkTokenLimit, carregarTreinos);
 // IA routes
-router.post('/gerar-exercicio-ia', 
-  checkTokenLimit,
-  criarExercicioIA
-);
-router.post('/gerar-treino-ia', 
-  checkTokenLimit,
-  criarTreinoIA
-);
+router.post('/gerar-exercicio-ia', criarExercicioIA);
+router.post('/gerar-treino-ia', checkTokenLimit, criarTreinoIA);
 router.delete('/excluir-treino', async (req, res) => {
   const { email, treinoId } = req.query;
 
@@ -173,18 +153,17 @@ router.delete('/excluir-exercicio', async (req, res) => {
   }
 });
 router.put('/atualizar-meusTreinos', atualizarMeusTreinos)
+
 // Chat and AI conversation routes
-router.post('/conversar',
-  checkTokenLimit,
-  conversar
-);
+router.post('/conversar', checkTokenLimit, conversar);
+
 router.post('/publicar-no-historico', publicarNoHistorico);
 router.post('/atualizar-plano', atualizarPlano)
 router.get('/procurar-exercicio', procurarExercicio);
 router.post('/adicionar-exercicio', adicionarExercicio);
 router.post('/adicionar-report-exercicio', adicionarReport);
 
-// profissionarl
+// profissional
 router.get('/profissionais', profissionais);
 router.post('/publicar-profissional', uploadRateLimit, uploadSecurityHeaders, upload('uploads/image-profissional', 'image'), publicarProfissional);
 router.post('/editar-profissional', uploadRateLimit, uploadSecurityHeaders, upload('uploads/image-profissional', 'image'), editarProfissional);
@@ -211,53 +190,12 @@ router.post('/configurar-chat', configurarChat);
 router.get('/buscar-historico', buscarHistorico);
 
 // nutri
-router.post('/conversar-nutri',
-  checkTokenLimit,
-  conversarNutri
-);
+router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
 
-// local
-// salva upload no tmp — só movemos para image-local quando invoice.paid confirmar
-
-/*
-      tipo,
-      userId,
-      description = '',
-      paymentMethod = 'card',
-      link,
-      localName,
-      localDescricao,
-      country,
-      countryCode,
-      state,
-      city,
-    } = req.body || {}; 
-     
-    alem de passar > image pro upload
-*/
+// locais
 router.post('/createPayment', uploadSecurityHeaders, upload('uploads/tmp', 'image'), CriarAssinaturaProLocal);
-
-/* 
-localId,
-      link,
-      localName,
-      localDescricao,
-      country,
-      countryCode,
-      state,
-      city,
-      lat,
-      lng,
-*/
 router.post('/editar-local', uploadSecurityHeaders, upload('uploads/image-local', 'image'), editarLocal);
-
-// =======================
-// GET /locais  (getLocais)
-// query: userId, country, state, city, localType, q, page, limit, sort, >>> utilize apenas o paramentro userId, para buscar apenas o do propio user
-// =======================
 router.get('/locais', getLocais);
-
-// apenas passar o localId e o userId
 router.post('/deletar-local', deletarLocal);
 
 // anuncios
@@ -267,42 +205,14 @@ router.get('/anuncios', getAnuncios); // query profissionalId (opcional). se nao
 router.post('/deletar-anuncio', deletarAnuncio); // corpo => profissionalId e anuncioId.
 router.post('/editar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), editarAnuncio); // corpo => profissionalId e anuncioId.
 
-// Rotas administrativas com rate limiting específico
-router.post('/usuarios', adminRateLimit, adminSecurityHeaders, getUsers) // body: adminId (obrigatório)
-router.get('/anuncios-by-admin', adminRateLimit, adminSecurityHeaders, getAnunciosByAdmin) // query: adminId (obrigatório)
-router.post('/alterar-status-anuncio', adminRateLimit, adminSecurityHeaders, alterarStatusAnuncio) // body: adminId, anuncioId, novoStatus (obrigatórios)
-router.get('/supports-by-admin', adminRateLimit, adminSecurityHeaders, getSupportsByAdmin) // query: adminId,
-router.post('/alterarVisibilidade-by-admin', adminRateLimit, adminSecurityHeaders, alterarVisibilidadeSuporte) // body: adminId, supportId, boolean
-router.post('/adicionarRespostaSuportAdmin', adminRateLimit, adminSecurityHeaders, adicionarRespostaSupport) // body: adminId, supportId, resposta
-
-// Rotas administrativas de locais
-router.get('/admin/locais', adminRateLimit, adminSecurityHeaders, getLocaisAdmin) // query: adminId (obrigatório)
-router.post('/admin/local-status', adminRateLimit, adminSecurityHeaders, updateLocalStatus) // body: adminId, localId, ativo
-router.post('/admin/delete-local', adminRateLimit, adminSecurityHeaders, deleteLocal) // body: adminId, localId
-router.post('/admin/edit-local', adminRateLimit, adminSecurityHeaders, editLocal) // body: adminId, localId, dados
-
-// Rotas administrativas do sistema AI
-router.get('/admin/ai-dashboard', adminRateLimit, adminSecurityHeaders, getAIDashboard) // query: adminId (obrigatório)
-router.post('/admin/cache-management', adminRateLimit, adminSecurityHeaders, manageCacheRedis) // body: adminId, action, pattern (opcional)
-router.post('/admin/api-performance', adminRateLimit, adminSecurityHeaders, getAPIPerformanceMetrics) // body: adminId, timeRange (opcional)
-router.post('/admin/error-logs', adminRateLimit, adminSecurityHeaders, getAPIErrorLogs)
-router.post('/admin/resolve-error', adminRateLimit, adminSecurityHeaders, resolveAPIError)
-
-
-// Rotas administrativas avançadas do cache Redis
-router.get('/admin/cache-dashboard', verificarToken, adminRateLimit, adminSecurityHeaders, getCacheDashboard)
-router.post('/admin/cache-maintenance', verificarToken, adminRateLimit, adminSecurityHeaders, performCacheMaintenance) // body: operations[]
-router.get('/admin/cache-monitoring', verificarToken, adminRateLimit, adminSecurityHeaders, getCacheMonitoring) // query: interval
-router.post('/admin/cache-alerts', verificarToken, adminRateLimit, adminSecurityHeaders, configureCacheAlerts) // body: alerts{}
-
 // support
-router.get('/supports', getSupports) // body: adminId, anuncioId, novoStatus (obrigatórios)
-router.post('/supports', pedirSuporte) // body: adminId, assunto
+router.get('/supports', getSupports)
+router.post('/supports', pedirSuporte)
 
 // Rota de logout para limpar cookies
 router.post('/logout', (req, res) => {
-    res.clearCookie('authToken');
-    res.json({ msg: 'Logout realizado com sucesso!' });
+  res.clearCookie('authToken');
+  res.json({ msg: 'Logout realizado com sucesso!' });
 });
 
 export default router;

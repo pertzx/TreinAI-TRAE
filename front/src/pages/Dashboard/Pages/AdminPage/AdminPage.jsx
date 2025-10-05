@@ -3,6 +3,7 @@ import AdminSuporte from './AdminSuporte'
 import AdminUsuarios from './AdminUsuarios'
 import AdminAnuncios from './AdminAnuncios'
 import AdminLocais from './AdminLocais'
+import AdminRankings from './AdminRankings'
 
 const AdminPage = ({ user, tema = 'dark' }) => {
   const isAdmin = !!(user && user.role === 'admin')
@@ -22,7 +23,8 @@ const AdminPage = ({ user, tema = 'dark' }) => {
     { label: '👥 Usuários', element: <AdminUsuarios tema={tema} user={user} /> },
     { label: '📍 Locais', element: <AdminLocais tema={tema} user={user} /> },
     { label: '🛠️ Suportes', element: <AdminSuporte tema={tema} user={user} /> },
-    { label: '📣 Anúncios', element: <AdminAnuncios tema={tema} user={user} /> }
+    { label: '📣 Anúncios', element: <AdminAnuncios tema={tema} user={user} /> },
+    { label: '📊 Rankings', element: <AdminRankings tema={tema} user={user} /> }
   ]
 
   useEffect(() => {

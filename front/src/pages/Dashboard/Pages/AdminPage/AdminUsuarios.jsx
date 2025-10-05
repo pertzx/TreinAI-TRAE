@@ -26,7 +26,7 @@ export default function AdminUsuarios({ tema, user }) {
   const fetchUsuarios = async () => {
     try {
       // Buscar usuários usando apenas cookies httpOnly
-      const res = await api.post('/usuarios', { adminId: user._id })
+      const res = await api.post('/admin/usuarios', { adminId: user._id })
       if (res.data?.users) setUsuarios(res.data.users)
       if (res.data?.msg) setMsg(res.data.msg)
       if (res.data?.erro) setErro(res.data.erro)

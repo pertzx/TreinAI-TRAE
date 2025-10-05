@@ -16,6 +16,8 @@ import rateLimit from 'express-rate-limit';
 import { securityHeaders, apiSecurityHeaders } from './middlewares/securityHeaders.js';
 import redisCache from './config/redis.js';
 import { sanitizeInput } from './middlewares/validationMiddleware.js';
+import gamificationRoutes from './routes/gamificationRoutes.js'
+import adminRoutes from './routes/adminRoutes.js'
 
 // cria __filename e __dirname em ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -126,6 +128,8 @@ app.use('/', apiSecurityHeaders, authRoutes);
 app.use('/reports', apiSecurityHeaders, reportRoutes);
 app.use('/', apiSecurityHeaders, userRoutes);
 app.use('/tokens', apiSecurityHeaders, tokenRoutes);
+app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
+app.use('/admin', apiSecurityHeaders, adminRoutes);
 
 // Iniciar servidor
 const PORT = process.env.PORT || 4000;

@@ -79,7 +79,7 @@ export default function AdminAnuncios({ tema, user }) {
 
   const fetchAnuncios = async () => {
     try {
-      const res = await api.get(`/anuncios-by-admin?adminId=${user?._id}`)
+      const res = await api.get(`/admin/anuncios-by-admin?adminId=${user?._id}`)
       if (res.data && res.data.success) {
         setAnuncios(res.data.anuncios || [])
       } else {
@@ -220,7 +220,7 @@ export default function AdminAnuncios({ tema, user }) {
     }
 
     try {
-      const res = await api.post('/alterar-status-anuncio', { adminId: user._id, anuncioId, novoStatus })
+      const res = await api.post('/admin/alterar-status-anuncio', { adminId: user._id, anuncioId, novoStatus })
       if (res.data && res.data.success) {
         setMsg(res.data.msg || 'Status do anúncio alterado com sucesso.')
         setTimeout(() => setMsg(''), 5000)

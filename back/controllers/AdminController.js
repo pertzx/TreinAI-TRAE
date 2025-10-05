@@ -5,6 +5,7 @@ import Support from "../models/Support.js";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import redisCache from '../config/redis.js';
 import RedisManager from '../utils/redisManager.js';
+import Ranking from "../models/Gamification/Ranking.js";
 
 export const getUsers = async (req, res) => {
     try {
@@ -20,8 +21,8 @@ export const getUsers = async (req, res) => {
         return res.status(200).json({ users, success: true, msg: 'Sucesso ao buscar usuários como admin.' });
     } catch (error) {
         return res.status(500).json({ success: false, msg: "Erro ao buscar usuários.", error: error.message || String(error) });
-     }
- };
+    }
+};
 
 // Visualizar logs de erro das APIs externas
 export const getAPIErrorLogs = async (req, res) => {
@@ -302,21 +303,21 @@ export const getDetailedAIAnalytics = async (req, res) => {
     } catch (error) {
         console.error('Erro ao carregar analytics detalhadas:', error);
         return res.status(500).json({
-             success: false,
-             msg: "Erro ao carregar analytics detalhadas",
-             error: error.message || String(error)
-         });
-     }
- };
+            success: false,
+            msg: "Erro ao carregar analytics detalhadas",
+            error: error.message || String(error)
+        });
+    }
+};
 
 export const getAnunciosByAdmin = async (req, res) => {
-  try {
-    const { adminId } = req.query;
+    try {
+        const { adminId } = req.query;
 
-    const user = await User.findById(adminId);
-    if (user.role !== 'admin') {
-      return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem acessar esta rota.' });
-    }
+        const user = await User.findById(adminId);
+        if (user.role !== 'admin') {
+            return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem acessar esta rota.' });
+        }
 
         // Lógica para buscar anúncios
         const anuncios = await Anuncio.find();
@@ -394,7 +395,7 @@ export const getSupportsByAdmin = async (req, res) => {
         if (respondedRaw && respondedRaw !== 'all') {
             if (['responded', 'true', '1'].includes(respondedRaw)) {
                 // resposta existe e não é string vazia
-                and.push({ resposta: { $exists: true, $ne: null}, });
+                and.push({ resposta: { $exists: true, $ne: null }, });
             } else if (['unresponded', 'false', '0'].includes(respondedRaw)) {
                 // resposta inexistente ou vazia
                 and.push({
@@ -518,29 +519,29 @@ export const alterarVisibilidadeSuporte = async (req, res) => {
 
 // Dashboard administrativo com métricas do sistema AI
 export const getAIDashboard = async (req, res) => {
-  try {
-    const { adminId } = req.query;
+    try {
+        const { adminId } = req.query;
 
-    // Verificar se adminId foi fornecido
-    if (!adminId) {
-      return res.status(400).json({
-        success: false,
-        msg: 'ID do administrador é obrigatório'
-      });
-    }
+        // Verificar se adminId foi fornecido
+        if (!adminId) {
+            return res.status(400).json({
+                success: false,
+                msg: 'ID do administrador é obrigatório'
+            });
+        }
 
-    const user = await User.findById(adminId);
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        msg: 'Acesso negado. Apenas administradores podem acessar esta rota.'
-      });
-    }
+        const user = await User.findById(adminId);
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                msg: 'Acesso negado. Apenas administradores podem acessar esta rota.'
+            });
+        }
 
         // Estatísticas gerais do sistema
         const totalUsers = await User.countDocuments();
         const totalAdmins = await User.countDocuments({ role: 'admin' });
-        const activeUsers = await User.countDocuments({ 
+        const activeUsers = await User.countDocuments({
             lastLogin: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } // últimos 30 dias
         });
 
@@ -594,7 +595,7 @@ export const getAIDashboard = async (req, res) => {
             aiMetrics: {
                 recentWorkouts: recentWorkouts[0]?.total || 0,
                 aiGeneratedWorkouts: recentAIGeneratedWorkouts[0]?.total || 0,
-                aiUsageRate: recentWorkouts[0]?.total > 0 ? 
+                aiUsageRate: recentWorkouts[0]?.total > 0 ?
                     ((recentAIGeneratedWorkouts[0]?.total || 0) / recentWorkouts[0].total * 100).toFixed(1) : 0
             },
             cacheStats,
@@ -606,18 +607,18 @@ export const getAIDashboard = async (req, res) => {
             lastUpdated: new Date().toISOString()
         };
 
-        return res.status(200).json({ 
-            success: true, 
+        return res.status(200).json({
+            success: true,
             msg: 'Dashboard AI carregado com sucesso',
-            data: dashboardData 
+            data: dashboardData
         });
 
     } catch (error) {
         console.error('Erro ao carregar dashboard AI:', error);
-        return res.status(500).json({ 
-            success: false, 
-            msg: "Erro ao carregar dashboard AI", 
-            error: error.message || String(error) 
+        return res.status(500).json({
+            success: false,
+            msg: "Erro ao carregar dashboard AI",
+            error: error.message || String(error)
         });
     }
 };
@@ -788,18 +789,303 @@ export const getAPIPerformanceMetrics = async (req, res) => {
             }
         };
 
-        return res.status(200).json({ 
-            success: true, 
+        return res.status(200).json({
+            success: true,
             msg: 'Métricas de performance carregadas com sucesso',
-            data: performanceData 
+            data: performanceData
         });
 
     } catch (error) {
         console.error('Erro ao carregar métricas de performance:', error);
-        return res.status(500).json({ 
-            success: false, 
-            msg: "Erro ao carregar métricas de performance", 
-            error: error.message || String(error) 
+        return res.status(500).json({
+            success: false,
+            msg: "Erro ao carregar métricas de performance",
+            error: error.message || String(error)
         });
     }
 };
+
+export const criarRanking = async (req, res) => {
+    try {
+        const { adminId, endDate, rankingName, startDate } = req.body;
+
+        // Validações de entrada
+        if (!adminId || !endDate || !rankingName || !startDate) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Dados incompletos. AdminId, endDate, rankingName e startDate são obrigatórios.'
+            });
+        }
+
+        const user = await User.findById(adminId);
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                msg: 'Acesso negado. Somente admins podem criar rankings.'
+            });
+        }
+
+        // Validação e parse das datas
+        const startDateObj = new Date(startDate);
+        const endDateObj = new Date(endDate);
+        const now = new Date();
+
+        if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Datas de início ou término inválidas.'
+            });
+        }
+
+        // Regras de negócio para datas
+        if (startDateObj >= endDateObj) {
+            return res.status(400).json({
+                success: false,
+                msg: 'A data de início deve ser anterior à data de término.'
+            });
+        }
+
+        if (endDateObj <= now) {
+            return res.status(400).json({
+                success: false,
+                msg: 'A data de término deve ser futura.'
+            });
+        }
+
+        // Verificações de unicidade e conflitos
+        const nameExists = await Ranking.exists({ rankingName });
+        if (nameExists) {
+            return res.status(409).json({
+                success: false,
+                msg: 'Nome de ranking já existe.'
+            });
+        }
+
+        const overlapping = await Ranking.exists({
+            $or: [
+                { startDate: { $lte: startDateObj }, endDate: { $gte: startDateObj } },
+                { startDate: { $lte: endDateObj }, endDate: { $gte: endDateObj } },
+                { startDate: { $gte: startDateObj }, endDate: { $lte: endDateObj } }
+            ]
+        });
+
+        if (overlapping) {
+            return res.status(409).json({
+                success: false,
+                msg: 'Já existe um ranking com período sobreposto.'
+            });
+        }
+
+        // Criação do ranking
+        const newRanking = await Ranking.create({
+            rankingName,
+            startDate: startDateObj,
+            endDate: endDateObj,
+            createdBy: adminId
+        });
+
+        return res.status(201).json({
+            success: true,
+            msg: 'Ranking criado com sucesso.',
+            newRanking
+        });
+    } catch (error) {
+        console.error('Erro ao criar ranking:', error);
+        return res.status(500).json({
+            success: false,
+            msg: 'Erro ao criar ranking.',
+            error: error.message || String(error)
+        });
+    }
+};
+
+export const editarRanking = async (req, res) => {
+    try {
+        const { adminId, rankingId, startDate, endDate, rankingName } = req.body;
+
+        // Validações de entrada
+        if (!adminId || !rankingId || !startDate || !endDate || !rankingName) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Dados incompletos. AdminId, rankingId, startDate, endDate e rankingName são obrigatórios.'
+            });
+        }
+
+        const user = await User.findById(adminId);
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                msg: 'Acesso negado. Somente admins podem editar rankings.'
+            });
+        }
+
+        // Validação e parse das datas
+        const startDateObj = new Date(startDate);
+        const endDateObj = new Date(endDate);
+        const now = new Date();
+
+        if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Datas de início ou término inválidas.'
+            });
+        }
+
+        if (startDateObj >= endDateObj) {
+            return res.status(400).json({
+                success: false,
+                msg: 'A data de início deve ser anterior à data de término.'
+            });
+        }
+
+        // Busca o ranking e verifica se pode ser editado
+        const ranking = await Ranking.findById(rankingId);
+        if (!ranking) {
+            return res.status(404).json({
+                success: false,
+                msg: 'Ranking não encontrado.'
+            });
+        }
+
+        if (ranking.endDate <= now) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Ranking já foi finalizado e não pode mais ser editado.'
+            });
+        }
+
+        // Verifica conflito de nome (exceto ele mesmo)
+        const nameConflict = await Ranking.exists({
+            _id: { $ne: rankingId },
+            rankingName
+        });
+        if (nameConflict) {
+            return res.status(409).json({
+                success: false,
+                msg: 'Nome de ranking já está em uso.'
+            });
+        }
+
+        // Verifica sobreposição de período (exceto ele mesmo)
+        const overlapping = await Ranking.exists({
+            _id: { $ne: rankingId },
+            $or: [
+                { startDate: { $lte: startDateObj }, endDate: { $gte: startDateObj } },
+                { startDate: { $lte: endDateObj }, endDate: { $gte: endDateObj } },
+                { startDate: { $gte: startDateObj }, endDate: { $lte: endDateObj } }
+            ]
+        });
+
+        if (overlapping) {
+            return res.status(409).json({
+                success: false,
+                msg: 'Já existe um ranking com período sobreposto.'
+            });
+        }
+
+        // Atualização
+        const updated = await Ranking.findByIdAndUpdate(
+            rankingId,
+            {
+                rankingName,
+                startDate: startDateObj,
+                endDate: endDateObj,
+                updatedAt: new Date()
+            },
+            { new: true }
+        );
+
+        return res.status(200).json({
+            success: true,
+            msg: 'Ranking editado com sucesso.',
+            ranking: updated
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            msg: 'Erro ao editar ranking.',
+            error: err.message || String(err)
+        });
+    }
+};
+export const deletarRanking = async (req, res) => {
+    try {
+        const { adminId, rankingId } = req.body;
+
+        // Analise básica dos dados
+        if (!adminId || !rankingId) {
+            return res.status(400).json({ success: false, msg: 'Dados incompletos. AdminId e rankingId são obrigatórios.' });
+        }
+
+        const user = await User.findById(adminId);
+        if (!user) {
+            return res.status(404).json({ success: false, msg: 'Admin não encontrado.' });
+        }
+
+        if (user.role !== 'admin') {
+            return res.status(403).json({ success: false, msg: 'Acesso negado. Somente admins podem deletar rankings.' });
+        }
+
+        // Verificação se o ranking já existe
+        const existingRanking = await Ranking.findById(rankingId);
+        if (!existingRanking) {
+            return res.status(404).json({ success: false, msg: 'Ranking não encontrado.' });
+        }
+
+        // Deleção
+        await Ranking.findByIdAndDelete(rankingId);
+
+        return res.status(200).json({
+            success: true,
+            msg: 'Ranking deletado com sucesso',
+            rankingId
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            msg: "Erro ao deletar ranking.",
+            error: err.message || String(err)
+        });
+    }
+};
+
+export const getRankings = async (req, res) => {
+    try {
+        const { adminId, page = 1 } = req.query;
+
+        console.log('adminId: ', adminId)
+
+        if (!adminId) {
+            return res.status(400).json({ success: false, msg: 'AdminId é obrigatório.' });
+        }
+
+        // Verificação do admin
+        const user = await User.findById(adminId);
+        if (!user) {
+            return res.status(404).json({ success: false, msg: 'Admin não encontrado.' });
+        }
+
+        if (user.role !== 'admin') {
+            return res.status(403).json({ success: false, msg: 'Acesso negado. Somente admins podem ver rankings.' });
+        }
+
+        // Paginacao
+        const perPage = 30
+        const rankings = await Ranking.find()
+            .sort({ startDate: -1 })
+            .skip((page - 1) * perPage)
+            .limit(perPage);
+
+        return res.status(200).json({
+            success: true,
+            msg: 'Rankings obtidos com sucesso',
+            rankings
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            msg: "Erro ao obter rankings.",
+            error: error.message || String(error)
+        });
+    }
+}
