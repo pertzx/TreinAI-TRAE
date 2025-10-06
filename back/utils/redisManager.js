@@ -11,7 +11,7 @@ export class RedisManager {
      */
     static async getDetailedStats(adminId) {
         try {
-            const startTime = Date.now();
+            const startTime = getBrazilDate();
             
             // Verificar se o Redis está conectado
             if (!redisCache.client || !redisCache.isConnected()) {
@@ -25,7 +25,7 @@ export class RedisManager {
                         totalKeys: 0,
                         totalMemoryUsage: 0,
                         serverInfo: null,
-                        executionTime: Date.now() - startTime
+                        executionTime: getBrazilDate() - startTime
                     }
                 };
             }
@@ -116,7 +116,7 @@ export class RedisManager {
                 serverInfo = { error: 'Não foi possível obter informações do servidor' };
             }
 
-            const executionTime = Date.now() - startTime;
+            const executionTime = getBrazilDate() - startTime;
 
             return {
                 basic: basicStats,
@@ -153,7 +153,7 @@ export class RedisManager {
      */
     static async clearByPattern(adminId, pattern) {
         try {
-            const startTime = Date.now();
+            const startTime = getBrazilDate();
             
             // Validar padrão
             if (!pattern || pattern.trim() === '') {
@@ -175,7 +175,7 @@ export class RedisManager {
                     message: 'Nenhuma chave encontrada para o padrão especificado',
                     keysDeleted: 0,
                     pattern,
-                    executionTime: Date.now() - startTime
+                    executionTime: getBrazilDate() - startTime
                 };
             }
 
@@ -189,7 +189,7 @@ export class RedisManager {
                 deletedCount += deleted;
             }
 
-            const executionTime = Date.now() - startTime;
+            const executionTime = getBrazilDate() - startTime;
 
             return {
                 success: true,
@@ -213,7 +213,7 @@ export class RedisManager {
      */
     static async optimizeCache(adminId) {
         try {
-            const startTime = Date.now();
+            const startTime = getBrazilDate();
             
             // Obter estatísticas antes da otimização
             const statsBefore = await redisCache.getStats();
@@ -232,7 +232,7 @@ export class RedisManager {
             // Obter estatísticas após a otimização
             const statsAfter = await redisCache.getStats();
             
-            const executionTime = Date.now() - startTime;
+            const executionTime = getBrazilDate() - startTime;
             
             const optimization = {
                 keysBefore: statsBefore.keys || 0,
@@ -263,7 +263,7 @@ export class RedisManager {
      */
     static async analyzeTTL(adminId, pattern = '*') {
         try {
-            const startTime = Date.now();
+            const startTime = getBrazilDate();
             
             // Verificar se o Redis está conectado
             if (!redisCache.client || !redisCache.isConnected()) {
@@ -272,7 +272,7 @@ export class RedisManager {
                     success: false,
                     message: 'Redis não está conectado',
                     analysis: null,
-                    executionTime: Date.now() - startTime
+                    executionTime: getBrazilDate() - startTime
                 };
             }
             
@@ -283,7 +283,7 @@ export class RedisManager {
                     success: true,
                     message: 'Nenhuma chave encontrada',
                     analysis: null,
-                    executionTime: Date.now() - startTime
+                    executionTime: getBrazilDate() - startTime
                 };
             }
 
@@ -344,7 +344,7 @@ export class RedisManager {
                 ttlAnalysis.maxTTL = Math.max(...ttlValues);
             }
 
-            const executionTime = Date.now() - startTime;
+            const executionTime = getBrazilDate() - startTime;
 
             return {
                 success: true,
@@ -368,7 +368,7 @@ export class RedisManager {
      */
     static async setTTLByPattern(adminId, pattern, ttlSeconds) {
         try {
-            const startTime = Date.now();
+            const startTime = getBrazilDate();
             
             if (!pattern || ttlSeconds < 0) {
                 throw new Error('Padrão e TTL devem ser válidos');
@@ -381,7 +381,7 @@ export class RedisManager {
                     success: true,
                     message: 'Nenhuma chave encontrada',
                     keysUpdated: 0,
-                    executionTime: Date.now() - startTime
+                    executionTime: getBrazilDate() - startTime
                 };
             }
 
@@ -402,7 +402,7 @@ export class RedisManager {
                 }
             }
 
-            const executionTime = Date.now() - startTime;
+            const executionTime = getBrazilDate() - startTime;
 
             return {
                 success: true,

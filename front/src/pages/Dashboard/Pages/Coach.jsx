@@ -9,6 +9,8 @@ import HistoricoChart from '../Components/HistoricoChart';
 import ChatNutriAI from '../Components/ChatNutriAi';
 import { useToast } from '../../../components/Toast';
 import { buildImageUrl } from '../../../utils/imageUtils';
+import { getBrazilDate } from '../../../../helpers/getBrazilDate';
+import CoachAccessDenied from '../../../components/CoachAccessDenied';
 
 const base = {
   card: 'p-4',
@@ -30,6 +32,14 @@ const getSpecialtyTheme = (especialidade = 'personal-trainner', isDark = true) =
 };
 
 const Coach = ({ user, tema = 'dark' }) => {
+  // Verificação de permissão: apenas usuários com plano coach ativo podem acessar
+  const hasCoachAccess = user?.planInfos?.planType === 'coach' && user?.planInfos?.status === 'ativo';
+  
+  // Se não tem acesso, exibe componente de acesso negado
+  if (!hasCoachAccess) {
+    return <CoachAccessDenied tema={tema} />;
+  }
+
   const navigate = useNavigate();
   const isDark = tema === 'dark';
   const { showError, showSuccess } = useToast();
@@ -352,7 +362,7 @@ const Coach = ({ user, tema = 'dark' }) => {
     if (!state || !state.chatId) return;
     const texto = (state.newMessage || '').trim();
     if (!texto) return;
-    const optimisticMsg = { mensagemId: `local-${Date.now()}`, userId: String(getUserIdFromUser()), conteudo: texto, publicadoEm: new Date() };
+    const optimisticMsg = { mensagemId: `local-${getBrazilDate()}`, userId: String(getUserIdFromUser()), conteudo: texto, publicadoEm: new Date() };
     setChatStates(prev => {
       const curr = prev[alunoUserId] || {};
       const msgs = Array.isArray(curr.messages) ? [...curr.messages, optimisticMsg] : [optimisticMsg];

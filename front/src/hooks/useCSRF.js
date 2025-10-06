@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../Api';
 import { authCookies } from '../utils/cookieUtils';
+import { getBrazilDate } from '../../helpers/getBrazilDate';
 
 /**
  * Hook personalizado para gerenciar CSRF tokens
@@ -28,7 +29,7 @@ export const useCSRF = () => {
         
         // Armazena em cookie para persistir entre recarregamentos
         authCookies.setCsrfToken(response.data.csrfToken);
-        authCookies.setCsrfExpiry(Date.now() + response.data.expiresIn);
+        authCookies.setCsrfExpiry(getBrazilDate() + response.data.expiresIn);
         
         return response.data.csrfToken;
       }
@@ -49,7 +50,7 @@ export const useCSRF = () => {
     const expiry = authCookies.getCsrfExpiry();
     if (!expiry) return false;
     
-    return Date.now() < parseInt(expiry);
+    return getBrazilDate() < parseInt(expiry);
   };
 
   /**
@@ -79,7 +80,7 @@ export const useCSRF = () => {
       const storedToken = authCookies.getCsrfToken();
       const storedExpiry = authCookies.getCsrfExpiry();
       
-      if (storedToken && storedExpiry && Date.now() < parseInt(storedExpiry)) {
+      if (storedToken && storedExpiry && getBrazilDate() < parseInt(storedExpiry)) {
         // Token armazenado ainda é válido
         setCsrfToken(storedToken);
         setLoading(false);
@@ -99,7 +100,7 @@ export const useCSRF = () => {
     const expiry = authCookies.getCsrfExpiry();
     if (!expiry) return;
 
-    const timeUntilExpiry = parseInt(expiry) - Date.now();
+    const timeUntilExpiry = parseInt(expiry) - getBrazilDate();
     const renewTime = Math.max(timeUntilExpiry - 5 * 60 * 1000, 1000); // Renova 5 min antes de expirar
 
     const timer = setTimeout(() => {

@@ -1,6 +1,7 @@
 import axios from "axios";
 import { createRetryAxios, RETRY_CONFIGS } from './utils/apiRetry.js';
 import { authCookies } from './utils/cookieUtils.js';
+import { getBrazilDate } from "../helpers/getBrazilDate.js";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
@@ -55,7 +56,7 @@ api.interceptors.response.use(
         
         // Armazena novo token em cookie
         authCookies.setCsrfToken(newToken);
-        authCookies.setCsrfExpiry(Date.now() + tokenResponse.data.expiresIn);
+        authCookies.setCsrfExpiry(getBrazilDate() + tokenResponse.data.expiresIn);
         
         // Refaz a requisição original com novo token
         originalRequest.headers['x-csrf-token'] = newToken;
@@ -137,7 +138,7 @@ const criticalApi = createRetryAxios(axios.create({
           const newToken = tokenResponse.data.csrfToken;
           
           authCookies.setCsrfToken(newToken);
-          authCookies.setCsrfExpiry(Date.now() + tokenResponse.data.expiresIn);
+          authCookies.setCsrfExpiry(getBrazilDate() + tokenResponse.data.expiresIn);
           
           originalRequest.headers['x-csrf-token'] = newToken;
           return instance(originalRequest);

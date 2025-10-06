@@ -1,3 +1,4 @@
+import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import Exercicio from "../models/Exercicio.js";
 import User from "../models/User.js";
 
@@ -94,10 +95,9 @@ export const adicionarReport = async (req, res) => {
         }
 
         // define início e fim do dia atual (baseado no timezone do servidor)
-        const now = new Date();
-        const startOfDay = new Date(now);
+        const startOfDay = new Date(getBrazilDate());
         startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(now);
+        const endOfDay = new Date(getBrazilDate());
         endOfDay.setHours(23, 59, 59, 999);
 
         // verifica se já existe um report do mesmo usuário nesse exercício no mesmo dia

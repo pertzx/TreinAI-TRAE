@@ -3,6 +3,8 @@ import api from '../../../Api.js'
 // Ajuste o caminho abaixo para onde você salvar seu JSON
 import locations from '../../../data/locations.json'
 import { FaLocationPin } from 'react-icons/fa6'
+import { useToast } from '../../../components/Toast.jsx'
+import { buildImageUrl } from '../../../utils/imageUtils.js'
 
 const AnunciosDash = ({ user, tema = 'dark' }) => {
     const [showFormMobile, setShowFormMobile] = useState(true)
@@ -21,8 +23,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
     const toggleFormMobile = () => setShowFormMobile(v => !v)
 
     const [saldo, setSaldo] = useState(user.saldoDeImpressoes || 0)
-    const [valor, setValor] = useState('') // armazenamos apenas os dígitos (centavos)
-    const [erro, setErro] = useState('')
+    const [valor, setValor] = useState('') // valor formatado para exibição
     const [isProcessing, setIsProcessing] = useState(false)
 
     const [anuncio, setAnuncio] = useState({
@@ -39,23 +40,22 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
     })
 
     const [previewUrl, setPreviewUrl] = useState(null)
-    const [fileError, setFileError] = useState('')
     const [isSubmittingAd, setIsSubmittingAd] = useState(false)
-    const [successMsg, setSuccessMsg] = useState('')
 
     const [anuncios, setAnuncios] = useState([])
     const [loadingAds, setLoadingAds] = useState(false)
-    const [adsError, setAdsError] = useState('')
 
     // edição inline
     const [editingId, setEditingId] = useState(null)
     const [editDraft, setEditDraft] = useState({})
     const [editPreviews, setEditPreviews] = useState({})
-    const [editFileErrors, setEditFileErrors] = useState({})
     // snapshots originais para comparação
     const [editOriginals, setEditOriginals] = useState({})
     // snapshot quando o usuário abre o form principal para editar
     const [mainEditOriginal, setMainEditOriginal] = useState(null)
+
+    // Toast
+    const { showError, showSuccess } = useToast();
 
     // --- helpers locations ---
     const countryList = locations?.countries || []
@@ -86,9 +86,46 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
         return { value: opt.code || opt.name || opt.value, label: opt.name || opt.label || opt.value }
     }
 
+    const formatarMoedaInput = (value) => {
+        // Remove tudo que não é dígito
+        const digits = value.replace(/\D/g, '')
+        
+        // Se não há dígitos, retorna vazio
+        if (!digits) return ''
+        
+        // Converte para número inteiro
+        const number = parseInt(digits, 10)
+        
+        // Formata como moeda brasileira (sempre com ,00 para valores inteiros)
+        return number.toLocaleString('pt-BR')
+    }
+
+    const extrairValorNumerico = (valorFormatado) => {
+        // Remove tudo que não é dígito
+        const digits = valorFormatado.replace(/\D/g, '')
+        if (!digits) return 0
+        
+        // Retorna o valor inteiro
+        return parseInt(digits, 10)
+    }
+
+    const handleValorChange = (e) => {
+        const inputValue = e.target.value
+        
+        // Se o usuário está apagando tudo, permite
+        if (inputValue === '') {
+            setValor('')
+            return
+        }
+        
+        // Formata o valor conforme o usuário digita
+        const valorFormatado = formatarMoedaInput(inputValue)
+        setValor(valorFormatado)
+    }
+
     const extrairNumero = (valorFormatado) => (valorFormatado || '').toString().replace(/\D/g, '')
     const formatarReais = (numeroEmReais) => {
-        return 'R$ ' + Number(numeroEmReais).toLocaleString('pt-BR')
+        return 'R$ ' + Number(numeroEmReais).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     }
 
     const themeClasses = {
@@ -100,24 +137,20 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
     // add saldo (VALIDAÇÃO: somente números inteiros em reais > 1)
     const handleAdicionarSaldo = async () => {
         try {
-            setErro('')
-
-            console.log('Valor a adicionar (simulado):', valor)
-            const valorEmReais = valor
+            const valorEmReais = extrairValorNumerico(valor)
+            console.log('Valor a adicionar:', valorEmReais)
+            
             if (valorEmReais <= 1) {
-                setErro('O valor precisa ser um número inteiro maior que R$1')
-                setTimeout(() => { setErro('') }, 3000)
+                showError('O valor precisa ser maior que R$ 1,00 (apenas valores inteiros)')
                 return
             }
             if (valorEmReais >= 100000) {
-                setErro('Valor muito alto, máximo R$99.999 entre em contato conosco se precisar de mais.')
-                setTimeout(() => { setErro('') }, 3000)
+                showError('Valor muito alto, máximo R$ 99.999,00. Entre em contato conosco se precisar de mais.')
                 return
             }
 
             if (!user?._id) {
-                setErro('Dados do user inválidos. Não é possível processar a requisição.')
-                setTimeout(() => { setErro('') }, 3000)
+                showError('Dados do usuário inválidos. Não é possível processar a requisição.')
                 return
             }
 
@@ -125,7 +158,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                 userId: user._id,
                 quantidade: valorEmReais,
             }
-            console.log('payload adicionar-saldo (simulado):', payload)
+            console.log('payload adicionar-saldo:', payload)
             setIsProcessing(true)
             const response = await api.post('/adicionar-saldo', payload)
             if (response.data.url) {
@@ -134,40 +167,40 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
             }
             if (response.data.novoSaldo !== undefined) {
                 setSaldo(response.data.novoSaldo)
+                showSuccess('Saldo adicionado com sucesso!')
+                setValor('') // Limpa o campo após sucesso
             }
             setIsProcessing(false)
         } catch (error) {
             setIsProcessing(false)
-            setErro(error?.response?.data?.message || 'Erro ao adicionar saldo')
-            setTimeout(() => { setErro('') }, 3000)
+            showError(error?.response?.data?.message || 'Erro ao adicionar saldo')
             console.error(error)
         }
     }
 
     // file
     const MAX_IMAGE_BYTES = 1 * 1024 * 1024 // 1 MB
-    const MAX_VIDEO_BYTES = 100 * 1024 * 1024 // 100 MB
+    const MAX_VIDEO_BYTES = 35 * 1024 * 1024 // 35 MB
 
     const handleFileChange = (e) => {
         const file = e.target.files?.[0]
-        setFileError('')
         if (file) {
             const isImage = file.type.startsWith('image/')
             const isVideo = file.type.startsWith('video/')
             if (anuncio.anuncioTipo === 'imagem' && !isImage) {
-                setFileError('Por favor, selecione uma imagem para anúncios do tipo imagem.')
+                showError('Por favor, selecione uma imagem para anúncios do tipo imagem.')
                 return
             }
             if (anuncio.anuncioTipo === 'video' && !isVideo) {
-                setFileError('Por favor, selecione um vídeo para anúncios do tipo vídeo.')
+                showError('Por favor, selecione um vídeo para anúncios do tipo vídeo.')
                 return
             }
             if (isImage && file.size > MAX_IMAGE_BYTES) {
-                setFileError('Imagem muito grande. O tamanho máximo permitido é 1 MB. Utilize ferramentas de compressão se necessário. Pesquise na web por "compress image".')
+                showError('Imagem muito grande. O tamanho máximo permitido é 1 MB. Utilize ferramentas de compressão se necessário. Pesquise na web por "compress image".')
                 return
             }
             if (isVideo && file.size > MAX_VIDEO_BYTES) {
-                setFileError('Vídeo muito grande. O tamanho máximo permitido é 35 MB. Utilize ferramentas de compressão se necessário. Pesquise na web por "compress video".')
+                showError('Vídeo muito grande. O tamanho máximo permitido é 35 MB. Utilize ferramentas de compressão se necessário. Pesquise na web por "compress video".')
                 return
             }
             if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -234,7 +267,6 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
         if (!user?._id) return
         try {
             setLoadingAds(true)
-            setAdsError('')
             const res = await api.get('/anuncios', { params: { userId: user._id } })
             const data = res.data?.anuncios || res.data || []
             console.log('Anúncios recebidos:', res)
@@ -242,7 +274,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
             setLoadingAds(false)
         } catch (err) {
             console.error('Erro ao buscar anúncios', err)
-            setAdsError('Não foi possível carregar os anúncios')
+            showError('Não foi possível carregar os anúncios')
             setLoadingAds(false)
         }
     }
@@ -284,9 +316,6 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
 
     const handleSubmitAnuncio = async (e) => {
         e.preventDefault()
-        setErro('')
-        setSuccessMsg('')
-        setFileError('')
 
         if (
             !anuncio.titulo?.trim() ||
@@ -294,24 +323,27 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
             !anuncio.link?.trim() ||
             !anuncio.anuncioTipo
         ) {
-            setErro('Preencha todos os campos obrigatórios: título, descrição, link, tipo')
-            setTimeout(() => { setErro('') }, 3000)
+            showError('Preencha todos os campos obrigatórios: título, descrição, link, tipo')
             return
         }
 
         if (!isValidUrl(anuncio.link.trim())) {
-            setErro('Informe um link válido que comece com http:// ou https://')
-            setTimeout(() => { setErro('') }, 3000)
+            showError('Informe um link válido que comece com http:// ou https://')
             return
         }
 
         const arquivo = anuncio.midia
-        if (!arquivo) { setFileError('Anexe uma mídia para o anúncio'); return }
+        if (!arquivo) { 
+            showError('Anexe uma mídia para o anúncio')
+            return 
+        }
         if (anuncio.anuncioTipo === 'imagem' && arquivo.size > MAX_IMAGE_BYTES) {
-            setFileError('Imagem muito grande. O tamanho máximo permitido é 1 MB.'); return
+            showError('Imagem muito grande. O tamanho máximo permitido é 1 MB.')
+            return
         }
         if (anuncio.anuncioTipo === 'video' && arquivo.size > MAX_VIDEO_BYTES) {
-            setFileError('Vídeo muito grande. O tamanho máximo permitido é 50 MB.'); return
+            showError('Vídeo muito grande. O tamanho máximo permitido é 50 MB.')
+            return
         }
 
         try {
@@ -344,7 +376,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
             setIsSubmittingAd(true)
             const resp = await api.post('/criar-anuncio', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
             setIsSubmittingAd(false)
-            setSuccessMsg('Anúncio enviado com sucesso')
+            showSuccess('Anúncio enviado com sucesso')
 
             setAnuncio({
                 titulo: '', descricao: '', link: '', anuncioTipo: 'imagem',
@@ -357,8 +389,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
             return resp
         } catch (err) {
             setIsSubmittingAd(false)
-            setErro(err?.response?.data?.message || 'Erro ao enviar anúncio')
-            setTimeout(() => { setErro('') }, 3000)
+            showError(err?.response?.data?.message || 'Erro ao enviar anúncio')
             console.error(err)
         }
     }
@@ -383,12 +414,12 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                 anuncioId: anuncioId
             }
             await api.post('/deletar-anuncio', payload);
+            showSuccess('Anúncio deletado com sucesso!')
             await fetchAnuncios()
             window.location.reload()
         } catch (error) {
             console.error(error);
-            setErro(error)
-            setTimeout(() => { setErro('') }, 3000);
+            showError(error?.response?.data?.message || 'Erro ao deletar anúncio')
         }
     };
 
@@ -458,7 +489,6 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
             delete copy[id]
             return copy
         })
-        setEditFileErrors(prev => ({ ...prev, [id]: '' }))
         setMainEditOriginal(null)
     }
 
@@ -490,24 +520,23 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
 
     const handleEditFileChange = (id, e) => {
         const file = e.target.files?.[0]
-        setEditFileErrors(prev => ({ ...prev, [id]: '' }))
         if (!file) return
         const isImage = file.type.startsWith('image/')
         const isVideo = file.type.startsWith('video/')
         if (editDraft.anuncioTipo === 'imagem' && !isImage) {
-            setEditFileErrors(prev => ({ ...prev, [id]: 'Selecione uma imagem para tipo imagem.' }))
+            showError('Selecione uma imagem para tipo imagem.')
             return
         }
         if (editDraft.anuncioTipo === 'video' && !isVideo) {
-            setEditFileErrors(prev => ({ ...prev, [id]: 'Selecione um vídeo para tipo vídeo.' }))
+            showError('Selecione um vídeo para tipo vídeo.')
             return
         }
         if (isImage && file.size > MAX_IMAGE_BYTES) {
-            setEditFileErrors(prev => ({ ...prev, [id]: 'Imagem muito grande. Máx 1 MB.' }))
+            showError('Imagem muito grande. Máx 1 MB.')
             return
         }
         if (isVideo && file.size > MAX_VIDEO_BYTES) {
-            setEditFileErrors(prev => ({ ...prev, [id]: 'Vídeo muito grande. Máx 35 MB.' }))
+            showError('Vídeo muito grande. Máx 35 MB.')
             return
         }
         if (editPreviews[id]) {
@@ -522,9 +551,6 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
     // salvar edição inline (simulado) - envia apenas se houver alterações
     const handleSaveEdit = async (id) => {
         try {
-            setErro('')
-            setSuccessMsg('')
-
             const draft = editDraft
             if (!draft) return
 
@@ -535,14 +561,12 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                 !draft.link?.trim() ||
                 !draft.anuncioTipo
             ) {
-                setErro('Preencha todos os campos obrigatórios: título, descrição, link, tipo')
-                setTimeout(() => { setErro('') }, 3000)
+                showError('Preencha todos os campos obrigatórios: título, descrição, link, tipo')
                 return
             }
 
             if (!isValidUrl(draft.link.trim())) {
-                setErro('Informe um link válido que comece com http:// ou https://')
-                setTimeout(() => { setErro('') }, 3000)
+                showError('Informe um link válido que comece com http:// ou https://')
                 return
             }
 
@@ -553,8 +577,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
             // Se não existe arquivo novo e também não existe preview (usuário removeu ou nunca houve),
             // então obrigamos anexar a mídia.
             if (!arquivo && !preview) {
-                setErro('Anexe uma mídia para o anúncio')
-                setTimeout(() => { setErro('') }, 3000)
+                showError('Anexe uma mídia para o anúncio')
                 return
             }
 
@@ -563,23 +586,19 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                 const isImage = arquivo.type.startsWith('image/')
                 const isVideo = arquivo.type.startsWith('video/')
                 if (draft.anuncioTipo === 'imagem' && !isImage) {
-                    setErro('Selecione uma imagem para tipo imagem.')
-                    setTimeout(() => { setErro('') }, 3000)
+                    showError('Selecione uma imagem para tipo imagem.')
                     return
                 }
                 if (draft.anuncioTipo === 'video' && !isVideo) {
-                    setErro('Selecione um vídeo para tipo vídeo.')
-                    setTimeout(() => { setErro('') }, 3000)
+                    showError('Selecione um vídeo para tipo vídeo.')
                     return
                 }
                 if (isImage && arquivo.size > MAX_IMAGE_BYTES) {
-                    setErro('Imagem muito grande. O tamanho máximo permitido é 1 MB.')
-                    setTimeout(() => { setErro('') }, 3000)
+                    showError('Imagem muito grande. O tamanho máximo permitido é 1 MB.')
                     return
                 }
                 if (isVideo && arquivo.size > MAX_VIDEO_BYTES) {
-                    setErro('Vídeo muito grande. O tamanho máximo permitido é 35 MB.')
-                    setTimeout(() => { setErro('') }, 3000)
+                    showError('Vídeo muito grande. O tamanho máximo permitido é 35 MB.')
                     return
                 }
             }
@@ -587,15 +606,13 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
             // comparação com original
             const original = editOriginals[id] || null
             if (!original) {
-                setErro('Original não encontrado para comparação. Reabra o formulário.')
-                setTimeout(() => { setErro('') }, 3000)
+                showError('Original não encontrado para comparação. Reabra o formulário.')
                 return
             }
 
             // se não houve nenhuma alteração (texto/loc/local) E não há arquivo novo, aborta
             if (!hasDraftChanges(original, draft) && !arquivo) {
-                setErro('Nenhuma alteração detectada. Altere algum campo antes de enviar.')
-                setTimeout(() => { setErro('') }, 3000)
+                showError('Nenhuma alteração detectada. Altere algum campo antes de enviar.')
                 return
             }
 
@@ -629,7 +646,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                 const resp = await api.post('/editar-anuncio', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
 
                 if (resp?.data?.success) {
-                    setSuccessMsg('Anúncio editado com sucesso')
+                    showSuccess('Anúncio editado com sucesso')
                     await fetchAnuncios()
                     cancelEdit(id)
                     window.location.reload()
@@ -656,7 +673,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
             const resp = await api.post('/editar-anuncio', jsonPayload)
 
             if (resp?.data?.success) {
-                setSuccessMsg('Anúncio editado com sucesso')
+                showSuccess('Anúncio editado com sucesso')
                 await fetchAnuncios()
                 cancelEdit(id)
                 window.location.reload()
@@ -666,8 +683,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
 
         } catch (err) {
             console.error(err)
-            setErro(err?.response?.data?.msg || 'Erro ao editar anúncio')
-            setTimeout(() => { setErro('') }, 3000)
+            showError(err?.response?.data?.msg || 'Erro ao editar anúncio')
         }
     }
 
@@ -684,9 +700,9 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                     <input
                         type="text"
                         inputMode="numeric"
-                        value={formatarReais(valor)}
-                        onChange={e => { const digits = extrairNumero(e.target.value); setValor(digits) }}
-                        placeholder="Valor a adicionar (ex: 2,00)"
+                        value={valor}
+                        onChange={handleValorChange}
+                        placeholder="Valor a adicionar (ex: 50 - apenas números inteiros)"
                         className={`col-span-3 md:col-span-2 rounded-md p-2 border ${themeClasses.input} focus:ring-2 focus:ring-blue-500 outline-none`}
                     />
                     <button onClick={handleAdicionarSaldo} disabled={isProcessing} className={`${themeClasses.button} px-4 col-span-3 md:col-span-1 py-2 rounded-md transition-colors duration-200 ${isProcessing ? 'opacity-60 cursor-not-allowed' : ''}`}>
@@ -736,11 +752,10 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                             })}
                         </select>
 
-                        <label for="fileUpload" className={`w-full rounded-md p-2 border ${themeClasses.input} flex flex-col items-center justify-center cursor-pointer mt-2 ${fileError ? 'border-red-500' : ''}`}>
+                        <label for="fileUpload" className={`w-full rounded-md p-2 border ${themeClasses.input} flex flex-col items-center justify-center cursor-pointer mt-2`}>
                             <span>Selecione a midia do anuncio.</span>
                         </label>
                         <input type="file" id='fileUpload' accept={anuncio.anuncioTipo === 'imagem' ? 'image/*' : 'video/*'} onChange={handleFileChange} className='hidden' />
-                        {fileError && <div className="text-red-500 text-sm">{fileError}</div>}
 
                         {previewUrl && anuncio.anuncioTipo === 'imagem' && <img src={previewUrl} alt="preview" className="max-h-40 rounded-md mt-2 w-full object-contain" />}
                         {previewUrl && anuncio.anuncioTipo === 'video' && <video src={previewUrl} controls className="max-h-48 rounded-md mt-2 w-full object-contain" />}
@@ -748,16 +763,6 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                         <button type="submit" className={`${themeClasses.button} px-4 py-2 rounded-md transition-colors duration-200 w-full ${isSubmittingAd ? 'opacity-60 cursor-not-allowed' : ''}`}>
                             {isSubmittingAd ? 'Enviando...' : (anuncio.anuncioId ? 'Salvar Alterações' : 'Adicionar Anúncio')}
                         </button>
-                        {successMsg && (
-                            <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-500 ease-in-out z-50 flex items-center">
-                                <span>{successMsg}</span>
-                            </div>
-                        )}
-                        {erro && (
-                            <div className={`fixed top-4 right-4 ${tema === 'dark' ? 'bg-red-900' : 'bg-red-500'} text-white px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-500 ease-in-out z-50 flex items-center`}>
-                                <span>{erro}</span>
-                            </div>
-                        )}
                     </form>
                 </div>
 
@@ -771,9 +776,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                         </div>
                     )}
 
-                    {!loadingAds && adsError && <div className="text-red-500">{adsError}</div>}
-
-                    {!loadingAds && !adsError && anuncios.length === 0 && <div className="text-sm text-gray-500">Nenhum anúncio encontrado. Crie o primeiro anúncio usando o formulário.</div>}
+                    {!loadingAds && anuncios.length === 0 && <div className="text-sm text-gray-500">Nenhum anúncio encontrado. Crie o primeiro anúncio usando o formulário.</div>}
 
                     <div className="grid grid-cols-1 gap-4 mt-3">
                         {anuncios.map((ad) => {
@@ -791,9 +794,9 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                                             <>
                                                 <div className="relative h-40 flex items-center justify-center mb-3">
                                                     {ad.anuncioTipo === 'video' && mediaUrl ? (
-                                                        <video src={mediaUrl} controls className="h-full w-full object-cover" />
+                                                        <video src={buildImageUrl(mediaUrl)} controls className="h-full w-full object-cover" />
                                                     ) : ad.anuncioTipo === 'imagem' && mediaUrl ? (
-                                                        <img src={mediaUrl} alt={ad.titulo} className="h-full w-full object-cover" />
+                                                        <img src={buildImageUrl(mediaUrl)} alt={ad.titulo} className="h-full w-full object-cover" />
                                                     ) : (
                                                         <div className="text-sm text-gray-500">Sem mídia</div>
                                                     )}
@@ -811,8 +814,8 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
 
                                                 {/* Estatisticas */}
                                                 <div className={`p-2 bg-green-300/20 rounded mt-3 border border-green-400 text-green-400 text-sm ${tema === 'dark' ? 'bg-green-900/30 border-green-700 text-green-300' : ''}`}>
-                                                    <h1>Impressoes: {estatisticas.impressoes}</h1>
-                                                    <h1>Cliques: {estatisticas.cliques}</h1>
+                                                    <h1>Impressoes: {estatisticas.impressoes.impressoesTotais}</h1>
+                                                    <h1>Cliques: {estatisticas.cliques.cliquesTotais}</h1>
                                                 </div>
 
                                                 <div className="mt-3 flex items-center gap-2">
@@ -865,11 +868,10 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                                                     </select>
                                                 </div>
 
-                                                <label for={`editFileUpload-${id}`} className={`w-full rounded-md p-2 border ${themeClasses.input} flex flex-col items-center justify-center cursor-pointer mt-2 ${editFileErrors[id] ? 'border-red-500' : ''}`}>
+                                                <label for={`editFileUpload-${id}`} className={`w-full rounded-md p-2 border ${themeClasses.input} flex flex-col items-center justify-center cursor-pointer mt-2`}>
                                                     <span>Selecione a midia do anuncio.</span>
                                                 </label>
                                                 <input type="file" id={`editFileUpload-${id}`} accept={editDraft.anuncioTipo === 'imagem' ? 'image/*' : 'video/*'} onChange={(e) => handleEditFileChange(id, e)} className='hidden' />
-                                                {editFileErrors[id] && <div className="text-red-500 text-sm">{editFileErrors[id]}</div>}
 
                                                 {editPreviews[id] && editDraft.anuncioTipo === 'imagem' && <img src={editPreviews[id]} alt="preview-edit" className="max-h-40 rounded-md mt-2 w-full object-contain" />}
                                                 {editPreviews[id] && editDraft.anuncioTipo === 'video' && <video src={editPreviews[id]} controls className="max-h-48 rounded-md mt-2 w-full object-contain" />}

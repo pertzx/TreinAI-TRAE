@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import Chart from "react-apexcharts";
 import PropTypes from "prop-types";
+import { getBrazilDate } from "../../../../helpers/getBrazilDate";
 
 /**
  * TokensChart
@@ -45,7 +46,7 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
   // cria lista de últimos N dias (do mais antigo -> mais recente)
   const daysList = useMemo(() => {
     const out = [];
-    const now = new Date();
+    const now = new Date(getBrazilDate());
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
@@ -109,8 +110,8 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
         type: "line",
         zoom: { enabled: false },
         foreColor: textColor,
-        animations: { 
-          enabled: true, 
+        animations: {
+          enabled: true,
           speed: 800,
           animateGradually: { enabled: true, delay: 150 }
         },

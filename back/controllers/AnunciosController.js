@@ -69,7 +69,7 @@ export const criarAnuncio = async (req, res) => {
             }
         }
 
-        const midiaUrl = uploadedFile ? `${backendUrl}/uploads/midias-anuncio/${uploadedFile.filename}` : null;
+        const midiaUrl = uploadedFile ? `/uploads/midias-anuncio/${uploadedFile.filename}` : null;
 
         // Create object with required fields
         const anuncioData = {
@@ -219,73 +219,306 @@ export const editarAnuncio = async (req, res) => {
     }
 };
 
+/**
+ * Busca anúncios com base em critérios de localização e quantidade
+ * Implementa lógica de priorização otimizada para grandes volumes de dados
+ * @param {Object} req - Objeto de requisição Express
+ * @param {Object} req.query - Parâmetros de consulta
+ * @param {string} [req.query.userId] - ID do usuário para buscar anúncios específicos
+ * @param {string} [req.query.country] - País para filtrar anúncios
+ * @param {string} [req.query.state] - Estado para filtrar anúncios
+ * @param {string} [req.query.city] - Cidade para filtrar anúncios
+ * @param {string} [req.query.quantidade] - Número máximo de anúncios a retornar
+ * @param {Object} res - Objeto de resposta Express
+ * @returns {Promise<Object>} Lista de anúncios priorizados por proximidade e impressões
+ */
 export const getAnuncios = async (req, res) => {
     try {
-        const { userId, country, state, city } = req.query;
+        const { userId, country = null, state = null, city = null, quantidade } = req.query;
 
+        console.log('[getAnuncios] Parâmetros de entrada:', { userId, country, state, city, quantidade });
+
+        // Validação do parâmetro quantidade
+        let limitQuantidade = null;
+        if (quantidade !== undefined && quantidade !== null && quantidade !== '') {
+            const quantidadeNum = parseInt(Number(quantidade), 10);
+
+            if (isNaN(quantidadeNum) || quantidadeNum <= 0 || !Number.isInteger(quantidadeNum)) {
+                return res.status(400).json({
+                    msg: "Parâmetro 'quantidade' deve ser um número inteiro positivo",
+                    error: "INVALID_QUANTIDADE_PARAMETER"
+                });
+            }
+
+            limitQuantidade = quantidadeNum;
+        }
+
+        // Caso específico: buscar anúncios de um usuário específico
         if (userId) {
-            console.log('Buscando anúncios para o userId:', userId);
-            // Basic security check - verify if the professional exists
+            console.log('[getAnuncios] Buscando anúncios para o userId:', userId);
+
+            // Validate userId format
+            if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+                return res.status(400).json({
+                    msg: "userId inválido",
+                    error: "INVALID_USERID"
+                });
+            }
+
+            // Verificação de segurança - verificar se o usuário existe
             const user = await User.findById(userId);
             if (!user) {
-                return res.status(404).json({ msg: "user não encontrado" });
+                return res.status(404).json({
+                    msg: "Usuário não encontrado",
+                    error: "USER_NOT_FOUND"
+                });
             }
-            // Return all ads for the specific professional
-            const anuncios = await Anuncio.find({ userId });
-            return res.status(200).json({ anuncios });
+
+            // Buscar TODOS os anúncios do usuário específico, SEM filtros adicionais
+            const anuncios = await Anuncio.find({ userId })
+                .sort({ 'estatisticas.impressoes.impressoesTotais': 1 })
+                .exec();
+
+            console.log(`[getAnuncios] Encontrados ${anuncios.length} anúncios para o usuário ${userId}`);
+
+            return res.status(200).json({
+                anuncios,
+                success: true,
+                totalRetornados: anuncios.length,
+                limiteSolicitado: null
+            });
         }
 
-        // Build location query
-        let locationQuery = {};
-        let anuncios;
+        console.log('[getAnuncios] Iniciando busca de anúncios com priorização por impressões');
 
-        // Try with all location parameters
-        if (country && state && city) {
-            anuncios = await Anuncio.find({ country, state, city });
-            if (anuncios.length > 0) {
-                locationQuery = { country, state, city };
+        // Pipeline principal: priorizar impressões, depois localização hierárquica
+        const pipeline = [
+            // Estágio 1: Filtro básico por status ativo
+            {
+                $match: {
+                    status: 'ativo'
+                }
+            },
+            
+            // Estágio 2: Lookup para dados do usuário (saldo)
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'userId',
+                    foreignField: '_id',
+                    as: 'userData'
+                }
+            },
+            
+            // Estágio 3: Filtrar apenas anúncios com saldo > 0
+            {
+                $match: {
+                    'userData.saldoDeImpressoes': { $gt: 0 }
+                }
+            },
+            
+            // Estágio 4: Adicionar campos para ordenação hierárquica
+            {
+                $addFields: {
+                    impressoesTotais: {
+                        $ifNull: ['$estatisticas.impressoes.impressoesTotais', 0]
+                    },
+                    // Classificação de localização (0 = mais específico, 3 = menos específico)
+                    locationPriority: {
+                        $cond: {
+                            if: {
+                                $and: [
+                                    { $ne: [country, null] },
+                                    { $ne: [country, ''] }
+                                ]
+                            },
+                            then: {
+                                $switch: {
+                                    branches: [
+                                        // Mesma cidade = prioridade 0 (mais específico)
+                                        {
+                                            case: {
+                                                $and: [
+                                                    { $eq: ['$country', country] },
+                                                    { $eq: ['$state', state] },
+                                                    { $eq: ['$city', city] },
+                                                    { $ne: [city, null] },
+                                                    { $ne: [city, ''] }
+                                                ]
+                                            },
+                                            then: 0
+                                        },
+                                        // Mesmo estado = prioridade 1
+                                        {
+                                            case: {
+                                                $and: [
+                                                    { $eq: ['$country', country] },
+                                                    { $eq: ['$state', state] },
+                                                    { $ne: [state, null] },
+                                                    { $ne: [state, ''] }
+                                                ]
+                                            },
+                                            then: 1
+                                        },
+                                        // Mesmo país = prioridade 2
+                                        {
+                                            case: {
+                                                $eq: ['$country', country]
+                                            },
+                                            then: 2
+                                        }
+                                    ],
+                                    default: 3 // Outros locais = prioridade 3 (menos específico)
+                                }
+                            },
+                            else: 3 // Sem localização = prioridade 3
+                        }
+                    }
+                }
+            },
+            
+            // Estágio 5: Ordenação hierárquica - IMPRESSÕES PRIMEIRO, depois localização
+            {
+                $sort: {
+                    impressoesTotais: 1,      // Prioridade 1: Menor número de impressões
+                    locationPriority: 1,      // Prioridade 2: Localização mais específica
+                    _id: 1                    // Prioridade 3: Consistência
+                }
+            },
+            
+            // Estágio 6: Aplicar limite se especificado
+            ...(limitQuantidade ? [{ $limit: limitQuantidade }] : []),
+            
+            // Estágio 7: Remover campos temporários
+            {
+                $project: {
+                    userData: 0,
+                    impressoesTotais: 0,
+                    locationPriority: 0
+                }
             }
+        ];
+
+        console.log('[getAnuncios] Executando pipeline com priorização por impressões');
+        
+        // Executar agregação
+        const anuncios = await Anuncio.aggregate(pipeline);
+        
+        console.log(`[getAnuncios] Pipeline retornou ${anuncios.length} anúncios`);
+
+        // Se não encontrou anúncios com saldo, tentar sem filtro de saldo como fallback
+        if (anuncios.length === 0) {
+            console.log('[getAnuncios] Nenhum anúncio com saldo encontrado, tentando fallback sem filtro de saldo');
+            
+            const fallbackPipeline = [
+                // Estágio 1: Filtro básico por status ativo
+                {
+                    $match: {
+                        status: 'ativo'
+                    }
+                },
+                
+                // Estágio 2: Adicionar campos para ordenação
+                {
+                    $addFields: {
+                        impressoesTotais: {
+                            $ifNull: ['$estatisticas.impressoes.impressoesTotais', 0]
+                        },
+                        locationPriority: {
+                            $cond: {
+                                if: {
+                                    $and: [
+                                        { $ne: [country, null] },
+                                        { $ne: [country, ''] }
+                                    ]
+                                },
+                                then: {
+                                    $switch: {
+                                        branches: [
+                                            {
+                                                case: {
+                                                    $and: [
+                                                        { $eq: ['$country', country] },
+                                                        { $eq: ['$state', state] },
+                                                        { $eq: ['$city', city] },
+                                                        { $ne: [city, null] },
+                                                        { $ne: [city, ''] }
+                                                    ]
+                                                },
+                                                then: 0
+                                            },
+                                            {
+                                                case: {
+                                                    $and: [
+                                                        { $eq: ['$country', country] },
+                                                        { $eq: ['$state', state] },
+                                                        { $ne: [state, null] },
+                                                        { $ne: [state, ''] }
+                                                    ]
+                                                },
+                                                then: 1
+                                            },
+                                            {
+                                                case: {
+                                                    $eq: ['$country', country]
+                                                },
+                                                then: 2
+                                            }
+                                        ],
+                                        default: 3
+                                    }
+                                },
+                                else: 3
+                            }
+                        }
+                    }
+                },
+                
+                // Estágio 3: Ordenação hierárquica
+                {
+                    $sort: {
+                        impressoesTotais: 1,
+                        locationPriority: 1,
+                        _id: 1
+                    }
+                },
+                
+                // Estágio 4: Aplicar limite se especificado
+                ...(limitQuantidade ? [{ $limit: limitQuantidade }] : []),
+                
+                // Estágio 5: Remover campos temporários
+                {
+                    $project: {
+                        impressoesTotais: 0,
+                        locationPriority: 0
+                    }
+                }
+            ];
+
+            const anunciosFallback = await Anuncio.aggregate(fallbackPipeline);
+            console.log(`[getAnuncios] Fallback retornou ${anunciosFallback.length} anúncios`);
+
+            return res.status(200).json({
+                anuncios: anunciosFallback,
+                success: true,
+                totalRetornados: anunciosFallback.length,
+                limiteSolicitado: limitQuantidade,
+                debug: 'Fallback - anúncios sem filtro de saldo'
+            });
         }
 
-        // If no results, try with country and state
-        if ((!anuncios || anuncios.length === 0) && country && state) {
-            anuncios = await Anuncio.find({ country, state });
-            if (anuncios.length > 0) {
-                locationQuery = { country, state };
-            }
-        }
-
-        // If still no results, try with just country
-        if ((!anuncios || anuncios.length === 0) && country) {
-            anuncios = await Anuncio.find({ country });
-            if (anuncios.length > 0) {
-                locationQuery = { country };
-            }
-        }
-
-        // If no location matches, get all ads
-        if (!anuncios || anuncios.length === 0) {
-            anuncios = await Anuncio.find();
-        }
-
-        const availableAnuncios = [];
-
-        for (const anuncio of anuncios) {
-            const user = await User.findById(anuncio.userId);
-
-            if (user &&
-                user.saldoDeImpressoes > 0 &&
-                anuncio.status === 'ativo') {
-                availableAnuncios.push(anuncio);
-            }
-        }
-
-        return res.status(200).json({ availableAnuncios });
+        return res.status(200).json({
+            anuncios,
+            success: true,
+            totalRetornados: anuncios.length,
+            limiteSolicitado: limitQuantidade
+        });
 
     } catch (error) {
+        console.error('[getAnuncios] Erro ao buscar anúncios:', error);
         return res.status(500).json({
-            msg: "Erro ao buscar anúncios",
-            error: error.msg
+            msg: "Erro interno do servidor ao buscar anúncios",
+            error: "INTERNAL_SERVER_ERROR"
         });
     }
 };
@@ -331,3 +564,196 @@ export const deletarAnuncio = async (req, res) => {
         });
     }
 }
+
+export const marcarClique = async (req, res) => {
+    try {
+        const { anuncioId, userId } = req.body;
+
+        // Validações básicas
+        if (!anuncioId) {
+            return res.status(400).json({
+                msg: "ID do anúncio é obrigatório",
+                error: "ANUNCIO_ID_REQUIRED"
+            });
+        }
+
+        if (!userId) {
+            return res.status(400).json({
+                msg: "ID do usuário é obrigatório",
+                error: "USER_ID_REQUIRED"
+            });
+        }
+
+        // Verificação pra saber se realmente é um usuario, segurança contra falsa requisição
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                msg: "Usuário não encontrado",
+                error: "USER_NOT_FOUND"
+            });
+        }
+
+        // Buscar o anúncio
+        const anuncio = await Anuncio.findById(anuncioId);
+        if (!anuncio) {
+            return res.status(404).json({
+                msg: "Anúncio não encontrado",
+                error: "ANUNCIO_NOT_FOUND"
+            });
+        }
+
+        // Verificar se o usuário já clicou hoje neste anúncio
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0); // Início do dia atual
+
+        const amanha = new Date(hoje);
+        amanha.setDate(hoje.getDate() + 1); // Início do próximo dia
+
+        const jaClicouHoje = anuncio.estatisticas.cliques.cliquesDetalhados?.some(clique =>
+            clique.userId === userId &&
+            clique.dataClique >= hoje &&
+            clique.dataClique < amanha
+        );
+
+        if (jaClicouHoje) {
+            return res.status(409).json({
+                msg: "Você já clicou neste anúncio hoje. Apenas um clique por dia é permitido.",
+                error: "ALREADY_CLICKED_TODAY"
+            });
+        }
+
+        // Obter IP do usuário para auditoria
+        const userIp = req.ip || req.connection.remoteAddress || req.socket.remoteAddress ||
+            (req.connection.socket ? req.connection.socket.remoteAddress : null);
+
+        // Registrar o clique detalhado na nova estrutura
+        if (!anuncio.estatisticas.cliques.cliquesDetalhados) {
+            anuncio.estatisticas.cliques.cliquesDetalhados = [];
+        }
+
+        anuncio.estatisticas.cliques.cliquesDetalhados.push({
+            userId: userId,
+            dataClique: new Date(),
+            ip: userIp
+        });
+
+        // Incrementar contador agregado de cliques
+        anuncio.estatisticas.cliques.cliquesTotais += 1;
+
+        // Salvar as alterações
+        await anuncio.save();
+
+        console.log(`[marcarClique] Clique registrado - Anúncio: ${anuncioId}, Usuário: ${userId}, IP: ${userIp}`);
+
+        return res.status(200).json({
+            msg: "Clique registrado com sucesso",
+            success: true,
+            totalCliques: anuncio.estatisticas.cliques.cliquesTotais
+        });
+
+    } catch (error) {
+        console.error('[marcarClique] Erro ao registrar clique:', error);
+        return res.status(500).json({
+            msg: "Erro interno do servidor ao registrar clique",
+            error: "INTERNAL_SERVER_ERROR"
+        });
+    }
+};
+export const marcarImpressao = async (req, res) => {
+    try {
+        const { anuncioId, userId } = req.body;
+
+        // Validações básicas
+        if (!anuncioId) {
+            return res.status(400).json({
+                msg: "ID do anúncio é obrigatório",
+                error: "ANUNCIO_ID_REQUIRED"
+            });
+        }
+
+        if (!userId) {
+            return res.status(400).json({
+                msg: "ID do usuário é obrigatório",
+                error: "USER_ID_REQUIRED"
+            });
+        }
+
+        // Verificação pra saber se realmente é um usuario, segurança contra falsa requisição
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                msg: "Usuário não encontrado",
+                error: "USER_NOT_FOUND"
+            });
+        }
+
+        // Buscar o anúncio
+        const anuncio = await Anuncio.findById(anuncioId);
+        if (!anuncio) {
+            return res.status(404).json({
+                msg: "Anúncio não encontrado",
+                error: "ANUNCIO_NOT_FOUND"
+            });
+        }
+
+        // Verificar se o usuário já teve impressão hoje neste anúncio
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0); // Início do dia atual
+
+        const amanha = new Date(hoje);
+        amanha.setDate(hoje.getDate() + 1); // Início do próximo dia
+
+        const jaViuHoje = anuncio.estatisticas.impressoes.impressoesDetalhadas?.some(impressao =>
+            impressao.userId === userId &&
+            impressao.data >= hoje &&
+            impressao.data < amanha
+        );
+
+        if (jaViuHoje) {
+            return res.status(409).json({
+                msg: "Você já visualizou este anúncio hoje. Apenas uma impressão por dia é permitida.",
+                error: "ALREADY_VIEWED_TODAY"
+            });
+        }
+
+        // Registrar a impressão detalhada na nova estrutura
+        if (!anuncio.estatisticas.impressoes.impressoesDetalhadas) {
+            anuncio.estatisticas.impressoes.impressoesDetalhadas = [];
+        }
+
+        anuncio.estatisticas.impressoes.impressoesDetalhadas.push({
+            userId: userId,
+            data: new Date()
+        });
+
+        // Incrementar contador agregado de impressões
+        anuncio.estatisticas.impressoes.impressoesTotais += 1;
+
+        // Remover -1 saldoDeImpressoes do usuario dono do anuncio.
+        if (anuncio.userId) {
+            const userAnuncio = await User.findById(anuncio.userId);
+            if (userAnuncio) {
+                userAnuncio.saldoDeImpressoes -= 1;
+                await userAnuncio.save();
+            }
+        }
+
+        // Salvar as alterações
+        await anuncio.save();
+
+        console.log(`[marcarImpressao] Impressão registrada - Anúncio: ${anuncioId}, Usuário: ${userId}`);
+
+        return res.status(200).json({
+            msg: "Impressão registrada com sucesso",
+            success: true,
+            totalImpressoes: anuncio.estatisticas.impressoes.impressoesTotais
+        });
+
+    } catch (error) {
+        console.error('[marcarImpressao] Erro ao registrar impressão:', error);
+        return res.status(500).json({
+            msg: "Erro interno do servidor ao registrar impressão",
+            error: "INTERNAL_SERVER_ERROR"
+        });
+    }
+};

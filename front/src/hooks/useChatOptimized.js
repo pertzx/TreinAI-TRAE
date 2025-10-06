@@ -3,6 +3,7 @@ import { authCookies } from '../utils/cookieUtils.js';
 // import { apiRequest } from '../utils/apiUtils.js';
 import webSocketManager from '../utils/websocketUtils.js';
 import api from '../Api.js'
+import { getBrazilDate } from '../../helpers/getBrazilDate.js';
 
 /**
  * Hook otimizado para chat que usa WebSocket com fallback inteligente para polling
@@ -35,7 +36,7 @@ const useChatOptimized = (user, selectedChatId) => {
 
   // Função de throttling para evitar muitas requisições
   const throttledApiCall = useCallback((apiCall, minInterval = MIN_POLLING_INTERVAL) => {
-    const now = Date.now();
+    const now = getBrazilDate();
     const timeSinceLastCall = now - lastPollingTimeRef.current;
     
     if (timeSinceLastCall < minInterval) {
@@ -45,7 +46,7 @@ const useChatOptimized = (user, selectedChatId) => {
       }
       
       pollingTimeoutRef.current = setTimeout(() => {
-        lastPollingTimeRef.current = Date.now();
+        lastPollingTimeRef.current = getBrazilDate();
         apiCall();
       }, minInterval - timeSinceLastCall);
       

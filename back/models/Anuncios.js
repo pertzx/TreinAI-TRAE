@@ -16,8 +16,28 @@ const anuncioSchema = new Schema({
   status: { type: String, enum: ['ativo', 'inativo'], required: true, default: 'inativo' },
   
   estatisticas: {
-    impressoes: { type: Number, default: 0 },
-    cliques: { type: Number, default: 0 },
+    // Estrutura reestruturada para impressões
+    impressoes: {
+      impressoesDetalhadas: [
+        {
+          userId: { type: String, required: true },
+          data: { type: Date, required: true, default: getBrazilDate }
+        }
+      ],
+      impressoesTotais: { type: Number, default: 0 }
+    },
+    
+    // Estrutura reestruturada para cliques
+    cliques: {
+      cliquesDetalhados: [
+        {
+          userId: { type: String, required: true },
+          dataClique: { type: Date, required: true, default: getBrazilDate },
+          ip: { type: String, default: null } // Para auditoria adicional
+        }
+      ],
+      cliquesTotais: { type: Number, default: 0 }
+    }
   },
   
   // localização humana (país/estado/cidade) — strings simples

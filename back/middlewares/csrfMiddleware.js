@@ -1,11 +1,12 @@
 import crypto from 'crypto';
+import { getBrazilDate } from '../helpers/getBrazilDate.js';
 
 // Armazena tokens CSRF temporariamente (em produção, use Redis ou banco de dados)
 const csrfTokens = new Map();
 
 // Limpa tokens expirados a cada 30 minutos
 setInterval(() => {
-    const now = Date.now();
+    const now = getBrazilDate();
     for (const [token, data] of csrfTokens.entries()) {
         if (now - data.createdAt > 30 * 60 * 1000) { // 30 minutos
             csrfTokens.delete(token);
@@ -22,7 +23,7 @@ export const generateCSRFToken = (sessionId) => {
     const token = crypto.randomBytes(32).toString('hex');
     csrfTokens.set(token, {
         sessionId,
-        createdAt: Date.now()
+        createdAt: getBrazilDate()
     });
     return token;
 };
@@ -43,7 +44,7 @@ export const validateCSRFToken = (token, sessionId) => {
     if (tokenData.sessionId !== sessionId) return false;
     
     // Verifica se não expirou (30 minutos)
-    const now = Date.now();
+    const now = getBrazilDate();
     if (now - tokenData.createdAt > 30 * 60 * 1000) {
         csrfTokens.delete(token);
         return false;

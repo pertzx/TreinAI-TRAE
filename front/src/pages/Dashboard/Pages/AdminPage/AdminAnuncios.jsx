@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import api from '../../../../Api'
+import { buildImageUrl } from '../../../../utils/imageUtils'
 
 // AdminAnuncios (atualizado)
 // - Preview de mídia mais responsivo (container com proporção 16:9)
@@ -308,9 +309,9 @@ export default function AdminAnuncios({ tema, user }) {
                     <div className="mb-3 flex flex-col gap-4">
                       <div className="relative flex items-center justify-center mb-3">
                         {a.anuncioTipo === 'video' && mediaUrl ? (
-                          <video src={mediaUrl} controls className="h-full w-full object-cover" />
+                          <video src={buildImageUrl(mediaUrl)} controls className="h-full w-full object-cover" />
                         ) : a.anuncioTipo === 'imagem' && mediaUrl ? (
-                          <img src={mediaUrl} alt={a.titulo} className="h-full w-full object-cover" />
+                          <img src={buildImageUrl(mediaUrl)} alt={a.titulo} className="h-full w-full object-cover" />
                         ) : (
                           <div className="text-sm text-gray-500">Sem mídia</div>
                         )}
@@ -330,8 +331,8 @@ export default function AdminAnuncios({ tema, user }) {
                               <span className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>{a.status}</span>
                             </div>
                             <div className="mb-1"><span className="font-medium">Tipo:</span> {a.anuncioTipo || '—'}</div>
-                            <div className="mb-1"><span className="font-medium">Impressoes:</span> {a.estatisticas?.impressoes ?? 0}</div>
-                            <div className="mb-1"><span className="font-medium">Cliques:</span> {a.estatisticas?.cliques ?? 0}</div>
+                            <div className="mb-1"><span className="font-medium">Impressoes:</span> {a.estatisticas?.impressoes.impressoesTotais ?? 0}</div>
+                            <div className="mb-1"><span className="font-medium">Cliques:</span> {a.estatisticas?.cliques.cliquesTotais ?? 0}</div>
                           </div>
                         </div>
 

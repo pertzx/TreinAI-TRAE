@@ -27,8 +27,7 @@ import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVista
 import { conversarNutri } from '../controllers/NutriAI.js';
 import { editarLocal } from '../controllers/LocalController.js';
 import { getLocais } from '../controllers/LocalController.js';
-import { criarAnuncio, editarAnuncio, getAnuncios } from '../controllers/AnunciosController.js';
-import { deletarAnuncio } from '../controllers/AnunciosController.js';
+import { criarAnuncio, editarAnuncio, getAnuncios, deletarAnuncio, marcarClique, marcarImpressao } from '../controllers/AnunciosController.js';
 import { checkTokenLimit } from '../middlewares/tokenLimitMiddleware.js';
 import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
 
@@ -204,6 +203,8 @@ router.post('/criar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads
 router.get('/anuncios', getAnuncios); // query profissionalId (opcional). se nao passar, retorna todos os anuncios disponiveis.
 router.post('/deletar-anuncio', deletarAnuncio); // corpo => profissionalId e anuncioId.
 router.post('/editar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), editarAnuncio); // corpo => profissionalId e anuncioId.
+router.post('/marcar-impressao', marcarImpressao); // corpo => userId e anuncioId.
+router.post('/marcar-clique', marcarClique); // corpo => userId e anuncioId.
 
 // support
 router.get('/supports', getSupports)

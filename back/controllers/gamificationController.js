@@ -196,3 +196,81 @@ export const finalizarTreino = async (req, res) => {
     res.status(500).json({ success: false, msg: 'Erro interno do servidor ao finalizar treino', error: error.message });
   }
 };
+
+export const getRankings = async (req, res) => {
+  try {
+    // Parse e validação de query params
+    let { page = 1, limit = 10, status, sortBy = 'startDate', order = 'desc' } = req.query;
+
+    page = Math.max(1, parseInt(page, 10));
+    limit = Math.max(1, Math.min(100, parseInt(limit, 10))); // Cap em 100
+
+    // Filtros dinâmicos
+    const filters = {};
+    if (status === 'active') {
+      filters.startDate = { $lte: new Date() };
+      filters.endDate = { $gte: new Date() };
+    } else if (status === 'finished') {
+      filters.endDate = { $lt: new Date() };
+    } else if (status === 'upcoming') {
+      filters.startDate = { $gt: new Date() };
+    }
+
+    // Ordenação segura
+    const allowedSortFields = ['startDate', 'endDate', 'createdAt'];
+    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'startDate';
+    const sortOrder = order.toLowerCase() === 'asc' ? 1 : -1;
+    const sortOptions = { [sortField]: sortOrder };
+
+    // Busca com paginação e ordenação no banco
+    const [rankings, total] = await Promise.all([
+      Ranking.find(filters)
+        .sort(sortOptions)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      Ranking.countDocuments(filters),
+    ]);
+
+    // Remover userId dos competidores e adicionar posição
+    const sanitizedRankings = rankings.map(ranking => ({
+      ...ranking,
+      competitors: ranking.competitors.map((c, idx) => ({
+        ...c,
+        position: idx + 1,
+        userId: undefined,
+      })),
+    }));
+
+    res.status(200).json({
+      success: true,
+      msg: 'Rankings obtidos com sucesso',
+      data: {
+        rankings: sanitizedRankings,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Erro ao obter rankings:', error);
+    res.status(500).json({ success: false, msg: 'Erro interno do servidor ao obter rankings', error: error.message });
+  }
+};
+
+export const getUserGamification = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const userGamification = await UserGamification.findOne({ userId })
+    if (!userGamification) {
+      return res.status(404).json({ success: false, msg: 'Usuário não encontrado nos rankings' });
+    }
+    res.status(200).json({ success: true, msg: 'Gamificação do usuário obtida com sucesso', data: userGamification });
+  } catch (error) {
+    console.error('Erro ao obter gamificação do usuário:', error);
+    res.status(500).json({ success: false, msg: 'Erro interno do servidor ao obter gamificação do usuário', error: error.message });
+  }
+}

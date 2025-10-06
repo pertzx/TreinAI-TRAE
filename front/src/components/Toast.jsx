@@ -1,5 +1,6 @@
 import React, { useState, useEffect, createContext, useContext, useRef, useCallback } from 'react';
 import { FaCheckCircle, FaExclamationTriangle, FaInfoCircle, FaTimes, FaTimesCircle } from 'react-icons/fa';
+import { getBrazilDate } from '../../helpers/getBrazilDate';
 
 // Context para compartilhar o estado dos toasts
 const ToastContext = createContext();
@@ -168,13 +169,13 @@ export const ToastProvider = ({ children }) => {
     clearDebounceTimeout(hash);
     
     const debounceTimeout = setTimeout(() => {
-      const id = Date.now() + Math.random();
+      const id = getBrazilDate() + Math.random();
       const toast = {
         id,
         hash,
         message,
         type,
-        timestamp: Date.now(),
+        timestamp: getBrazilDate(),
         ...options
       };
 

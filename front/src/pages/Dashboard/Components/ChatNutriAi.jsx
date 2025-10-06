@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FiSend, FiTrash2, FiUser, FiCpu, FiClock, FiCheckCircle } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../../Api.js'; // ajuste se necessário
+import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
 
 export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null }) {
   const isDark = tema === 'dark';
@@ -97,24 +98,24 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
 
         // also append an AI message that a plan foi criada/atualizada (use data.msg when available)
         const textResp = data.msg || '✅ Plano nutricional atualizado com sucesso!';
-        setMessages(prev => [...prev, { id: `ai-${Date.now()}`, from: 'nutri', text: textResp, createdAt: new Date() }]);
+        setMessages(prev => [...prev, { id: `ai-${getBrazilDate()}`, from: 'nutri', text: textResp, createdAt: new Date() }]);
       } else {
         // fallback: if API returned a textual reply (msg) show it, else generic success/fail
         if (typeof data.success !== 'undefined') {
           if (data.success) {
             const successText = data.msg || '✨ Resposta da NutriAI recebida.';
-            setMessages(prev => [...prev, { id: `ai-${Date.now()}`, from: 'nutri', text: successText, createdAt: new Date() }]);
+            setMessages(prev => [...prev, { id: `ai-${getBrazilDate()}`, from: 'nutri', text: successText, createdAt: new Date() }]);
           } else {
             const failText = data.msg || '❌ A NutriAI não conseguiu gerar uma resposta válida.';
-            setMessages(prev => [...prev, { id: `ai-${Date.now()}`, from: 'nutri', text: failText, createdAt: new Date() }]);
+            setMessages(prev => [...prev, { id: `ai-${getBrazilDate()}`, from: 'nutri', text: failText, createdAt: new Date() }]);
           }
         } else {
           // no structured response, attempt to show raw message if present
           if (data?.raw) {
-            setMessages(prev => [...prev, { id: `ai-${Date.now()}`, from: 'nutri', text: String(data.raw).slice(0, 1000), createdAt: new Date() }]);
+            setMessages(prev => [...prev, { id: `ai-${getBrazilDate()}`, from: 'nutri', text: String(data.raw).slice(0, 1000), createdAt: new Date() }]);
           } else {
             // fallback: generic success message
-            setMessages(prev => [...prev, { id: `ai-${Date.now()}`, from: 'nutri', text: '✨ Resposta da NutriAI recebida.', createdAt: new Date() }]);
+            setMessages(prev => [...prev, { id: `ai-${getBrazilDate()}`, from: 'nutri', text: '✨ Resposta da NutriAI recebida.', createdAt: new Date() }]);
           }
         }
       }
@@ -124,7 +125,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
       console.error('conversar-nutri error', err);
       const msg = err?.response?.data?.msg || 'Erro ao comunicar com servidor.';
       showNotify(msg, 'error');
-      setMessages(prev => [...prev, { id: `ai-${Date.now()}`, from: 'nutri', text: `❌ Erro: ${msg}`, createdAt: new Date() }]);
+      setMessages(prev => [...prev, { id: `ai-${getBrazilDate()}`, from: 'nutri', text: `❌ Erro: ${msg}`, createdAt: new Date() }]);
       return null;
     } finally {
       setLoading(false);
@@ -146,7 +147,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
     }
 
     // optimistic add user message
-    setMessages(prev => [...prev, { id: `u-${Date.now()}`, from: 'user', text: texto, createdAt: new Date() }]);
+    setMessages(prev => [...prev, { id: `u-${getBrazilDate()}`, from: 'user', text: texto, createdAt: new Date() }]);
     setInput('');
 
     // call server

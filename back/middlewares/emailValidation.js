@@ -1,6 +1,7 @@
 import emailValidator from 'email-validator';
 import dns from 'dns';
 import { promisify } from 'util';
+import { getBrazilDate } from '../helpers/getBrazilDate.js';
 
 const resolveMx = promisify(dns.resolveMx);
 
@@ -120,7 +121,7 @@ export const validateEmailReal = async (req, res, next) => {
     const cacheKey = `mx_${domain}`;
     const cached = dnsCache.get(cacheKey);
 
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+    if (cached && (getBrazilDate() - cached.timestamp) < CACHE_DURATION) {
       if (!cached.valid) {
         return res.status(400).json({
           message: 'Domínio de email inválido ou inexistente',
@@ -132,7 +133,7 @@ export const validateEmailReal = async (req, res, next) => {
         const mxRecords = await resolveMx(domain);
         
         if (!mxRecords || mxRecords.length === 0) {
-          dnsCache.set(cacheKey, { valid: false, timestamp: Date.now() });
+          dnsCache.set(cacheKey, { valid: false, timestamp: getBrazilDate() });
           return res.status(400).json({
             message: 'Domínio de email não possui servidor de email válido',
             field: 'email'
@@ -140,11 +141,11 @@ export const validateEmailReal = async (req, res, next) => {
         }
 
         // Cache resultado positivo
-        dnsCache.set(cacheKey, { valid: true, timestamp: Date.now() });
+        dnsCache.set(cacheKey, { valid: true, timestamp: getBrazilDate() });
 
       } catch (dnsError) {
         // Se houver erro na consulta DNS, assumir que o domínio é inválido
-        dnsCache.set(cacheKey, { valid: false, timestamp: Date.now() });
+        dnsCache.set(cacheKey, { valid: false, timestamp: getBrazilDate() });
         return res.status(400).json({
           message: 'Não foi possível verificar o domínio do email',
           field: 'email'
@@ -245,7 +246,7 @@ export const validateEmailBasic = (req, res, next) => {
 
 // Função para limpar cache periodicamente
 export const clearEmailCache = () => {
-  const now = Date.now();
+  const now = getBrazilDate();
   for (const [key, value] of dnsCache.entries()) {
     if (now - value.timestamp > CACHE_DURATION) {
       dnsCache.delete(key);

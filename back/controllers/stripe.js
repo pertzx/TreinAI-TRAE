@@ -9,6 +9,7 @@ import Local from '../models/local.js';
 import ProcessedStripeEvent from '../models/ProcessedStripeEvent.js';
 import mongoose from 'mongoose';
 import Profissional from '../models/Profissional.js';
+import { getBrazilDate } from '../helpers/getBrazilDate.js';
 
 dotenv.config();
 
@@ -174,15 +175,14 @@ export const SessionPaymentSaldoDeImpressoes = async (req, res) => {
         price_data: {
           currency: 'brl',
           product_data: {
-            name: `Saldo de Impressões (R$${valorEmReais.toFixed(2)})`,
+            name: `Saldo de Impressões +R$${valorEmReais.toFixed(2)}`,
             metadata: { userId }
           },
-          unit_amount: 100, // 1 real por unidade
         },
         quantity: valorEmReais, // valorEmReais unidades de R$1
       }],
-      success_url: `${process.env.FRONTEND_URL}success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}cancel`,
+      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
       metadata: {
         app: 'treinai',
         flow: 'saldo_impressoes',
@@ -338,8 +338,8 @@ export const CriarAssinaturaProLocal = async (req, res) => {
       mode: 'subscription',
       payment_method_types: pm === 'pix' ? ['pix'] : ['card'],
       line_items: [{ price: unitPrice, quantity: 1 }],
-      success_url: `${process.env.FRONTEND_URL}success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}cancel`,
+      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
       metadata: { app: 'treinai', pendingUploadId: pendingUpload ? String(pendingUpload._id) : null, flow: 'publish_local' },
       subscription_data: {
         metadata: subscriptionMetadata
@@ -465,7 +465,7 @@ export const StripeWebhook = async (req, res) => {
   }
 
   const data = event.data.object || {};
-  const evtCreatedMs = (typeof event.created === 'number') ? (event.created * 1000) : Date.now();
+  const evtCreatedMs = (typeof event.created === 'number') ? (event.created * 1000) : getBrazilDate();
 
   // helpers locais (mantive os seus ensureUserByCustomer/findUserBySubscription/applyManualUpdate)
   const ensureUserByCustomer = async (customerId) => {

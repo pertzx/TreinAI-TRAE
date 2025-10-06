@@ -1,6 +1,7 @@
 import RedisManager from '../utils/redisManager.js';
 import redisCache from '../config/redis.js';
 import User from '../models/User.js';
+import { getBrazilDate } from '../helpers/getBrazilDate.js';
 
 /**
  * Controlador dedicado para administração do cache Redis
@@ -11,7 +12,7 @@ import User from '../models/User.js';
  */
 export const getCacheDashboard = async (req, res) => {
     try {
-        const startTime = Date.now();
+        const startTime = getBrazilDate();
 
         // Obter estatísticas detalhadas
         const stats = await RedisManager.getDetailedStats();
@@ -22,7 +23,7 @@ export const getCacheDashboard = async (req, res) => {
         // Informações de conectividade
         const connectionInfo = {
             isConnected: redisCache.isConnected(),
-            connectionTime: Date.now() - startTime,
+            connectionTime: getBrazilDate() - startTime,
             lastError: null
         };
 
@@ -338,12 +339,12 @@ function generateCacheRecommendations(stats, ttlAnalysis) {
  */
 async function cleanupExpiredKeys(adminId) {
     try {
-        const startTime = Date.now();
+        const startTime = getBrazilDate();
         
         // Executar limpeza
         await redisCache.cleanupIfNeeded();
         
-        const executionTime = Date.now() - startTime;
+        const executionTime = getBrazilDate() - startTime;
         
         return {
             success: true,

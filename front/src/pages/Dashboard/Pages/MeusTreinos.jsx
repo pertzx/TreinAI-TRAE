@@ -216,7 +216,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
       } else {
         // fallback local
         const newTreino = {
-          treinoId: `local-${Date.now()}`,
+          treinoId: `local-${getBrazilDate()}`,
           treinoName: nome,
           descricao: '',
           ordem: meusTreinos.length + 1,
@@ -251,7 +251,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
         const updated = meusTreinos.map(t => t.treinoId === treinoId ? res.data.treinoAtual : t);
         saveChangesLocal(updated);
       } else {
-        const novoEx = { exercicioId: `local-ex-${Date.now()}`, nome: nomeEx, ordem: (meusTreinos.find(t => t.treinoId === treinoId)?.exercicios.length || 0) + 1 };
+        const novoEx = { exercicioId: `local-ex-${getBrazilDate()}`, nome: nomeEx, ordem: (meusTreinos.find(t => t.treinoId === treinoId)?.exercicios.length || 0) + 1 };
         const updated = meusTreinos.map(t => t.treinoId === treinoId ? { ...t, exercicios: [...t.exercicios, novoEx] } : t);
         saveChangesLocal(updated);
         console.warn('gerar-exercicio-ia: backend não retornou treinoAtual. Atualizado localmente.');

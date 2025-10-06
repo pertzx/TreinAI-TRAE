@@ -164,16 +164,16 @@ export const getDetailedAIAnalytics = async (req, res) => {
         let startDate;
         switch (timeRange) {
             case '1d':
-                startDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                startDate = new Date(getBrazilDate() - 24 * 60 * 60 * 1000);
                 break;
             case '7d':
-                startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                startDate = new Date(getBrazilDate() - 7 * 24 * 60 * 60 * 1000);
                 break;
             case '30d':
-                startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+                startDate = new Date(getBrazilDate() - 30 * 24 * 60 * 60 * 1000);
                 break;
             default:
-                startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                startDate = new Date(getBrazilDate() - 7 * 24 * 60 * 60 * 1000);
         }
 
         // Analytics de uso do sistema AI
@@ -542,7 +542,7 @@ export const getAIDashboard = async (req, res) => {
         const totalUsers = await User.countDocuments();
         const totalAdmins = await User.countDocuments({ role: 'admin' });
         const activeUsers = await User.countDocuments({
-            lastLogin: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } // últimos 30 dias
+            lastLogin: { $gte: new Date(getBrazilDate() - 30 * 24 * 60 * 60 * 1000) } // últimos 30 dias
         });
 
         // Estatísticas do sistema AI
@@ -551,7 +551,7 @@ export const getAIDashboard = async (req, res) => {
         const usersWithWorkouts = 0; // await UserAnalytics.countDocuments({ 'workoutMetrics.0': { $exists: true } });
 
         // Métricas de performance das APIs AI (últimos 7 dias)
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const sevenDaysAgo = new Date(getBrazilDate() - 7 * 24 * 60 * 60 * 1000);
         const recentWorkouts = [{ total: 0 }]; // await UserAnalytics.aggregate([...]);
         const recentAIGeneratedWorkouts = [{ total: 0 }]; // await UserAnalytics.aggregate([...]);
 
@@ -581,7 +581,7 @@ export const getAIDashboard = async (req, res) => {
         };
 
         // Top exercícios mais buscados (últimos 30 dias)
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(getBrazilDate() - 30 * 24 * 60 * 60 * 1000);
         const topExercises = []; // await UserAnalytics.aggregate([...]) - REMOVIDO: Sistema de analytics não utilizado
 
         const dashboardData = {
@@ -707,16 +707,16 @@ export const getAPIPerformanceMetrics = async (req, res) => {
         let startDate;
         switch (timeRange) {
             case '1d':
-                startDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                startDate = new Date(getBrazilDate() - 24 * 60 * 60 * 1000);
                 break;
             case '7d':
-                startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                startDate = new Date(getBrazilDate() - 7 * 24 * 60 * 60 * 1000);
                 break;
             case '30d':
-                startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+                startDate = new Date(getBrazilDate() - 30 * 24 * 60 * 60 * 1000);
                 break;
             default:
-                startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                startDate = new Date(getBrazilDate() - 7 * 24 * 60 * 60 * 1000);
         }
 
         // Métricas de uso do sistema AI

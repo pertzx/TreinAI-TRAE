@@ -4,6 +4,7 @@ import Profissional from '../models/Profissional.js';
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import { getBrazilDate } from '../helpers/getBrazilDate.js';
 
 // Gerar relatório simples para cliente
 export const generateReport = async (req, res) => {
@@ -225,7 +226,7 @@ export const getReportTemplates = async (req, res) => {
 const generateSimplePDFReport = async (report) => {
   try {
     const doc = new PDFDocument();
-    const fileName = `report_${report._id}_${Date.now()}.pdf`;
+    const fileName = `report_${report._id}_${getBrazilDate()}.pdf`;
     const filePath = path.join(process.cwd(), 'uploads', 'reports', fileName);
 
     // Criar diretório se não existir

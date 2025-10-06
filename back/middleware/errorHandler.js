@@ -185,7 +185,7 @@ export const createRateLimit = (windowMs = 60000, maxRequests = 10) => {
 
   return (req, res, next) => {
     const clientId = req.ip || req.connection.remoteAddress;
-    const now = Date.now();
+    const now = getBrazilDate();
     const windowStart = now - windowMs;
 
     // Limpar requisições antigas
@@ -214,10 +214,10 @@ export const createRateLimit = (windowMs = 60000, maxRequests = 10) => {
 
 // Middleware de log de performance
 export const logPerformance = (req, res, next) => {
-  const startTime = Date.now();
+  const startTime = getBrazilDate();
   
   res.on('finish', () => {
-    const duration = Date.now() - startTime;
+    const duration = getBrazilDate() - startTime;
     const timestamp = getBrazilDate();
     
     console.log(`[${timestamp}] ${req.method} ${req.path} - ${res.statusCode} - ${duration}ms`);

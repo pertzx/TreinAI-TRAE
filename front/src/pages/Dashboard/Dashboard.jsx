@@ -25,6 +25,7 @@ import AnunciosDash from './Pages/AnunciosDash.jsx';
 import Locais from './Pages/Locais.jsx';
 import AdminPage from './Pages/AdminPage/AdminPage.jsx';
 import SupportPage from './Pages/SupportPage.jsx';
+import Recordes from './Pages/Recordes.jsx';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 import { handleError, clearErrorAfterDelay, isAuthError } from '../../utils/errorHandler';
@@ -309,6 +310,7 @@ const Dashboard = ({ needToPay, plano }) => {
             <Routes>
               <Route path="admin" element={<AdminPage user={user} tema={tema} />} />
               <Route path="ajuda" element={<SupportPage user={user} tema={tema} />} />
+              <Route path="recordes" element={<Recordes user={user} tema={tema} />} />
               <Route path="meus-treinos" element={<MeusTreinos tema={tema} user={user} setUser={setUser} />} />
               <Route path="historico" element={<Historico historico={user?.historico} tema={tema} />} />
               <Route path="perfil" element={<Perfil user={user} tema={tema} />} />

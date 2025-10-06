@@ -70,7 +70,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
     if (parts.length === 1 && typeof parts[0] === 'string') return parts[0];
 
     // Retorna um span com as partes formatadas
-    return <span key={`parsed-${Date.now()}`}>{parts}</span>;
+    return <span key={`parsed-${getBrazilDate()}`}>{parts}</span>;
   };
 
   // treinos (fallback)
@@ -512,7 +512,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
     adicionarMensagem(`Set ${currentSetIndex + 1} iniciado. Boa! 🔥`, "bot");
   };
 
-  const handleEndSet = () => {
+  const handleEndSet = async () => {
     if (!setStarted || exerciseComplete) return;
     const end = getBrazilDate();
     const startedAt = setStartAt || end;
@@ -536,20 +536,37 @@ const ChatTreino = ({ tema = "dark", user }) => {
       return copy;
     });
 
+    // Buscar anúncio para exibir após finalizar o set
+    let anuncioComponent = <AdTreinAI/>;
+    try {
+      const response = await api.get(`/anuncios?quantidade=${1}&country=${user?.perfil?.country}&state=${user?.perfil?.state}&city=${user?.perfil?.city}`);
+
+      console.log('payload: ', { quantidade: 1, country: user?.perfil?.country, state: user?.perfil?.state, city: user?.perfil?.city })
+      console.log(response)
+
+      if (response.data && response.data.success && response.data.anuncios && response.data.anuncios.length > 0) {
+        const anuncioData = response.data.anuncios[0];
+        anuncioComponent = <AdTreinAI user={user} anuncioData={anuncioData} />;
+      }
+    } catch (error) {
+      console.error('Erro ao buscar anúncio:', error);
+      // Usar componente padrão em caso de erro
+    }
+
     if (updatedLen >= setsRequired) {
       setCurrentSetIndex(setsRequired);
       setExerciseComplete(true);
       adicionarMensagem(`Set ${timing.setNumber} finalizado — último set concluído ✅`, "bot");
       adicionarMensagem(
         <div className="bg-blue-600 p-3 rounded-2xl ring-4 ring-transparent border-2 border-green-400">
-          <AdTreinAI />
+          {anuncioComponent}
         </div>, "bot");
     } else {
       setCurrentSetIndex(updatedLen);
       adicionarMensagem(`Set ${timing.setNumber} finalizado — descanse e quando pronto comece o próximo.`, "bot");
       adicionarMensagem(
         <div className="bg-blue-600 p-3 rounded-2xl ring-2 ring-transparent border-2 border-green-400">
-          <AdTreinAI />
+          {anuncioComponent}
         </div>, "bot");
     }
   };
@@ -644,7 +661,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
     setInputValue("");
 
     // cria placeholder de "digitando"
-    const typingId = `typing-${Date.now()}-${Math.random()}`;
+    const typingId = `typing-${getBrazilDate()}-${Math.random()}`;
     typingRef.current = typingId;
     setMensagens(prev => [...prev, { id: typingId, conteudo: <TypingDots />, tipo: 'bot', _typing: true }]);
 

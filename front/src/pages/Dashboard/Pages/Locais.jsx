@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import api from '../../../Api'
 import locationsRaw from '../../../data/locations.json'
 import { buildImageUrl } from '../../../utils/imageUtils'
+import { getBrazilDate } from '../../../../helpers/getBrazilDate'
 
 // Componente Locais — exibe 2 colunas:
 //  - Visualizar Meus Locais (com botão cancelar assinatura / deletar local / editar)
@@ -397,12 +398,12 @@ const Locais = ({ user = {}, tema = 'light' }) => {
       if (useMock) {
         await simulateDelay()
         const created = {
-          localId: (isOverwrite ? editingSourceId : (form.localId || `mock-${Date.now()}`)),
+          localId: (isOverwrite ? editingSourceId : (form.localId || `mock-${getBrazilDate()}`)),
           localName: form.localName,
           localDescricao: form.localDescricao,
           localType: form.localType,
           status: 'active',
-          subscriptionId: `sub_mock_${Date.now()}`,
+          subscriptionId: `sub_mock_${getBrazilDate()}`,
           link: form.link,
           country: form.country,
           countryCode: form.countryCode,
@@ -597,7 +598,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
                   {/* thumbnail: prefer local.imageUrl, se não tiver, mostra placeholder */}
                   <div className="w-20 h-12 bg-slate-100 rounded overflow-hidden flex-shrink-0">
                     {local.imageUrl ? (
-                  <img src={buildImageUrl(local.imageUrl)} alt={local.localName} className="w-full h-full object-cover" />
+                      <img src={buildImageUrl(local.imageUrl)} alt={local.localName} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Sem imagem</div>
                     )}

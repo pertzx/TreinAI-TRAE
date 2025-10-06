@@ -196,6 +196,14 @@ export const publicarProfissional = async (req, res) => {
       return res.status(404).json({ success: false, msg: "Usuário não encontrado para o userId fornecido." });
     }
 
+    // Verificação de permissão: apenas usuários com plano coach ativo podem criar perfil profissional
+    if (user?.planInfos?.planType !== 'coach' || user?.planInfos?.status !== 'ativo') {
+      return res.status(403).json({ 
+        success: false, 
+        msg: "Acesso restrito. Apenas usuários com plano Coach ativo podem criar perfil profissional." 
+      });
+    }
+
     // evita duplicata: se já existir profissional para esse userId -> 409
     const profissionalExists = await Profissional.findOne({ userId });
     if (profissionalExists) {
@@ -289,6 +297,21 @@ export const editarProfissional = async (req, res) => {
 
     if (!profissional) {
       return res.status(404).json({ success: false, msg: 'Profissional não encontrado.' });
+    }
+
+    // Verificação de permissão: buscar o usuário e verificar se tem plano coach ativo
+    const user = await User.findOne({ _id: profissional.userId }).lean().catch(() => null) || 
+                  await User.findOne({ userId: profissional.userId }).lean().catch(() => null);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, msg: "Usuário não encontrado." });
+    }
+
+    if (user?.planInfos?.planType !== 'coach' || user?.planInfos?.status !== 'ativo') {
+      return res.status(403).json({ 
+        success: false, 
+        msg: "Acesso restrito. Apenas usuários com plano Coach ativo podem editar perfil profissional." 
+      });
     }
 
     // helper para construir imageUrl a partir do filename

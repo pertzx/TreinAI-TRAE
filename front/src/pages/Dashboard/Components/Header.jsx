@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import Logo from '../../../components/Logo';
 import { LuMenu } from 'react-icons/lu';
-import { FaHome, FaSearch, FaDumbbell, FaChartLine, FaGamepad, FaUser, FaCog, FaUserShield, FaQuestionCircle, FaUserTie, FaComments } from 'react-icons/fa';
+import { FaHome, FaSearch, FaDumbbell, FaChartLine, FaGamepad, FaUser, FaCog, FaUserShield, FaQuestionCircle, FaUserTie, FaComments, FaTrophy } from 'react-icons/fa';
 import { buildImageUrl } from '../../../utils/imageUtils';
 import { useUnreadChats } from '../../../hooks/useUnreadChats';
 
@@ -17,6 +17,7 @@ const Header = ({ user, tema }) => {
     { name: 'Encontrar', href: '/dashboard/encontrar', icon: FaSearch },
     { name: 'Meus Treinos', href: '/dashboard/meus-treinos', icon: FaDumbbell },
     { name: 'Histórico', href: '/dashboard/historico', icon: FaChartLine },
+    { name: 'Recordes', href: '/dashboard/recordes', icon: FaTrophy },
     { name: 'Coach', href: '/dashboard/coach', icon: FaUserTie },
     { name: 'Perfil', href: '/dashboard/perfil', icon: FaUser },
     { name: 'Configurações', href: '/dashboard/configuracoes', icon: FaCog },
