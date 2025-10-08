@@ -200,7 +200,7 @@ router.post('/deletar-local', deletarLocal);
 // anuncios
 router.post('/adicionar-saldo', SessionPaymentSaldoDeImpressoes);
 router.post('/criar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), criarAnuncio);
-router.get('/anuncios', getAnuncios); // query profissionalId (opcional). se nao passar, retorna todos os anuncios disponiveis.
+router.post('/anuncios', getAnuncios); // query profissionalId (opcional). se nao passar, retorna todos os anuncios disponiveis.
 router.post('/deletar-anuncio', deletarAnuncio); // corpo => profissionalId e anuncioId.
 router.post('/editar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), editarAnuncio); // corpo => profissionalId e anuncioId.
 router.post('/marcar-impressao', marcarImpressao); // corpo => userId e anuncioId.

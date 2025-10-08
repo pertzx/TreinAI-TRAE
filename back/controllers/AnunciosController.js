@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import fs from 'fs'
 import path from "path";
 import User from "../models/User.js";
+import Ticket from "../models/Ticket.js"
+import mongoose from "mongoose";
 
 dotenv.config();
 
@@ -235,8 +237,39 @@ export const editarAnuncio = async (req, res) => {
 export const getAnuncios = async (req, res) => {
     try {
         const { userId, country = null, state = null, city = null, quantidade } = req.query;
+        const { anunciosVisualizados } = req.body;
 
-        console.log('[getAnuncios] Parâmetros de entrada:', { userId, country, state, city, quantidade });
+        console.log('[getAnuncios] Parâmetros de entrada:', { userId, country, state, city, quantidade, anunciosVisualizados });
+
+        // Validação e processamento do array de anúncios visualizados
+        let excludeAnuncioIds = [];
+        if (anunciosVisualizados) {
+            try {
+                // Se for string, tentar fazer parse do JSON
+                const anunciosArray = typeof anunciosVisualizados === 'string'
+                    ? JSON.parse(anunciosVisualizados)
+                    : anunciosVisualizados;
+
+                if (Array.isArray(anunciosArray)) {
+                    // Validar e converter IDs para ObjectId
+                    excludeAnuncioIds = anunciosArray
+                        .filter(id => {
+                            if (typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)) {
+                                return true;
+                            }
+                            console.warn('[getAnuncios] ID inválido ignorado:', id);
+                            return false;
+                        })
+                        .map(id => new mongoose.Types.ObjectId(`${id}`));
+
+                    console.log(`[getAnuncios] ${excludeAnuncioIds.length} IDs válidos para exclusão`);
+                } else {
+                    console.warn('[getAnuncios] Parâmetro anuncios não é um array válido');
+                }
+            } catch (error) {
+                console.warn('[getAnuncios] Erro ao processar array de anúncios visualizados:', error.message);
+            }
+        }
 
         // Validação do parâmetro quantidade
         let limitQuantidade = null;
@@ -276,7 +309,7 @@ export const getAnuncios = async (req, res) => {
 
             // Buscar TODOS os anúncios do usuário específico, SEM filtros adicionais
             const anuncios = await Anuncio.find({ userId })
-                .sort({ 'estatisticas.impressoes.impressoesTotais': 1 })
+                .sort({ 'estatisticas.impressoes': 1 })
                 .exec();
 
             console.log(`[getAnuncios] Encontrados ${anuncios.length} anúncios para o usuário ${userId}`);
@@ -299,8 +332,15 @@ export const getAnuncios = async (req, res) => {
                     status: 'ativo'
                 }
             },
-            
-            // Estágio 2: Lookup para dados do usuário (saldo)
+
+            // Estágio 2: Filtro de exclusão de anúncios já visualizados (se houver)
+            ...(excludeAnuncioIds.length > 0 ? [{
+                $match: {
+                    _id: { $nin: excludeAnuncioIds }
+                }
+            }] : []),
+
+            // Estágio 3: Lookup para dados do usuário (saldo)
             {
                 $lookup: {
                     from: 'users',
@@ -309,19 +349,19 @@ export const getAnuncios = async (req, res) => {
                     as: 'userData'
                 }
             },
-            
-            // Estágio 3: Filtrar apenas anúncios com saldo > 0
+
+            // Estágio 4: Filtrar apenas anúncios com saldo > 0
             {
                 $match: {
                     'userData.saldoDeImpressoes': { $gt: 0 }
                 }
             },
-            
-            // Estágio 4: Adicionar campos para ordenação hierárquica
+
+            // Estágio 5: Adicionar campos para ordenação hierárquica
             {
                 $addFields: {
                     impressoesTotais: {
-                        $ifNull: ['$estatisticas.impressoes.impressoesTotais', 0]
+                        $ifNull: ['$estatisticas.impressoes', 0]
                     },
                     // Classificação de localização (0 = mais específico, 3 = menos específico)
                     locationPriority: {
@@ -376,8 +416,8 @@ export const getAnuncios = async (req, res) => {
                     }
                 }
             },
-            
-            // Estágio 5: Ordenação hierárquica - IMPRESSÕES PRIMEIRO, depois localização
+
+            // Estágio 6: Ordenação hierárquica - IMPRESSÕES PRIMEIRO, depois localização
             {
                 $sort: {
                     impressoesTotais: 1,      // Prioridade 1: Menor número de impressões
@@ -385,11 +425,11 @@ export const getAnuncios = async (req, res) => {
                     _id: 1                    // Prioridade 3: Consistência
                 }
             },
-            
-            // Estágio 6: Aplicar limite se especificado
+
+            // Estágio 7: Aplicar limite se especificado
             ...(limitQuantidade ? [{ $limit: limitQuantidade }] : []),
-            
-            // Estágio 7: Remover campos temporários
+
+            // Estágio 8: Remover campos temporários
             {
                 $project: {
                     userData: 0,
@@ -400,16 +440,24 @@ export const getAnuncios = async (req, res) => {
         ];
 
         console.log('[getAnuncios] Executando pipeline com priorização por impressões');
-        
+
         // Executar agregação
         const anuncios = await Anuncio.aggregate(pipeline);
-        
+
         console.log(`[getAnuncios] Pipeline retornou ${anuncios.length} anúncios`);
 
-        // Se não encontrou anúncios com saldo, tentar sem filtro de saldo como fallback
+        // Se não encontrou anúncios (por saldo ou exclusão), tentar fallback
         if (anuncios.length === 0) {
-            console.log('[getAnuncios] Nenhum anúncio com saldo encontrado, tentando fallback sem filtro de saldo');
-            
+            console.log('[getAnuncios] Nenhum anúncio encontrado, tentando fallback');
+
+            // Determinar tipo de fallback baseado na presença de exclusões
+            const isExclusionFallback = excludeAnuncioIds.length > 0;
+            const fallbackMessage = isExclusionFallback
+                ? 'sem filtro de exclusão de anúncios visualizados'
+                : 'sem filtro de saldo';
+
+            console.log(`[getAnuncios] Executando fallback ${fallbackMessage}`);
+
             const fallbackPipeline = [
                 // Estágio 1: Filtro básico por status ativo
                 {
@@ -417,12 +465,19 @@ export const getAnuncios = async (req, res) => {
                         status: 'ativo'
                     }
                 },
+
+                // Estágio 2: Filtro de exclusão de anúncios já visualizados (se houver)
+                ...(excludeAnuncioIds.length > 0 ? [{
+                    $match: {
+                        _id: { $nin: excludeAnuncioIds }
+                    }
+                }] : []),
                 
-                // Estágio 2: Adicionar campos para ordenação
+                // Estágio 3: Adicionar campos para ordenação
                 {
                     $addFields: {
                         impressoesTotais: {
-                            $ifNull: ['$estatisticas.impressoes.impressoesTotais', 0]
+                            $ifNull: ['$estatisticas.impressoes', 0]
                         },
                         locationPriority: {
                             $cond: {
@@ -473,8 +528,8 @@ export const getAnuncios = async (req, res) => {
                         }
                     }
                 },
-                
-                // Estágio 3: Ordenação hierárquica
+
+                // Estágio 4: Ordenação hierárquica
                 {
                     $sort: {
                         impressoesTotais: 1,
@@ -482,11 +537,11 @@ export const getAnuncios = async (req, res) => {
                         _id: 1
                     }
                 },
-                
-                // Estágio 4: Aplicar limite se especificado
+
+                // Estágio 5: Aplicar limite se especificado
                 ...(limitQuantidade ? [{ $limit: limitQuantidade }] : []),
-                
-                // Estágio 5: Remover campos temporários
+
+                // Estágio 6: Remover campos temporários
                 {
                     $project: {
                         impressoesTotais: 0,
@@ -498,20 +553,171 @@ export const getAnuncios = async (req, res) => {
             const anunciosFallback = await Anuncio.aggregate(fallbackPipeline);
             console.log(`[getAnuncios] Fallback retornou ${anunciosFallback.length} anúncios`);
 
+            // Se o fallback não retornou resultados, executar fallback final sem lógica de remoção
+            if (anunciosFallback.length === 0) {
+                console.log('[getAnuncios] Fallback não retornou resultados, executando fallback final sem filtros');
+
+                const fallbackFinalPipeline = [
+                    // Estágio 1: Filtro básico por status ativo apenas
+                    {
+                        $match: {
+                            status: 'ativo'
+                        }
+                    },
+                    
+                    // Estágio 2: Adicionar campos para ordenação
+                    {
+                        $addFields: {
+                            impressoesTotais: {
+                                $ifNull: ['$estatisticas.impressoes', 0]
+                            },
+                            locationPriority: {
+                                $cond: {
+                                    if: {
+                                        $and: [
+                                            { $ne: [country, null] },
+                                            { $ne: [country, ''] }
+                                        ]
+                                    },
+                                    then: {
+                                        $switch: {
+                                            branches: [
+                                                {
+                                                    case: {
+                                                        $and: [
+                                                            { $eq: ['$country', country] },
+                                                            { $eq: ['$state', state] },
+                                                            { $eq: ['$city', city] }
+                                                        ]
+                                                    },
+                                                    then: 1
+                                                },
+                                                {
+                                                    case: {
+                                                        $and: [
+                                                            { $eq: ['$country', country] },
+                                                            { $eq: ['$state', state] }
+                                                        ]
+                                                    },
+                                                    then: 2
+                                                },
+                                                {
+                                                    case: { $eq: ['$country', country] },
+                                                    then: 3
+                                                }
+                                            ],
+                                            default: 4
+                                        }
+                                    },
+                                    else: 5
+                                }
+                            }
+                        }
+                    },
+
+                    // Estágio 3: Ordenação hierárquica por localização e impressões
+                    {
+                        $sort: {
+                            locationPriority: 1,
+                            impressoesTotais: 1
+                        }
+                    },
+
+                    // Estágio 4: Aplicar limite se especificado
+                    ...(limitQuantidade ? [{ $limit: limitQuantidade }] : []),
+
+                    // Estágio 5: Remover campos temporários
+                    {
+                        $project: {
+                            impressoesTotais: 0,
+                            locationPriority: 0
+                        }
+                    }
+                ];
+
+                const anunciosFallbackFinal = await Anuncio.aggregate(fallbackFinalPipeline);
+                console.log(`[getAnuncios] Fallback final retornou ${anunciosFallbackFinal.length} anúncios`);
+
+                // Gerar tickets para cada anúncio retornado do fallback final
+                const anunciosFallbackFinalComTickets = await Promise.all(anunciosFallbackFinal.map(async (anuncio) => {
+                    // Criar ticket para impressão
+                    const ticketImpressao = new Ticket();
+                    await ticketImpressao.save();
+
+                    // Criar ticket para clique
+                    const ticketClique = new Ticket();
+                    await ticketClique.save();
+
+                    // Adicionar tickets ao anúncio
+                    return {
+                        ...anuncio,
+                        ticketImpressao: ticketImpressao.valor,
+                        ticketClique: ticketClique.valor
+                    };
+                }));
+
+                return res.status(200).json({
+                    anuncios: anunciosFallbackFinalComTickets,
+                    success: true,
+                    totalRetornados: anunciosFallbackFinalComTickets.length,
+                    limiteSolicitado: limitQuantidade,
+                    debug: 'Fallback final - sem filtros de exclusão ou saldo',
+                    anunciosExcluidosOriginal: excludeAnuncioIds.length
+                });
+            }
+
+            // Gerar tickets para cada anúncio retornado do fallback
+            const anunciosFallbackComTickets = await Promise.all(anunciosFallback.map(async (anuncio) => {
+                // Criar ticket para impressão
+                const ticketImpressao = new Ticket();
+                await ticketImpressao.save();
+
+                // Criar ticket para clique
+                const ticketClique = new Ticket();
+                await ticketClique.save();
+
+                // Adicionar tickets ao anúncio
+                return {
+                    ...anuncio,
+                    ticketImpressao: ticketImpressao.valor,
+                    ticketClique: ticketClique.valor
+                };
+            }));
+
             return res.status(200).json({
-                anuncios: anunciosFallback,
+                anuncios: anunciosFallbackComTickets,
                 success: true,
-                totalRetornados: anunciosFallback.length,
+                totalRetornados: anunciosFallbackComTickets.length,
                 limiteSolicitado: limitQuantidade,
-                debug: 'Fallback - anúncios sem filtro de saldo'
+                debug: `Fallback - ${fallbackMessage}`,
+                anunciosExcluidosOriginal: excludeAnuncioIds.length
             });
         }
 
+        // Gerar tickets para cada anúncio retornado
+        const anunciosComTickets = await Promise.all(anuncios.map(async (anuncio) => {
+            // Criar ticket para impressão
+            const ticketImpressao = new Ticket();
+            await ticketImpressao.save();
+
+            // Criar ticket para clique
+            const ticketClique = new Ticket();
+            await ticketClique.save();
+
+            // Adicionar tickets ao anúncio
+            return {
+                ...anuncio,
+                ticketImpressao: ticketImpressao.valor,
+                ticketClique: ticketClique.valor
+            };
+        }));
+
         return res.status(200).json({
-            anuncios,
+            anuncios: anunciosComTickets,
             success: true,
-            totalRetornados: anuncios.length,
-            limiteSolicitado: limitQuantidade
+            totalRetornados: anunciosComTickets.length,
+            limiteSolicitado: limitQuantidade,
+            anunciosExcluidosOriginal: excludeAnuncioIds.length
         });
 
     } catch (error) {
@@ -567,7 +773,7 @@ export const deletarAnuncio = async (req, res) => {
 
 export const marcarClique = async (req, res) => {
     try {
-        const { anuncioId, userId } = req.body;
+        const { anuncioId, userId, ticketClique } = req.body;
 
         // Validações básicas
         if (!anuncioId) {
@@ -581,6 +787,22 @@ export const marcarClique = async (req, res) => {
             return res.status(400).json({
                 msg: "ID do usuário é obrigatório",
                 error: "USER_ID_REQUIRED"
+            });
+        }
+
+        if (!ticketClique) {
+            return res.status(400).json({
+                msg: "Ticket de clique é obrigatório",
+                error: "TICKET_CLIQUE_REQUIRED"
+            });
+        }
+
+        // Verificar se o ticket existe
+        const ticket = await Ticket.findOne({ valor: ticketClique });
+        if (!ticket) {
+            return res.status(404).json({
+                msg: "Ticket de clique inválido ou não encontrado",
+                error: "INVALID_TICKET"
             });
         }
 
@@ -602,53 +824,25 @@ export const marcarClique = async (req, res) => {
             });
         }
 
-        // Verificar se o usuário já clicou hoje neste anúncio
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0); // Início do dia atual
-
-        const amanha = new Date(hoje);
-        amanha.setDate(hoje.getDate() + 1); // Início do próximo dia
-
-        const jaClicouHoje = anuncio.estatisticas.cliques.cliquesDetalhados?.some(clique =>
-            clique.userId === userId &&
-            clique.dataClique >= hoje &&
-            clique.dataClique < amanha
-        );
-
-        if (jaClicouHoje) {
-            return res.status(409).json({
-                msg: "Você já clicou neste anúncio hoje. Apenas um clique por dia é permitido.",
-                error: "ALREADY_CLICKED_TODAY"
-            });
-        }
-
         // Obter IP do usuário para auditoria
         const userIp = req.ip || req.connection.remoteAddress || req.socket.remoteAddress ||
             (req.connection.socket ? req.connection.socket.remoteAddress : null);
 
-        // Registrar o clique detalhado na nova estrutura
-        if (!anuncio.estatisticas.cliques.cliquesDetalhados) {
-            anuncio.estatisticas.cliques.cliquesDetalhados = [];
-        }
-
-        anuncio.estatisticas.cliques.cliquesDetalhados.push({
-            userId: userId,
-            dataClique: new Date(),
-            ip: userIp
-        });
-
         // Incrementar contador agregado de cliques
-        anuncio.estatisticas.cliques.cliquesTotais += 1;
+        anuncio.estatisticas.cliques += 1;
 
         // Salvar as alterações
         await anuncio.save();
 
-        console.log(`[marcarClique] Clique registrado - Anúncio: ${anuncioId}, Usuário: ${userId}, IP: ${userIp}`);
+        // Remover o ticket após uso
+        await Ticket.findByIdAndDelete(ticket._id);
+
+        console.log(`[marcarClique] Clique registrado - Anúncio: ${anuncioId}, Usuário: ${userId}, IP: ${userIp}, Ticket: ${ticketClique}`);
 
         return res.status(200).json({
             msg: "Clique registrado com sucesso",
             success: true,
-            totalCliques: anuncio.estatisticas.cliques.cliquesTotais
+            totalCliques: anuncio.estatisticas.cliques
         });
 
     } catch (error) {
@@ -661,7 +855,7 @@ export const marcarClique = async (req, res) => {
 };
 export const marcarImpressao = async (req, res) => {
     try {
-        const { anuncioId, userId } = req.body;
+        const { anuncioId, userId, ticketImpressao } = req.body;
 
         // Validações básicas
         if (!anuncioId) {
@@ -675,6 +869,22 @@ export const marcarImpressao = async (req, res) => {
             return res.status(400).json({
                 msg: "ID do usuário é obrigatório",
                 error: "USER_ID_REQUIRED"
+            });
+        }
+
+        if (!ticketImpressao) {
+            return res.status(400).json({
+                msg: "Ticket de impressão é obrigatório",
+                error: "TICKET_IMPRESSAO_REQUIRED"
+            });
+        }
+
+        // Verificar se o ticket existe
+        const ticket = await Ticket.findOne({ valor: ticketImpressao });
+        if (!ticket) {
+            return res.status(404).json({
+                msg: "Ticket de impressão inválido ou não encontrado",
+                error: "INVALID_TICKET"
             });
         }
 
@@ -696,57 +906,30 @@ export const marcarImpressao = async (req, res) => {
             });
         }
 
-        // Verificar se o usuário já teve impressão hoje neste anúncio
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0); // Início do dia atual
-
-        const amanha = new Date(hoje);
-        amanha.setDate(hoje.getDate() + 1); // Início do próximo dia
-
-        const jaViuHoje = anuncio.estatisticas.impressoes.impressoesDetalhadas?.some(impressao =>
-            impressao.userId === userId &&
-            impressao.data >= hoje &&
-            impressao.data < amanha
-        );
-
-        if (jaViuHoje) {
-            return res.status(409).json({
-                msg: "Você já visualizou este anúncio hoje. Apenas uma impressão por dia é permitida.",
-                error: "ALREADY_VIEWED_TODAY"
-            });
-        }
-
-        // Registrar a impressão detalhada na nova estrutura
-        if (!anuncio.estatisticas.impressoes.impressoesDetalhadas) {
-            anuncio.estatisticas.impressoes.impressoesDetalhadas = [];
-        }
-
-        anuncio.estatisticas.impressoes.impressoesDetalhadas.push({
-            userId: userId,
-            data: new Date()
-        });
+        // Obter IP do usuário para auditoria
+        const userIp = req.ip || req.connection.remoteAddress || req.socket.remoteAddress ||
+            (req.connection.socket ? req.connection.socket.remoteAddress : null);
 
         // Incrementar contador agregado de impressões
-        anuncio.estatisticas.impressoes.impressoesTotais += 1;
+        anuncio.estatisticas.impressoes += 1;
 
-        // Remover -1 saldoDeImpressoes do usuario dono do anuncio.
-        if (anuncio.userId) {
-            const userAnuncio = await User.findById(anuncio.userId);
-            if (userAnuncio) {
-                userAnuncio.saldoDeImpressoes -= 1;
-                await userAnuncio.save();
-            }
-        }
+        // Decrementar saldo de impressões do usuário
+        user.saldoDeImpressoes -= 1;
+        await user.save();
 
-        // Salvar as alterações
+        // Salvar as alterações do anúncio
         await anuncio.save();
 
-        console.log(`[marcarImpressao] Impressão registrada - Anúncio: ${anuncioId}, Usuário: ${userId}`);
+        // Remover o ticket após uso
+        await Ticket.findByIdAndDelete(ticket._id);
+
+        console.log(`[marcarImpressao] Impressão registrada - Anúncio: ${anuncioId}, Usuário: ${userId}, IP: ${userIp}, Ticket: ${ticketImpressao}`);
 
         return res.status(200).json({
             msg: "Impressão registrada com sucesso",
             success: true,
-            totalImpressoes: anuncio.estatisticas.impressoes.impressoesTotais
+            totalImpressoes: anuncio.estatisticas.impressoes,
+            saldoRestante: user.saldoDeImpressoes
         });
 
     } catch (error) {

@@ -267,7 +267,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
         if (!user?._id) return
         try {
             setLoadingAds(true)
-            const res = await api.get('/anuncios', { params: { userId: user._id } })
+            const res = await api.post('/anuncios', { params: { userId: user._id } })
             const data = res.data?.anuncios || res.data || []
             console.log('Anúncios recebidos:', res)
             setAnuncios(Array.isArray(data) ? data : [])
@@ -814,8 +814,8 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
 
                                                 {/* Estatisticas */}
                                                 <div className={`p-2 bg-green-300/20 rounded mt-3 border border-green-400 text-green-400 text-sm ${tema === 'dark' ? 'bg-green-900/30 border-green-700 text-green-300' : ''}`}>
-                                                    <h1>Impressoes: {estatisticas.impressoes.impressoesTotais}</h1>
-                                                    <h1>Cliques: {estatisticas.cliques.cliquesTotais}</h1>
+                                                    <h1>Impressoes: {estatisticas.impressoes}</h1>
+                                                    <h1>Cliques: {estatisticas.cliques}</h1>
                                                 </div>
 
                                                 <div className="mt-3 flex items-center gap-2">

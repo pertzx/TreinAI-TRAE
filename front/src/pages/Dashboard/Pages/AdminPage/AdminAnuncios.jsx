@@ -331,8 +331,8 @@ export default function AdminAnuncios({ tema, user }) {
                               <span className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>{a.status}</span>
                             </div>
                             <div className="mb-1"><span className="font-medium">Tipo:</span> {a.anuncioTipo || '—'}</div>
-                            <div className="mb-1"><span className="font-medium">Impressoes:</span> {a.estatisticas?.impressoes.impressoesTotais ?? 0}</div>
-                            <div className="mb-1"><span className="font-medium">Cliques:</span> {a.estatisticas?.cliques.cliquesTotais ?? 0}</div>
+                            <div className="mb-1"><span className="font-medium">Impressoes:</span> {a.estatisticas?.impressoes ?? 0}</div>
+                            <div className="mb-1"><span className="font-medium">Cliques:</span> {a.estatisticas?.cliques ?? 0}</div>
                           </div>
                         </div>
 

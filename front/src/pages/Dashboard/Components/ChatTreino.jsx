@@ -173,6 +173,9 @@ const ChatTreino = ({ tema = "dark", user }) => {
   const [treinoFinalizado, setTreinoFinalizado] = useState(false);
   const [finalizandoTreino, setFinalizandoTreino] = useState(false);
 
+  // anúncios visualizados
+  const [anunciosJaVistos, setAnunciosJaVistos] = useState([]);
+
   // toast
   const { showError } = useToast();
 
@@ -219,6 +222,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
     setMensagens([]);
     setHistorico([]);
     setExercicioExibido(false);
+    setAnunciosJaVistos([]); // Resetar anúncios visualizados
 
     if (elapsedIntervalRef.current) {
       clearInterval(elapsedIntervalRef.current);
@@ -537,16 +541,24 @@ const ChatTreino = ({ tema = "dark", user }) => {
     });
 
     // Buscar anúncio para exibir após finalizar o set
-    let anuncioComponent = <AdTreinAI/>;
+    let anuncioComponent = <AdTreinAI tema={tema} user={user} />;
     try {
-      const response = await api.get(`/anuncios?quantidade=${1}&country=${user?.perfil?.country}&state=${user?.perfil?.state}&city=${user?.perfil?.city}`);
+      const response = await api.post(`/anuncios?quantidade=${1}&country=${user?.perfil?.country}&state=${user?.perfil?.state}&city=${user?.perfil?.city}`, {
+        anunciosVisualizados: anunciosJaVistos // array de anúncios que já vi
+      });
 
-      console.log('payload: ', { quantidade: 1, country: user?.perfil?.country, state: user?.perfil?.state, city: user?.perfil?.city })
+      console.log('payload: ', { quantidade: 1, country: user?.perfil?.country, state: user?.perfil?.state, city: user?.perfil?.city, anuncios: anunciosJaVistos })
       console.log(response)
 
       if (response.data && response.data.success && response.data.anuncios && response.data.anuncios.length > 0) {
         const anuncioData = response.data.anuncios[0];
-        anuncioComponent = <AdTreinAI user={user} anuncioData={anuncioData} />;
+
+        // Armazenar o _id do anúncio visualizado para evitar repetição
+        if (anuncioData._id && !anunciosJaVistos.includes(anuncioData._id)) {
+          setAnunciosJaVistos(prev => [...prev, anuncioData._id]);
+        }
+
+        anuncioComponent = <AdTreinAI tema={tema} user={user} anuncioData={anuncioData} />;
       }
     } catch (error) {
       console.error('Erro ao buscar anúncio:', error);
@@ -557,17 +569,11 @@ const ChatTreino = ({ tema = "dark", user }) => {
       setCurrentSetIndex(setsRequired);
       setExerciseComplete(true);
       adicionarMensagem(`Set ${timing.setNumber} finalizado — último set concluído ✅`, "bot");
-      adicionarMensagem(
-        <div className="bg-blue-600 p-3 rounded-2xl ring-4 ring-transparent border-2 border-green-400">
-          {anuncioComponent}
-        </div>, "bot");
+      adicionarMensagem(anuncioComponent, "bot");
     } else {
       setCurrentSetIndex(updatedLen);
       adicionarMensagem(`Set ${timing.setNumber} finalizado — descanse e quando pronto comece o próximo.`, "bot");
-      adicionarMensagem(
-        <div className="bg-blue-600 p-3 rounded-2xl ring-2 ring-transparent border-2 border-green-400">
-          {anuncioComponent}
-        </div>, "bot");
+      adicionarMensagem(anuncioComponent, "bot");
     }
   };
 

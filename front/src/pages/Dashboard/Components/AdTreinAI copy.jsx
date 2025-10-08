@@ -10,32 +10,37 @@ const AdTreinAI = ({ logWhenHidden = false, threshold = 0.1, anuncioData, user =
   const [loading, setLoading] = useState(!anuncioData);
   const [error, setError] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
-  // Classes base para temas
+  // Classes base para temas com melhorias visuais
   const themeClasses = {
     light: {
-      container: 'bg-white border-gray-200 text-gray-900',
-      containerSecondary: 'bg-gray-50 border-gray-200 text-gray-600',
+      container: 'bg-gradient-to-br from-white to-gray-50/50 border-gray-200/60 text-gray-900 shadow-lg shadow-gray-100/50',
+      containerSecondary: 'bg-gradient-to-br from-gray-50 to-gray-100/50 border-gray-200/60 text-gray-600 shadow-md shadow-gray-100/30',
       text: 'text-gray-900',
       textSecondary: 'text-gray-600',
       textMuted: 'text-gray-500',
       accent: 'text-blue-600 bg-blue-600',
-      success: 'text-green-600 bg-green-50',
-      helpButton: 'bg-gray-100 text-gray-500 hover:bg-blue-600 hover:text-white',
-      tooltip: 'bg-gray-900 text-white',
-      loading: 'border-gray-200 border-t-blue-600',
+      success: 'text-emerald-700 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200/50',
+      helpButton: 'bg-white/80 backdrop-blur-sm text-gray-600 hover:bg-blue-500 hover:text-white border border-gray-200/50 shadow-sm',
+      tooltip: 'bg-gray-900/95 backdrop-blur-sm text-white border border-gray-700/50',
+      loading: 'border-gray-200/50 border-t-blue-500',
+      mediaContainer: 'bg-gray-50/50 border-gray-200/40',
+      hoverOverlay: 'bg-blue-500/5',
     },
     dark: {
-      container: 'bg-gray-800 border-gray-600 text-white',
-      containerSecondary: 'bg-gray-700 border-gray-600 text-gray-300',
+      container: 'bg-gradient-to-br from-gray-800 to-gray-900/50 border-gray-600/40 text-white shadow-lg shadow-black/20',
+      containerSecondary: 'bg-gradient-to-br from-gray-700 to-gray-800/50 border-gray-600/40 text-gray-300 shadow-md shadow-black/10',
       text: 'text-white',
       textSecondary: 'text-gray-300',
       textMuted: 'text-gray-400',
       accent: 'text-blue-400 bg-blue-400',
-      success: 'text-green-400 bg-green-900/20',
-      helpButton: 'bg-gray-600 text-gray-400 hover:bg-blue-500 hover:text-white',
-      tooltip: 'bg-white text-gray-900',
-      loading: 'border-gray-600 border-t-blue-400',
+      success: 'text-emerald-400 bg-gradient-to-r from-emerald-900/30 to-green-900/30 border border-emerald-700/30',
+      helpButton: 'bg-gray-700/80 backdrop-blur-sm text-gray-400 hover:bg-blue-500 hover:text-white border border-gray-600/50 shadow-sm',
+      tooltip: 'bg-white/95 backdrop-blur-sm text-gray-900 border border-gray-200/50',
+      loading: 'border-gray-600/50 border-t-blue-400',
+      mediaContainer: 'bg-gray-700/50 border-gray-600/30',
+      hoverOverlay: 'bg-blue-400/5',
     }
   };
 
