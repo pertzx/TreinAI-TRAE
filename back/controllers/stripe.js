@@ -174,6 +174,7 @@ export const SessionPaymentSaldoDeImpressoes = async (req, res) => {
       line_items: [{
         price_data: {
           currency: 'brl',
+          unit_amount: 100, // R$1.00 em centavos (100 centavos = R$1)
           product_data: {
             name: `Saldo de Impressões +R$${valorEmReais.toFixed(2)}`,
             metadata: { userId }

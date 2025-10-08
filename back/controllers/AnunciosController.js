@@ -236,8 +236,9 @@ export const editarAnuncio = async (req, res) => {
  */
 export const getAnuncios = async (req, res) => {
     try {
-        const { userId, country = null, state = null, city = null, quantidade } = req.query;
-        const { anunciosVisualizados } = req.body;
+        // Suporte tanto para req.body (POST) quanto req.query (GET) para compatibilidade
+        const requestData = req.body || req.query || {};
+        const { anunciosVisualizados = [], userId, country = null, state = null, city = null, quantidade } = requestData;
 
         console.log('[getAnuncios] Parâmetros de entrada:', { userId, country, state, city, quantidade, anunciosVisualizados });
 
@@ -472,7 +473,7 @@ export const getAnuncios = async (req, res) => {
                         _id: { $nin: excludeAnuncioIds }
                     }
                 }] : []),
-                
+
                 // Estágio 3: Adicionar campos para ordenação
                 {
                     $addFields: {
@@ -564,7 +565,7 @@ export const getAnuncios = async (req, res) => {
                             status: 'ativo'
                         }
                     },
-                    
+
                     // Estágio 2: Adicionar campos para ordenação
                     {
                         $addFields: {

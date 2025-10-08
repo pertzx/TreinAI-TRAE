@@ -89,13 +89,13 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
     const formatarMoedaInput = (value) => {
         // Remove tudo que não é dígito
         const digits = value.replace(/\D/g, '')
-        
+
         // Se não há dígitos, retorna vazio
         if (!digits) return ''
-        
+
         // Converte para número inteiro
         const number = parseInt(digits, 10)
-        
+
         // Formata como moeda brasileira (sempre com ,00 para valores inteiros)
         return number.toLocaleString('pt-BR')
     }
@@ -104,20 +104,20 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
         // Remove tudo que não é dígito
         const digits = valorFormatado.replace(/\D/g, '')
         if (!digits) return 0
-        
+
         // Retorna o valor inteiro
         return parseInt(digits, 10)
     }
 
     const handleValorChange = (e) => {
         const inputValue = e.target.value
-        
+
         // Se o usuário está apagando tudo, permite
         if (inputValue === '') {
             setValor('')
             return
         }
-        
+
         // Formata o valor conforme o usuário digita
         const valorFormatado = formatarMoedaInput(inputValue)
         setValor(valorFormatado)
@@ -139,7 +139,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
         try {
             const valorEmReais = extrairValorNumerico(valor)
             console.log('Valor a adicionar:', valorEmReais)
-            
+
             if (valorEmReais <= 1) {
                 showError('O valor precisa ser maior que R$ 1,00 (apenas valores inteiros)')
                 return
@@ -267,7 +267,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
         if (!user?._id) return
         try {
             setLoadingAds(true)
-            const res = await api.post('/anuncios', { params: { userId: user._id } })
+            const res = await api.post('/anuncios', { userId: user._id })
             const data = res.data?.anuncios || res.data || []
             console.log('Anúncios recebidos:', res)
             setAnuncios(Array.isArray(data) ? data : [])
@@ -333,9 +333,9 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
         }
 
         const arquivo = anuncio.midia
-        if (!arquivo) { 
+        if (!arquivo) {
             showError('Anexe uma mídia para o anúncio')
-            return 
+            return
         }
         if (anuncio.anuncioTipo === 'imagem' && arquivo.size > MAX_IMAGE_BYTES) {
             showError('Imagem muito grande. O tamanho máximo permitido é 1 MB.')

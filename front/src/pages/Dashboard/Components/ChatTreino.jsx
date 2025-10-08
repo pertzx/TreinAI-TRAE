@@ -151,6 +151,8 @@ const ChatTreino = ({ tema = "dark", user }) => {
   const [exercicioExibido, setExercicioExibido] = useState(false);
   const [duracaoTotal, setDuracaoTotal] = useState(0);
   const mensagensEndRef = useRef(null);
+  const mensagensContainerRef = useRef(null);
+  const isAtBottomRef = useRef(true);
 
   // typing control
   const typingRef = useRef(null); // guarda id do placeholder atual
@@ -179,10 +181,52 @@ const ChatTreino = ({ tema = "dark", user }) => {
   // toast
   const { showError } = useToast();
 
-  // scroll
+  // Função para verificar se o usuário está no final do chat
+  const checkIfAtBottom = () => {
+    if (mensagensContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = mensagensContainerRef.current;
+      const threshold = 100; // 100px de tolerância
+      isAtBottomRef.current = scrollTop + clientHeight >= scrollHeight - threshold;
+    }
+  };
+
+  // Função para rolar suavemente para o final
+  const scrollToBottom = () => {
+    if (mensagensContainerRef.current) {
+      mensagensContainerRef.current.scrollTop = mensagensContainerRef.current.scrollHeight;
+    }
+  };
+
+  // scroll otimizado - só rola se o usuário estava no final
   useEffect(() => {
-    if (mensagensEndRef.current) mensagensEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (isAtBottomRef.current && mensagens.length > 0) {
+      // Pequeno delay para garantir que o DOM foi atualizado
+      setTimeout(() => {
+        scrollToBottom();
+      }, 50);
+    }
   }, [mensagens]);
+
+  // Listener para detectar quando o usuário rola manualmente
+  useEffect(() => {
+    const container = mensagensContainerRef.current;
+    if (container) {
+      const handleScroll = () => {
+        checkIfAtBottom();
+      };
+      
+      container.addEventListener('scroll', handleScroll);
+      
+      // Verificar posição inicial
+      checkIfAtBottom();
+      
+      return () => {
+        container.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, []);
+
+
 
   useEffect(() => {
     return () => {
@@ -780,7 +824,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
           </div>
 
           {/* mensagens (chat + exibição) */}
-          <div className="flex flex-col gap-4 max-h-[40vh] sm:max-h-[45vh] md:max-h-[55vh] overflow-y-auto mb-4 px-1">
+          <div ref={mensagensContainerRef} className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto mb-4 px-1">
             <AnimatePresence>
               {mensagens.map((msg) => (
                 <motion.div key={msg.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }} className={`p-3 sm:p-4 rounded-2xl shadow-md ${msg.tipo === "bot" ? (isDark ? "bg-gray-800 text-gray-100 rounded-bl-none self-start" : "bg-gray-100 text-black rounded-bl-none self-start") : "bg-blue-600 text-white rounded-br-none self-end"} max-w-[90%] sm:max-w-[85%] md:max-w-[80%] text-sm sm:text-base`}>
@@ -851,7 +895,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
         </div>
       )}
 
-      {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && <AdBanner showPlaceholder={true} className="rounded-2xl mt-5 h-1/5" />}
+      {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && <AdBanner tema={tema} user={user} showPlaceholder={true} className="rounded-2xl mt-5 h-1/5" />}
 
       <SummaryOverlay
         open={summaryOpen}

@@ -801,7 +801,7 @@ export default function Encontrar({ user, tema = 'dark' }) {
 
                         <div className="flex flex-col gap-2">
                           <button className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm" onClick={() => {
-                            location.href = l.link
+                            window.open(l.link, '_blank', 'noopener,noreferrer');
                           }}>Saber mais..</button>
                         </div>
                       </div>
