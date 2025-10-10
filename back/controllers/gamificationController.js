@@ -41,10 +41,6 @@ export const finalizarTreino = async (req, res) => {
       startDate: { $lt: new Date(getBrazilDate()) }
     });
 
-    if (!ranking) {
-      return res.status(404).json({ success: false, msg: 'Nenhum ranking encontrado.' });
-    }
-
     // Calcular os pontos do usuario
     let setsExecutados = 0;
     let exerciseExecutadas = 0;
@@ -66,9 +62,9 @@ export const finalizarTreino = async (req, res) => {
     const points = Math.round(setsExecutados * exerciseExecutadas * (payloadTreino.duracao * 0.001));
 
     // Atualizar os dados do usuario no ranking e no userGamification
-    const userRanking = ranking.competitors.find((u) => u.userId === user._id);
+    const userRanking = ranking?.competitors.find((u) => u.userId === user._id);
     if (!userRanking) {
-      ranking.competitors.push({
+      ranking?.competitors.push({
         userId: user._id,
         username: user.username,
         avatar: user.avatar,
@@ -84,8 +80,10 @@ export const finalizarTreino = async (req, res) => {
         },
       });
 
-      await ranking.save();
+      await ranking?.save();
     } else {
+      userRanking.username = user.username;
+      userRanking.avatar = user.avatar;
       userRanking.points += points;
       userRanking.workouts += 1;
       userRanking.exercises += exerciseExecutadas;
@@ -167,6 +165,9 @@ export const finalizarTreino = async (req, res) => {
         userGamification.streak = 1;
       }
 
+      userGamification.location.country = user.perfil.country;
+      userGamification.location.state = user.perfil.state;
+      userGamification.location.city = user.perfil.city;
       userGamification.workouts += 1;
       userGamification.sets += setsExecutados;
       userGamification.duration += payloadTreino.duracao;
@@ -187,7 +188,7 @@ export const finalizarTreino = async (req, res) => {
         exercisesCompleted: exerciseExecutadas,
         setsCompleted: setsExecutados,
         duration: payloadTreino.duracao,
-        rankingPosition: ranking.competitors.findIndex(c => c.userId === user._id) + 1
+        rankingPosition: rankingPosition
       }
     });
 
@@ -211,9 +212,9 @@ export const getRankings = async (req, res) => {
       filters.startDate = { $lte: new Date() };
       filters.endDate = { $gte: new Date() };
     } else if (status === 'finished') {
-      filters.endDate = { $lt: new Date() };
+      filters.endDate = { $lte: new Date() };
     } else if (status === 'upcoming') {
-      filters.startDate = { $gt: new Date() };
+      filters.startDate = { $gte: new Date() };
     }
 
     // Ordenação segura

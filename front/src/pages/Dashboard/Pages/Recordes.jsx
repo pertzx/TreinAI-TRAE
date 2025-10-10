@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../../Api.js';
 import LoadingSpinner from '../../../components/LoadingSpinner.jsx';
 import { useToast } from '../../../components/Toast.jsx';
+import { buildImageUrl } from '../../../utils/imageUtils.js';
 import locationsData from '../../../data/locations.json';
 import {
   FaTrophy,
@@ -35,9 +36,20 @@ const Recordes = ({ user, tema }) => {
   const [retryCount, setRetryCount] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  // Estados para paginação
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0
+  });
+
+  // Debounce para busca
+  const [searchDebounce, setSearchDebounce] = useState(null);
+
   // Estados para filtros
   const [filters, setFilters] = useState({
-    status: 'all', // all, active, finished, upcoming
+    status: '', // all, active, finished, upcoming
     sortBy: 'points', // points, workouts, duration, streak, name, participants, startDate, endDate
     period: 'all', // all, week, month, quarter, year
     searchTerm: '',
@@ -95,21 +107,43 @@ const Recordes = ({ user, tema }) => {
   }, [error]);
 
   // Função para buscar rankings com retry automático
-  const fetchRankings = useCallback(async (attempt = 1) => {
+  const fetchRankings = useCallback(async (attempt = 1, customPage = null, customFilters = null) => {
     try {
+      const currentPage = customPage || pagination.page;
+      const currentFilters = customFilters || filters;
+      
+      // Mapear filtros para parâmetros da API
+      const apiParams = {
+        page: currentPage,
+        limit: pagination.limit,
+        sortBy: currentFilters.sortBy === 'points' ? 'startDate' : currentFilters.sortBy, // Mapear sortBy conforme disponível na API
+        order: 'desc' // Sempre desc por padrão, pode ser customizado
+      };
+
+      // Adicionar filtro de status se não for 'all'
+      if (currentFilters.status && currentFilters.status !== 'all') {
+        apiParams.status = currentFilters.status;
+      }
+
       const response = await api.get('/gamification/rankings', {
-        params: {
-          page: 1,
-          limit: 10,
-          status: 'active',
-          sortBy: 'startDate',
-          order: 'desc'
-        },
+        params: apiParams,
         timeout: 10000 // 10 segundos de timeout
       });
 
+      console.log('resposta da API na função fetchRankings:', response.data);
+
       if (response.data?.success) {
-        setRankings(response.data.data.rankings || []);
+        const { rankings: rankingsData, pagination: paginationData } = response.data.data;
+        console.log('rankingsData:', rankingsData);
+
+        setRankings(rankingsData || []);
+        setFilteredRankings(rankingsData || []); // Atualizar também filteredRankings
+        setPagination(prev => ({
+          ...prev,
+          page: paginationData.page,
+          total: paginationData.total,
+          pages: paginationData.pages
+        }));
         setRetryCount(0); // Reset retry count on success
       } else {
         throw new Error(response.data?.msg || 'Erro ao buscar rankings');
@@ -120,7 +154,7 @@ const Recordes = ({ user, tema }) => {
       // Retry automático até 3 tentativas
       if (attempt < 3 && isOnline) {
         setTimeout(() => {
-          fetchRankings(attempt + 1);
+          fetchRankings(attempt + 1, customPage, customFilters);
         }, 2000 * attempt); // Delay progressivo
         return;
       }
@@ -136,7 +170,7 @@ const Recordes = ({ user, tema }) => {
         showError(errorMessage);
       }
     }
-  }, [showError, isOnline]);
+  }, [showError, isOnline, pagination.page, pagination.limit, filters]);
 
   // Função para buscar dados de gamificação do usuário com retry automático
   const fetchUserGamification = useCallback(async (attempt = 1) => {
@@ -147,6 +181,8 @@ const Recordes = ({ user, tema }) => {
         },
         timeout: 10000 // 10 segundos de timeout
       });
+
+      console.log('resposta da API na função fetchUserGamification:', response.data);
 
       if (response.data?.success) {
         setUserGamification(response.data.data);
@@ -185,6 +221,26 @@ const Recordes = ({ user, tema }) => {
       }
     }
   }, [user, showError, isOnline]);
+
+  // Funções de controle de paginação
+  const handlePageChange = useCallback((newPage) => {
+    if (newPage >= 1 && newPage <= pagination.pages && newPage !== pagination.page) {
+      setPagination(prev => ({ ...prev, page: newPage }));
+      fetchRankings(1, newPage, filters);
+    }
+  }, [pagination.page, pagination.pages, fetchRankings, filters]);
+
+  const handleLimitChange = useCallback((newLimit) => {
+    setPagination(prev => ({ ...prev, limit: newLimit, page: 1 }));
+    fetchRankings(1, 1, { ...filters });
+  }, [fetchRankings, filters]);
+
+  // Função para aplicar filtros
+  const applyFilters = useCallback((newFilters) => {
+    setFilters(newFilters);
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset para primeira página
+    fetchRankings(1, 1, newFilters);
+  }, [fetchRankings]);
 
   // Função para atualizar dados com debounce
   const refreshData = useCallback(async () => {
@@ -238,177 +294,6 @@ const Recordes = ({ user, tema }) => {
 
     return parts.join('/') || '0seg';
   };
-
-  // Função para aplicar filtros aos rankings
-  const applyFilters = useCallback(() => {
-    if (!rankings.length) {
-      setFilteredRankings([]);
-      return;
-    }
-
-    let filtered = [...rankings];
-
-    // Filtro por status
-    if (filters.status !== 'all') {
-      const now = new Date();
-      filtered = filtered.filter(ranking => {
-        const startDate = new Date(ranking.startDate);
-        const endDate = new Date(ranking.endDate);
-
-        switch (filters.status) {
-          case 'active':
-            return now >= startDate && now <= endDate;
-          case 'finished':
-            return now > endDate;
-          case 'upcoming':
-            return now < startDate;
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Filtro por período
-    if (filters.period !== 'all') {
-      const now = new Date();
-      const periodStart = new Date();
-
-      switch (filters.period) {
-        case 'week':
-          periodStart.setDate(now.getDate() - 7);
-          break;
-        case 'month':
-          periodStart.setMonth(now.getMonth() - 1);
-          break;
-        case 'quarter':
-          periodStart.setMonth(now.getMonth() - 3);
-          break;
-        case 'year':
-          periodStart.setFullYear(now.getFullYear() - 1);
-          break;
-      }
-
-      filtered = filtered.filter(ranking => {
-        const rankingStart = new Date(ranking.startDate);
-        return rankingStart >= periodStart;
-      });
-    }
-
-    // Filtro hierárquico por localização (país > estado > cidade)
-    if (filters.selectedCountry || filters.selectedState || filters.selectedCity) {
-      filtered = filtered.map(ranking => {
-        if (!ranking.competitors) return ranking;
-
-        const filteredCompetitors = ranking.competitors.filter(competitor => {
-          if (!competitor.location) return false;
-
-          // Se cidade específica selecionada, filtrar apenas por ela
-          if (filters.selectedCity) {
-            return competitor.location.city === filters.selectedCity &&
-                   competitor.location.state === filters.selectedState &&
-                   competitor.location.country === filters.selectedCountry;
-          }
-
-          // Se estado específico selecionado (mas não cidade), incluir todo o estado
-          if (filters.selectedState) {
-            return competitor.location.state === filters.selectedState &&
-                   competitor.location.country === filters.selectedCountry;
-          }
-
-          // Se apenas país selecionado, incluir todo o país
-          if (filters.selectedCountry) {
-            return competitor.location.country === filters.selectedCountry;
-          }
-
-          return true;
-        });
-
-        return {
-          ...ranking,
-          competitors: filteredCompetitors,
-          originalCompetitorsCount: ranking.competitors.length
-        };
-      }).filter(ranking => ranking.competitors.length > 0);
-    }
-
-    // Filtro por termo de busca
-    if (filters.searchTerm) {
-      const searchLower = filters.searchTerm.toLowerCase();
-      filtered = filtered.filter(ranking => {
-        const nameMatch = ranking.rankingName.toLowerCase().includes(searchLower);
-        const competitorMatch = ranking.competitors?.some(competitor =>
-          competitor.username.toLowerCase().includes(searchLower) ||
-          competitor.location?.city?.toLowerCase().includes(searchLower) ||
-          competitor.location?.state?.toLowerCase().includes(searchLower)
-        );
-        return nameMatch || competitorMatch;
-      });
-    }
-
-    // Ordenação específica e eficiente
-    filtered.sort((a, b) => {
-      switch (filters.sortBy) {
-        case 'name':
-          return a.rankingName.localeCompare(b.rankingName);
-        case 'participants':
-          return (b.competitors?.length || 0) - (a.competitors?.length || 0);
-        case 'startDate':
-          return new Date(b.startDate) - new Date(a.startDate);
-        case 'endDate':
-          return new Date(b.endDate) - new Date(a.endDate);
-        case 'points':
-          // Ordenação por pontos totais (decrescente)
-          const aPoints = a.competitors?.reduce((sum, c) => sum + (c.points || 0), 0) || 0;
-          const bPoints = b.competitors?.reduce((sum, c) => sum + (c.points || 0), 0) || 0;
-          return bPoints - aPoints;
-        case 'workouts':
-          // Ordenação por treinos totais (decrescente)
-          const aWorkouts = a.competitors?.reduce((sum, c) => sum + (c.workouts || 0), 0) || 0;
-          const bWorkouts = b.competitors?.reduce((sum, c) => sum + (c.workouts || 0), 0) || 0;
-          return bWorkouts - aWorkouts;
-        case 'exercises':
-          // Ordenação por exercícios totais (decrescente)
-          const aExercises = a.competitors?.reduce((sum, c) => sum + (c.exercises || 0), 0) || 0;
-          const bExercises = b.competitors?.reduce((sum, c) => sum + (c.exercises || 0), 0) || 0;
-          return bExercises - aExercises;
-        case 'sets':
-          // Ordenação por séries totais (decrescente)
-          const aSets = a.competitors?.reduce((sum, c) => sum + (c.sets || 0), 0) || 0;
-          const bSets = b.competitors?.reduce((sum, c) => sum + (c.sets || 0), 0) || 0;
-          return bSets - aSets;
-        case 'duration':
-          // Ordenação por tempo total (decrescente)
-          const aDuration = a.competitors?.reduce((sum, c) => sum + (c.duration || 0), 0) || 0;
-          const bDuration = b.competitors?.reduce((sum, c) => sum + (c.duration || 0), 0) || 0;
-          return bDuration - aDuration;
-        default:
-          return new Date(b.startDate) - new Date(a.startDate);
-      }
-    });
-
-    // Ordenar competidores dentro de cada ranking
-    filtered = filtered.map(ranking => ({
-      ...ranking,
-      competitors: [...ranking.competitors].sort((a, b) => {
-        switch (filters.sortBy) {
-          case 'workouts':
-            return (b.workouts || 0) - (a.workouts || 0);
-          case 'duration':
-            return (b.duration || 0) - (a.duration || 0);
-          case 'points':
-          default:
-            return (b.points || 0) - (a.points || 0);
-        }
-      })
-    }));
-
-    setFilteredRankings(filtered);
-  }, [rankings, filters, user]);
-
-  // Aplicar filtros quando rankings ou filtros mudarem
-  useEffect(() => {
-    applyFilters();
-  }, [applyFilters]);
 
   // Função para obter posição do usuário no ranking
   const getUserPosition = (ranking) => {
@@ -555,16 +440,18 @@ const Recordes = ({ user, tema }) => {
     }, [filters]);
 
     const resetFilters = () => {
-    setFilters({
-      status: 'all',
-      sortBy: 'points',
-      period: 'all',
-      searchTerm: '',
-      selectedCountry: '',
-      selectedState: '',
-      selectedCity: ''
-    });
-  };
+      const newFilters = {
+        status: 'all',
+        sortBy: 'points',
+        period: 'all',
+        searchTerm: '',
+        selectedCountry: '',
+        selectedState: '',
+        selectedCity: ''
+      };
+      setFilters(newFilters);
+      applyFilters(newFilters); // Aplicar filtros via API
+    };
 
     return (
       <div className={`${theme.card} rounded-xl border transition-all duration-300 ${theme.cardHover} shadow-sm hover:shadow-md mb-6`}>
@@ -619,12 +506,32 @@ const Recordes = ({ user, tema }) => {
                   type="text"
                   placeholder="Buscar rankings ou usuários..."
                   value={filters.searchTerm}
-                  onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    setFilters(prev => ({ ...prev, searchTerm: newValue }));
+                    
+                    // Limpar timeout anterior
+                    if (searchDebounce) {
+                      clearTimeout(searchDebounce);
+                    }
+                    
+                    // Criar novo timeout para debounce
+                    const newTimeout = setTimeout(() => {
+                      const newFilters = { ...filters, searchTerm: newValue };
+                      applyFilters(newFilters);
+                    }, 500); // 500ms de delay
+                    
+                    setSearchDebounce(newTimeout);
+                  }}
                   className={`w-full pl-10 pr-4 py-2 ${theme.input} border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
                 />
                 {filters.searchTerm && (
                   <button
-                    onClick={() => setFilters(prev => ({ ...prev, searchTerm: '' }))}
+                    onClick={() => {
+                      const newFilters = { ...filters, searchTerm: '' };
+                      setFilters(newFilters);
+                      applyFilters(newFilters); // Aplicar filtros via API
+                    }}
                     className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${theme.textMuted} hover:${theme.text} transition-all duration-200 hover:scale-110`}
                   >
                     <FaTimes className="w-4 h-4" />
@@ -642,7 +549,11 @@ const Recordes = ({ user, tema }) => {
                 </label>
                 <select
                   value={filters.status}
-                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                  onChange={(e) => {
+                    const newFilters = { ...filters, status: e.target.value };
+                    setFilters(newFilters);
+                    applyFilters(newFilters); // Aplicar filtros via API
+                  }}
                   className={`w-full px-3 py-2 ${theme.input} border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-300`}
                 >
                   <option value="all">Todos</option>
@@ -659,7 +570,11 @@ const Recordes = ({ user, tema }) => {
                 </label>
                 <select
                   value={filters.period}
-                  onChange={(e) => setFilters(prev => ({ ...prev, period: e.target.value }))}
+                  onChange={(e) => {
+                    const newFilters = { ...filters, period: e.target.value };
+                    setFilters(newFilters);
+                    applyFilters(newFilters); // Aplicar filtros via API
+                  }}
                   className={`w-full px-3 py-2 ${theme.input} border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-300`}
                 >
                   <option value="all">Todos</option>
@@ -759,7 +674,11 @@ const Recordes = ({ user, tema }) => {
                 </label>
                 <select
                   value={filters.sortBy}
-                  onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value }))}
+                  onChange={(e) => {
+                    const newFilters = { ...filters, sortBy: e.target.value };
+                    setFilters(newFilters);
+                    applyFilters(newFilters); // Aplicar filtros via API
+                  }}
                   className={`w-full px-3 py-2 ${theme.input} border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-300`}
                 >
                   <option value="points">Pontos</option>
@@ -904,7 +823,9 @@ const Recordes = ({ user, tema }) => {
               <div className={`space-y-1 transition-all duration-500 overflow-hidden ${isExpanded ? 'max-h-96 overflow-y-auto' : 'max-h-48'
                 }`}>
                 {topCompetitors.map((competitor, idx) => {
-                  const isCurrentUser = competitor.userId === (user?._id || user?.userId);
+                  let isCurrentUser = false;
+
+                  if (competitor?.location?.country === user?.perfil?.country && competitor?.location?.state === user?.perfil?.state && competitor?.location?.city === user?.perfil?.city && competitor?.avatar === user?.avatar && competitor?.username === user?.username) isCurrentUser = true;
 
                   return (
                     <div
@@ -928,6 +849,27 @@ const Recordes = ({ user, tema }) => {
                           )}
                         </div>
 
+                        {/* Avatar do competidor */}
+                        <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-700 flex-shrink-0">
+                          {competitor.avatar ? (
+                            <img
+                              src={buildImageUrl(competitor.avatar)}
+                              alt={`Avatar de ${competitor.username}`}
+                              className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className={`w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm ${competitor.avatar ? 'hidden' : 'flex'}`}
+                            style={{ display: competitor.avatar ? 'none' : 'flex' }}
+                          >
+                            {competitor.username?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                        </div>
+
                         <div>
                           <p className={`${isCurrentUser ? theme.accent : theme.text} font-medium text-sm flex items-center gap-2`}>
                             {competitor.username}
@@ -942,7 +884,7 @@ const Recordes = ({ user, tema }) => {
                           {competitor.location && (
                             <p className={`${theme.textMuted} text-xs flex items-center gap-1 mt-1`}>
                               <FaMapMarkerAlt className="w-3 h-3" />
-                              {competitor.location.city}, {competitor.location.state}
+                              {competitor.location.country}, {competitor.location.city}, {competitor.location.state}
                             </p>
                           )}
                         </div>
@@ -1232,6 +1174,90 @@ return (
               {filteredRankings.map((ranking, index) => (
                 <RankingCard key={ranking._id} ranking={ranking} index={index} />
               ))}
+              
+              {/* Componente de Paginação */}
+              {pagination.pages > 1 && (
+                <div className={`${theme.card} p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-4`}>
+                  {/* Informações da paginação */}
+                  <div className={`${theme.textSecondary} text-sm`}>
+                    Mostrando {((pagination.page - 1) * pagination.limit) + 1} a {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total} rankings
+                  </div>
+                  
+                  {/* Controles de paginação */}
+                  <div className="flex items-center gap-2">
+                    {/* Botão página anterior */}
+                    <button
+                      onClick={() => handlePageChange(pagination.page - 1)}
+                      disabled={pagination.page === 1}
+                      className={`px-3 py-2 rounded-lg border transition-all duration-200 ${
+                        pagination.page === 1
+                          ? `${theme.textMuted} cursor-not-allowed opacity-50`
+                          : `${theme.text} ${theme.buttonSecondary} hover:scale-105`
+                      }`}
+                    >
+                      <FaChevronUp className="rotate-[-90deg]" />
+                    </button>
+                    
+                    {/* Números das páginas */}
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                        let pageNum;
+                        if (pagination.pages <= 5) {
+                          pageNum = i + 1;
+                        } else if (pagination.page <= 3) {
+                          pageNum = i + 1;
+                        } else if (pagination.page >= pagination.pages - 2) {
+                          pageNum = pagination.pages - 4 + i;
+                        } else {
+                          pageNum = pagination.page - 2 + i;
+                        }
+                        
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => handlePageChange(pageNum)}
+                            className={`px-3 py-2 rounded-lg border transition-all duration-200 ${
+                              pageNum === pagination.page
+                                ? `${theme.button} text-white`
+                                : `${theme.text} ${theme.buttonSecondary} hover:scale-105`
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Botão próxima página */}
+                    <button
+                      onClick={() => handlePageChange(pagination.page + 1)}
+                      disabled={pagination.page === pagination.pages}
+                      className={`px-3 py-2 rounded-lg border transition-all duration-200 ${
+                        pagination.page === pagination.pages
+                          ? `${theme.textMuted} cursor-not-allowed opacity-50`
+                          : `${theme.text} ${theme.buttonSecondary} hover:scale-105`
+                      }`}
+                    >
+                      <FaChevronUp className="rotate-90" />
+                    </button>
+                  </div>
+                  
+                  {/* Seletor de itens por página */}
+                  <div className="flex items-center gap-2">
+                    <span className={`${theme.textSecondary} text-sm`}>Por página:</span>
+                    <select
+                      value={pagination.limit}
+                      onChange={(e) => handleLimitChange(parseInt(e.target.value))}
+                      className={`${theme.input} px-3 py-1 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className={`${theme.card} p-8 rounded-xl border text-center transition-all duration-300 hover:shadow-md`}>
