@@ -14,9 +14,9 @@ export default function Footer({
   user = null,
   onLogout = null,
   links = [
-    { label: 'Sobre', href: '/dashboard/sobre' },
+    { label: 'Sobre', href: '/sobre' },
     { label: 'Ajuda', href: '/dashboard/ajuda' },
-    { label: 'Termos', href: '/dashboard/termos' }
+    { label: 'Termos', href: '/termos' }
   ],
   social = [
     { label: 'Instagram', href: 'https://instagram.com/treinai', icon: <FiInstagram /> },
