@@ -10,6 +10,7 @@ import Success from './pages/Stripe/Success';
 import Cancel from './pages/Stripe/Cancel';
 import Sobre from './pages/Sobre';
 import Termos from './pages/Termos';
+import PoliticaPrivacidade from './pages/PoliticaPrivacidade';
 import { ToastProvider, GlobalToastContainer } from './components/Toast.jsx';
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
           <Route path='/cancel' element={<Cancel />} />
           <Route path='/sobre' element={<Sobre />} />
           <Route path='/termos' element={<Termos />} />
+          <Route path='/politica-de-privacidade' element={<PoliticaPrivacidade />} />
         </Routes>
         
         <GlobalToastContainer position="top-right" />

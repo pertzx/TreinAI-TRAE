@@ -327,6 +327,7 @@ const Sobre = () => {
                 <li><Link to="/sobre" className="text-gray-400 hover:text-white transition-colors">Sobre</Link></li>
                 <li><Link to="/login" className="text-gray-400 hover:text-white transition-colors">Login</Link></li>
                 <li><Link to="/termos" className="text-gray-400 hover:text-white transition-colors">Termos</Link></li>
+                <li><Link to="/politica-de-privacidade" className="text-gray-400 hover:text-white transition-colors">Privacidade</Link></li>
               </ul>
             </div>
             <div>

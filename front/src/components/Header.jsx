@@ -13,7 +13,31 @@ function Header({ logado }) {
             </Link>
 
             {/* Links de navegação */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
+                {/* Links institucionais */}
+                <div className="hidden md:flex items-center gap-2 text-sm">
+                    <NavLink
+                        to="/sobre"
+                        className="text-gray-300 hover:text-white transition-colors"
+                    >
+                        Sobre
+                    </NavLink>
+                    <span className="text-gray-500">|</span>
+                    <NavLink
+                        to="/termos"
+                        className="text-gray-300 hover:text-white transition-colors"
+                    >
+                        Termos
+                    </NavLink>
+                    <span className="text-gray-500">|</span>
+                    <NavLink
+                        to="/politica-de-privacidade"
+                        className="text-gray-300 hover:text-white transition-colors"
+                    >
+                        Privacidade
+                    </NavLink>
+                </div>
+
                 {logado && (
                     <NavLink
                         to="/dashboard"

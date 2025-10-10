@@ -84,7 +84,7 @@ const Termos = () => {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className={`fixed lg:sticky top-0 left-0 h-screen w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-40 ${
+        <aside className={`fixed lg:sticky max-h-screen overflow-hidden top-0 left-0 w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-40 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}>
           <div className="p-6 border-b border-gray-200">
@@ -125,7 +125,7 @@ const Termos = () => {
         {/* Overlay for mobile */}
         {sidebarOpen && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -493,7 +493,7 @@ const Termos = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-900 max-w-full text-white py-12 px-4 mt-16">
+      <footer className="bg-gray-900 max-w-full text-white py-12 px-4">
         <div className="container mx-auto max-w-6xl">
           <div className="grid md:grid-cols-4 gap-8">
             <div className="md:col-span-2">
@@ -532,6 +532,7 @@ const Termos = () => {
                 <li><Link to="/sobre" className="text-gray-400 hover:text-white transition-colors">Sobre</Link></li>
                 <li><Link to="/login" className="text-gray-400 hover:text-white transition-colors">Login</Link></li>
                 <li><Link to="/termos" className="text-gray-400 hover:text-white transition-colors">Termos</Link></li>
+                <li><Link to="/politica-de-privacidade" className="text-gray-400 hover:text-white transition-colors">Privacidade</Link></li>
               </ul>
             </div>
             <div>
