@@ -6,7 +6,6 @@ import { buildImageUrl } from '../../../utils/imageUtils';
 
 /* -------------------- Constantes / mocks (mantive os seus) -------------------- */
 const TABS = {
-  RECEITAS: 'receitas',
   PROFISSIONAIS: 'profissionais',
   ACADEMIAS: 'academias',
 };
@@ -20,10 +19,7 @@ const LOCAL_TYPES = [
   { value: 'outros', label: 'Outros' }
 ];
 
-const mockReceitas = [
-  { id: 'r1', title: 'Panqueca Fit', author: 'Usuário', location: 'São Paulo' },
-  { id: 'r2', title: 'Shake Detox', author: 'IA', location: null },
-];
+
 
 const mockProfissionais = [
   { id: 'p1', name: 'Maria', title: 'Nutricionista Esportiva', cidade: 'São Paulo', estado: 'SP', country: 'Brazil', raw: { profissionalId: 'p1' } },
@@ -46,7 +42,7 @@ export default function Encontrar({ user, tema = 'dark' }) {
   const temaValue = tema === 'light' ? 'light' : 'dark';
   const navigate = useNavigate();
 
-  const [tab, setTab] = useState(TABS.RECEITAS);
+  const [tab, setTab] = useState(TABS.PROFISSIONAIS);
   const [search, setSearch] = useState('');
 
   // localidades
@@ -57,17 +53,14 @@ export default function Encontrar({ user, tema = 'dark' }) {
   const [cities, setCities] = useState([]);
   const [selectedCity, setSelectedCity] = useState(user?.perfil?.city || user?.city || '');
 
-  const [receitaFonte, setReceitaFonte] = useState('all');
   const [especialidade, setEspecialidade] = useState('');
 
   // dados reais
-  const [receitas, setReceitas] = useState(mockReceitas);
   const [profissionais, setProfissionais] = useState(mockProfissionais);
   const [academias, setAcademias] = useState(mockAcademias); // antigo nome, agora usados como locais/academias
   const [locais, setLocais] = useState([]); // para geral (usado quando buscar por profissional ou por localType)
 
   // loading / error por lista
-  const [loadingReceitas, setLoadingReceitas] = useState(false);
   const [loadingProf, setLoadingProf] = useState(false);
   const [loadingGinas, setLoadingGinas] = useState(false);
   const [loadingLocais, setLoadingLocais] = useState(false);
@@ -87,10 +80,6 @@ export default function Encontrar({ user, tema = 'dark' }) {
   const [locaisTotal, setLocaisTotal] = useState(0);
   const [locaisTotalPages, setLocaisTotalPages] = useState(1);
 
-  const [receitasPage, setReceitasPage] = useState(1);
-  const [receitasPerPage, setReceitasPerPage] = useState(40);
-  const [receitasTotal, setReceitasTotal] = useState(0);
-  const [receitasTotalPages, setReceitasTotalPages] = useState(1);
 
   const prevRegionRef = useRef({
     country: selectedCountry,
@@ -99,7 +88,7 @@ export default function Encontrar({ user, tema = 'dark' }) {
   });
 
   // abort + debounce refs
-  const abortRef = useRef({ receitas: null, prof: null, academias: null, locais: null });
+  const abortRef = useRef({ prof: null, academias: null, locais: null });
   const debounceRef = useRef(null);
   const mountedRef = useRef(true);
 
@@ -406,68 +395,6 @@ export default function Encontrar({ user, tema = 'dark' }) {
     return fetchLocais({ ...opts, localType: localTypeToUse });
   };
 
-  const fetchReceitas = async (opts = {}) => {
-    try { abortRef.current.receitas?.abort(); } catch (_) { }
-    const controller = new AbortController();
-    abortRef.current.receitas = controller;
-
-    setLoadingReceitas(true);
-    try {
-      const pageToUse = opts.page ?? receitasPage ?? 1;
-      const limitToUse = opts.limit ?? receitasPerPage ?? 10;
-
-      const params = {
-        q: opts.q ?? search ?? undefined,
-        fonte: receitaFonte === 'all' ? undefined : receitaFonte,
-        page: pageToUse,
-        limit: limitToUse
-      };
-      Object.keys(params).forEach(k => params[k] === undefined && delete params[k]);
-      const res = await api.get('/receitas', { params, signal: controller.signal });
-      if (!mountedRef.current) return;
-      const payload = res?.data || {};
-      let items = [];
-      let total = undefined;
-      let perPage = undefined;
-      let pageNum = pageToUse;
-
-      if (payload) console.log('fetchReceitas payload:', payload);
-
-      if (Array.isArray(payload)) items = payload;
-      else if (payload.data && Array.isArray(payload.data.items)) {
-        const itemsAll = payload.data.items || [];
-        total = payload.data.total ?? itemsAll.length;
-        perPage = payload.data.perPage ?? limitToUse;
-        pageNum = payload.data.page ?? pageToUse;
-        if (itemsAll.length > (perPage || limitToUse)) {
-          const start = (pageToUse - 1) * (perPage || limitToUse);
-          items = itemsAll.slice(start, start + (perPage || limitToUse));
-        } else {
-          items = itemsAll;
-        }
-      } else if (payload.receitas) items = payload.receitas;
-      else if (payload.items) items = payload.items;
-      else items = [];
-
-      const finalPerPage = perPage ?? limitToUse;
-      const finalTotal = typeof total === 'number' ? total : items.length;
-      const finalTotalPages = Math.max(1, Math.ceil(finalTotal / finalPerPage));
-
-      setReceitasPerPage(finalPerPage);
-      setReceitasTotal(finalTotal);
-      setReceitasTotalPages(finalTotalPages);
-      setReceitasPage(pageNum);
-
-      if (!items.length) setReceitas(mockReceitas);
-      else setReceitas(items);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setReceitas(mockReceitas);
-    } finally {
-      if (mountedRef.current) setLoadingReceitas(false);
-    }
-  };
-
   /* --------------------- Effects de disparo (debounce) --------------------- */
   useEffect(() => {
     mountedRef.current = true;
@@ -484,7 +411,6 @@ export default function Encontrar({ user, tema = 'dark' }) {
       mountedRef.current = false;
       try { abortRef.current.prof?.abort(); } catch (_) { }
       try { abortRef.current.academias?.abort(); } catch (_) { }
-      try { abortRef.current.receitas?.abort(); } catch (_) { }
       try { abortRef.current.locais?.abort(); } catch (_) { }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -496,19 +422,17 @@ export default function Encontrar({ user, tema = 'dark' }) {
     // reset pages on filter/search/tab change
     setProfPage(1);
     setLocaisPage(1);
-    setReceitasPage(1);
 
     debounceRef.current = setTimeout(() => {
       fetchProfissionais();
       if (tab === TABS.ACADEMIAS) {
         fetchLocais({ localType: localTypeFilter });
       }
-      fetchReceitas();
     }, 400);
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, selectedCountry, selectedState, selectedCity, especialidade, receitaFonte, localTypeFilter, tab]);
+  }, [search, selectedCountry, selectedState, selectedCity, especialidade, localTypeFilter, tab]);
 
   useEffect(() => {
     if (!selectedCountry) {
@@ -553,23 +477,18 @@ export default function Encontrar({ user, tema = 'dark' }) {
     <div className={`p-6 max-w-6xl mx-auto ${themeClass(temaValue, 'bg-white text-gray-900', 'bg-gray-900 text-white')} rounded-md`}>
       <header className="mb-6 w-full text-clip">
         <h1 className="text-3xl font-extrabold">Encontrar</h1>
-        <p className="text-sm text-gray-500 w-full">Busque receitas, profissionais e locais por país, estado e cidade.</p>
+        <p className="text-sm text-gray-500 w-full">Busque profissionais e locais por país, estado e cidade.</p>
       </header>
 
       <div className="mb-6 flex flex-col sm:flex-row gap-3">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Procure por receita, profissional ou local..."
+          placeholder="Procure por profissional ou local..."
           className={`flex-1 px-4 py-3 rounded-xl border shadow-sm ${tema === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}
         />
 
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setTab(TABS.RECEITAS)}
-            className={`px-4 py-2 rounded-xl font-semibold ${tab === TABS.RECEITAS ? 'bg-blue-600 text-white' : themeClass(temaValue, 'bg-gray-100', 'bg-gray-800')}`}>
-            Receitas
-          </button>
           <button
             onClick={() => setTab(TABS.PROFISSIONAIS)}
             className={`px-4 py-2 rounded-xl font-semibold ${tab === TABS.PROFISSIONAIS ? 'bg-blue-600 text-white' : themeClass(temaValue, 'bg-gray-100', 'bg-gray-800')}`}>
@@ -635,54 +554,7 @@ export default function Encontrar({ user, tema = 'dark' }) {
           </div>
         </div>
 
-        {/* Receitas */}
-        {tab === TABS.RECEITAS && (
-          <section>
-            <div className="mb-4 flex items-center gap-3">
-              <label className="text-sm font-medium">Fonte:</label>
-              <select value={receitaFonte} onChange={(e) => setReceitaFonte(e.target.value)} className="px-3 py-2 rounded-lg border">
-                <option className={`text-black`} value="all">Todas</option>
-                <option className={`text-black`} value="ia">IA</option>
-                <option className={`text-black`} value="user">Usuário</option>
-              </select>
-              <div className="text-xs text-gray-400">Filtre receitas por autor (IA ou usuário).</div>
-            </div>
-
-            <h2 className="text-xl font-bold mb-3">Receitas</h2>
-            {loadingReceitas ? <div>Carregando receitas...</div> : (
-              <div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {receitas.length ? receitas.map(r => (
-                    <div key={r.id || r._id} className={`p-4 rounded-xl ${themeClass(temaValue, 'bg-white', 'bg-gray-800')} shadow-sm border`}>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-semibold">{r.title}</div>
-                          <div className="text-xs text-gray-400">{r.author} {r.location ? `• ${r.location}` : ''}</div>
-                        </div>
-                        <div className="text-xs text-gray-500">{r.id?.startsWith?.('r') ? 'Receita' : ''}</div>
-                      </div>
-                    </div>
-                  )) : <div className="text-sm text-gray-400">Nenhuma receita encontrada.</div>}
-                </div>
-
-                <Pagination
-                  page={receitasPage}
-                  totalPages={receitasTotalPages}
-                  onPrev={() => {
-                    const novo = Math.max(1, receitasPage - 1);
-                    setReceitasPage(novo);
-                    fetchReceitas({ page: novo });
-                  }}
-                  onNext={() => {
-                    const novo = Math.min(receitasTotalPages, receitasPage + 1);
-                    setReceitasPage(novo);
-                    fetchReceitas({ page: novo });
-                  }}
-                />
-              </div>
-            )}
-          </section>
-        )}
+        {/* Removido: Receitas e qualquer publicação */}
 
         {/* Profissionais */}
         {tab === TABS.PROFISSIONAIS && (
