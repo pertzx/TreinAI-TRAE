@@ -12,6 +12,8 @@ import Sobre from './pages/Sobre';
 import Termos from './pages/Termos';
 import PoliticaPrivacidade from './pages/PoliticaPrivacidade';
 import { ToastProvider, GlobalToastContainer } from './components/Toast.jsx';
+import CookieConsent from './components/CookieConsent';
+import Logo from './components/Logo.jsx';
 
 function App() {
   const [plano, setPlano] = useState('free');
@@ -31,9 +33,11 @@ function App() {
           <Route path='/sobre' element={<Sobre />} />
           <Route path='/termos' element={<Termos />} />
           <Route path='/politica-de-privacidade' element={<PoliticaPrivacidade />} />
+          <Route path='*' element={<p className='font-bold p-5 w-full text-2xl'><Logo scale={1}/>404 Pagina não encontrada. \: <a href="/login" className='text-blue-300'>Ir para Login</a></p>} />
         </Routes>
         
         <GlobalToastContainer position="top-right" />
+        <CookieConsent />
       </BrowserRouter>
     </ToastProvider>
   );

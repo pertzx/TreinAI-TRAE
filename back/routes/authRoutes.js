@@ -210,6 +210,28 @@ router.post('/marcar-clique', marcarClique); // corpo => userId e anuncioId.
 router.get('/supports', getSupports)
 router.post('/supports', pedirSuporte)
 
+// LGPD - Direitos do titular
+router.post('/lgpd/solicitar-dados', verificarToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId).select('-password');
+    res.json({ success: true, dados: user });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao buscar dados do usuário' });
+  }
+});
+
+router.post('/lgpd/excluir-conta', verificarToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await User.findByIdAndDelete(userId);
+    res.clearCookie('authToken');
+    res.json({ success: true, message: 'Conta excluída com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao excluir conta' });
+  }
+});
+
 // Rota de logout para limpar cookies
 router.post('/logout', (req, res) => {
   res.clearCookie('authToken');

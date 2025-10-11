@@ -385,21 +385,21 @@ const Termos = () => {
               <section id="limitacoes" className="mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6">11. Limitações de Responsabilidade</h2>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-                    <p className="text-gray-800 font-semibold mb-2">LIMITAÇÃO DE RESPONSABILIDADE</p>
-                    <p className="text-gray-700 text-sm leading-relaxed">
-                      Na máxima extensão permitida por lei, a TreinAI não será responsável por danos indiretos, 
-                      incidentais, especiais, consequenciais ou punitivos, incluindo perda de lucros, dados ou uso, 
-                      mesmo se avisada da possibilidade de tais danos.
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <p className="text-blue-800 font-semibold mb-2">RESPONSABILIDADE DA TREINAI</p>
+                    <p className="text-blue-700 text-sm leading-relaxed">
+                      A TreinAI é responsável pelos serviços prestados conforme descrito nestes termos. 
+                      Nossa responsabilidade está limitada ao valor pago pelo serviço nos últimos 12 meses, 
+                      exceto em casos de dolo, culpa grave ou danos à vida, saúde e integridade física.
                     </p>
                   </div>
 
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Isenções</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Limitações Legais</h3>
                   <ul className="list-disc list-inside space-y-2 text-gray-700">
-                    <li>Não garantimos resultados específicos de fitness</li>
-                    <li>Não somos responsáveis por lesões decorrentes do uso dos treinos</li>
-                    <li>Não garantimos disponibilidade ininterrupta dos Serviços</li>
-                    <li>Não somos responsáveis por conteúdo de terceiros</li>
+                    <li>Recomendamos consultar profissionais de saúde antes de iniciar exercícios</li>
+                    <li>Os treinos são sugestões e devem ser adaptados às suas condições físicas</li>
+                    <li>Manteremos os serviços disponíveis conforme nossos termos de nível de serviço</li>
+                    <li>Conteúdo de terceiros é de responsabilidade de seus respectivos autores</li>
                   </ul>
                 </div>
               </section>
@@ -470,9 +470,12 @@ const Termos = () => {
                   
                   <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white p-4 rounded-lg">
                     <h3 className="font-semibold mb-2">Informações de Contato</h3>
-                    <p className="text-sm mb-1"><strong>Email:</strong> pyerremarcio098@gmail.com</p>
-                    <p className="text-sm mb-1"><strong>Plataforma:</strong> TreinAI</p>
-                    <p className="text-sm"><strong>Localização:</strong> Brasil</p>
+                    <p className="text-sm mb-1"><strong>Razão Social:</strong> TreinAI Tecnologia Ltda.</p>
+                    <p className="text-sm mb-1"><strong>CNPJ:</strong> 00.000.000/0001-00</p>
+                    <p className="text-sm mb-1"><strong>Email:</strong> contato@treinai.com.br</p>
+                    <p className="text-sm mb-1"><strong>Telefone:</strong> (11) 0000-0000</p>
+                    <p className="text-sm mb-1"><strong>Endereço:</strong> Rua Exemplo, 123 - São Paulo/SP - CEP: 00000-000</p>
+                    <p className="text-sm"><strong>Suporte:</strong> pyerremarcio098@gmail.com</p>
                   </div>
                 </div>
               </section>

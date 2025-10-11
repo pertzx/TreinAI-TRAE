@@ -8,7 +8,7 @@ import {
   FiFilter,
   FiCalendar,
   FiUser,
-  FiBarChart3,
+  FiBarChart,
   FiSettings,
   FiEye
 } from 'react-icons/fi';
@@ -103,8 +103,8 @@ const ReportsDashboard = ({ professionalId }) => {
 
   const getTypeIcon = (type) => {
     switch (type) {
-      case 'progress': return FiBarChart3;
-      case 'performance': return FiBarChart3;
+      case 'progress': return FiBarChart;
+    case 'performance': return FiBarChart;
       case 'body_composition': return FiUser;
       default: return FiFileText;
     }
