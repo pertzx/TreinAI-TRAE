@@ -105,8 +105,8 @@ const OnboardingPersonalInfo = ({ user, setUser, onComplete, tema = 'light' }) =
       newErrors.name = 'Nome é obrigatório';
     }
 
-    if (!formData.idade || formData.idade < 13 || formData.idade > 120) {
-      newErrors.idade = 'Idade deve estar entre 13 e 120 anos';
+    if (!formData.idade || formData.idade < 18 || formData.idade > 120) {
+      newErrors.idade = 'Idade deve estar entre 18 e 120 anos';
     }
 
     if (!formData.country) {
@@ -226,7 +226,7 @@ const OnboardingPersonalInfo = ({ user, setUser, onComplete, tema = 'light' }) =
               onChange={(e) => handleInputChange('idade', e.target.value)}
               className={themeClasses.input(errors.idade)}
               placeholder="Digite sua idade"
-              min="13"
+              min="18"
               max="120"
             />
             {errors.idade && <p className={themeClasses.errorText}>{errors.idade}</p>}

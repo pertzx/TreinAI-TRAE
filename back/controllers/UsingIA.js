@@ -98,7 +98,7 @@ Use tipos coerentes (strings para texto, numbers para números). Não inclua com
     // Registrar uso de tokens usando o novo sistema
     const tokensUsed = Number(resp?.usage?.total_tokens || 0);
     if (tokensUsed > 0) {
-      await registerTokenUsage(email, tokensUsed);
+      await registerTokenUsage(email, tokensUsed, profissionalId);
     }
 
     const text = resp?.choices?.[0]?.message?.content || null;
@@ -230,7 +230,7 @@ Retorne apenas JSON puro. Use tipos corretos.
     // Registrar uso de tokens usando o novo sistema
     const tokensUsed = Number(resp?.usage?.total_tokens || 0);
     if (tokensUsed > 0) {
-      await registerTokenUsage(email, tokensUsed);
+      await registerTokenUsage(email, tokensUsed, profissionalId);
     }
 
     const text = resp?.choices?.[0]?.message?.content || null;
@@ -335,7 +335,7 @@ export const conversar = async (req, res) => {
         // Registrar uso de tokens usando o novo sistema
         const tokensUsed = Number(resp?.usage?.total_tokens || 0);
         if (tokensUsed > 0) {
-            await registerTokenUsage(email, tokensUsed);
+            await registerTokenUsage(email, tokensUsed, profissionalId);
         }
 
         const text = resp?.choices?.[0]?.message?.content || null;

@@ -95,7 +95,7 @@ Regras:
     // Registrar uso de tokens usando o novo sistema
     const tokensUsed = Number(resp?.usage?.total_tokens || 0);
     if (tokensUsed > 0) {
-      await registerTokenUsage(email, tokensUsed);
+      await registerTokenUsage(email, tokensUsed, profissionalId);
     }
 
     const text = resp?.choices?.[0]?.message?.content || null;

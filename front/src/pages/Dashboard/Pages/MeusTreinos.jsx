@@ -35,7 +35,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   const mountedRef = useRef(true);
 
   // Toast
-  const { showError } = useToast();
+  const { showError, showWarning } = useToast();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -43,7 +43,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   }, []);
 
   useEffect(() => {
-    showError('Somente usuarios PRO, MAX ou COACH podem editar os seus treinos.');
+    showWarning('Somente usuarios PRO, MAX ou COACH podem editar os seus treinos.');
   }, [rebuke]);
 
   useEffect(() => {
@@ -230,6 +230,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
       console.error('Erro ao gerar treino via IA:', err);
       showToast(err?.response?.data?.msg || err?.message || 'Erro IA treinos', 'error');
     } finally {
+      window.location.reload()
       setLoadingIA(prev => ({ ...prev, [key]: false }));
     }
   };
@@ -260,6 +261,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
       console.error('Erro ao gerar exercício via IA:', err);
       showToast(err?.response?.data?.msg || err?.message || 'Erro IA exercício', 'error');
     } finally {
+      window.location.reload()
       setLoadingIA(prev => ({ ...prev, [treinoId]: false }));
     }
   };
@@ -361,6 +363,8 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
     } catch (err) {
       console.error('Erro ao excluir exercício:', err);
       showToast(err?.response?.data?.msg || err?.message || 'Erro ao excluir exercício', 'error');
+    } finally {
+      window.location.reload();
     }
   };
 
@@ -381,6 +385,8 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
     } catch (err) {
       console.error('Erro ao excluir treino:', err);
       showToast(err?.response?.data?.msg || err?.message || 'Erro ao excluir treino', 'error');
+    } finally {
+      window.location.reload()
     }
   };
 

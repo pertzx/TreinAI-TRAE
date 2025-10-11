@@ -70,7 +70,7 @@ export default function Footer({
 
   return (
     <>
-      <footer className={`${bg} ${sticky ? 'sticky bottom-0 left-0 w-full z-40' : ''} border-t border-gray-200`}>
+      <footer className={`${bg} mt-3 ${sticky ? 'sticky bottom-0 left-0 w-full z-40' : ''} border-t border-gray-200`}>
         <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 ${panel}`}>
           <div className="flex flex-col  items-center xl:items-center justify-between gap-4">
             {/* Left: Branding + copy */}

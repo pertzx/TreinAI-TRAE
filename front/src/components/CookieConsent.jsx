@@ -44,11 +44,11 @@ const CookieConsent = () => {
 
   return (
     <div 
-      className={`fixed bottom-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out transform ${
+      className={`fixed bottom-0 m-6 left-0 right-0 z-50 transition-all duration-500 ease-in-out transform ${
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
       }`}
     >
-      <div className={`bg-gradient-to-r from-blue-900 via-indigo-800 to-purple-900 backdrop-blur-lg border-t border-blue-700/50 shadow-2xl transition-all duration-300 ${
+      <div className={`bg-blue-600/10 rounded-2xl backdrop-blur-sm border-t border-blue-700/50 shadow-2xl transition-all duration-300 ${
         isMinimized ? 'pb-2' : 'pb-6'
       }`}>
         <div className="max-w-7xl mx-auto">
