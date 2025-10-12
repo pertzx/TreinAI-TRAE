@@ -14,6 +14,7 @@ import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import Profissional from '../models/Profissional.js';
 import mongoose from 'mongoose';
 import { registerTokenUsage } from '../middlewares/tokenLimitMiddleware.js';
+import { sendNotificationEmail } from '../utils/sendEmail.js';
 
 dotenv.config();
 
@@ -191,6 +192,9 @@ export const signup = async (req, res) => {
       sameSite: 'Lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
     });
+
+    sendNotificationEmail(email, 'Boas-vindas', 'Seja bem-vindo ao TreinAI!');
+    sendNotificationEmail(process.env.EMAIL_USER, 'Novo usuário registrado', `Um novo usuário, ${userName}, foi registrado. especificações: email: ${email}, username: ${userName}, _id: ${newUser?._id}`);
 
     return res.status(201).json({ 
       msg: 'Usuário criado com sucesso!', 
@@ -699,6 +703,9 @@ export const carregarTreinos = async (req, res) => {
       },
       { new: true }
     );
+
+    // Envia email de confirmação
+    sendNotificationEmail(email, 'Treinos Criados', 'Seus treinos foram criados com sucesso!');
 
     return res.json({
       msg: 'Treinos criados com sucesso!',

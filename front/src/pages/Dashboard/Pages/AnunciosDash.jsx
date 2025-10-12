@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react'
 import api from '../../../Api.js'
 // Ajuste o caminho abaixo para onde você salvar seu JSON
 import locations from '../../../data/locations.json'
-import { FaLocationPin } from 'react-icons/fa6'
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaLocationPin, FaChartLine, FaHandPointer, FaPlus, FaUpload, FaBullhorn, FaEye} from 'react-icons/fa6'
+import { FaEdit, FaTrash } from 'react-icons/fa'
 import { useToast } from '../../../components/Toast.jsx'
 import { buildImageUrl } from '../../../utils/imageUtils.js'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 const AnunciosDash = ({ user, tema = 'dark' }) => {
     const [showFormMobile, setShowFormMobile] = useState(true)
@@ -689,207 +692,617 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
 
 
     return (
-        <div className={`p-6 rounded-lg shadow-md flex flex-col space-y-6 ${themeClasses.container}`}>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className='flex flex-col space-y-1'>
-                    <h3 className="text-xl font-semibold">Saldo atual (valor): {saldo ? formatarReais(saldo / 175) : 'R$ 0,00'}</h3>
-                    <h4 className="text-sm text-gray-500">Saldo de impressões: <span className="font-medium">{saldo}</span></h4>
-                </div>
-
-                <div className="w-full grid grid-cols-3 flex-wrap items-center gap-2">
-                    <input
-                        type="text"
-                        inputMode="numeric"
-                        value={valor}
-                        onChange={handleValorChange}
-                        placeholder="Valor a adicionar (ex: 50 - apenas números inteiros)"
-                        className={`col-span-3 md:col-span-2 rounded-md p-2 border ${themeClasses.input} focus:ring-2 focus:ring-blue-500 outline-none`}
-                    />
-                    <button onClick={handleAdicionarSaldo} disabled={isProcessing} className={`${themeClasses.button} px-4 col-span-3 md:col-span-1 py-2 rounded-md transition-colors duration-200 ${isProcessing ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                        {isProcessing ? 'Processando...' : 'Adicionar Saldo'}
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-5 gap-6">
-                <div className={`col-span-5 lg:col-span-3 p-4 rounded-lg border ${tema === 'dark' ? 'border-gray-700' : 'border-gray-200'} ${themeClasses.container}`}>
-                    <h2 className="text-lg font-bold mb-3">Adicionar Anúncio</h2>
-                    <form onSubmit={handleSubmitAnuncio} className="space-y-3">
-                        <label className="block text-sm">Titulo</label>
-                        <input type="text" name="titulo" value={anuncio.titulo} onChange={handleAnuncioChange} placeholder="Título" className={`w-full rounded-md p-2 border ${themeClasses.input}`} />
-                        <label className="block text-sm mt-2">Descrição</label>
-                        <input type='text' name="descricao" value={anuncio.descricao} onChange={handleAnuncioChange} placeholder="Descrição" className={`w-full rounded-md p-2 border ${themeClasses.input}`} />
-                        <label className="block text-sm mt-2">Link</label>
-                        <input type="text" name="link" value={anuncio.link} onChange={handleAnuncioChange} placeholder="Link" className={`w-full rounded-md p-2 border ${themeClasses.input}`} />
-
-                        <label className="block text-sm mt-2">Tipo de midia</label>
-                        <select name="anuncioTipo" value={anuncio.anuncioTipo} onChange={handleAnuncioChange} className={`w-full rounded-md p-2 border ${themeClasses.input}`}>
-                            <option value="imagem">Imagem</option>
-                            <option value="video">Vídeo</option>
-                        </select>
-
-                        <label className="block text-sm mt-2">País</label>
-                        <select name="countryCode" value={anuncio.countryCode ?? ''} onChange={handleAnuncioChange} className={`w-full rounded-md p-2 border ${themeClasses.input}`}>
-                            <option value="">Selecione o país</option>
-                            {countryList.map(c => <option key={c.code || c.name} value={c.code || c.name}>{c.name}</option>)}
-                        </select>
-
-                        <label className="block text-sm mt-2">Estado</label>
-                        <select name="state" value={anuncio.state ?? ''} onChange={handleAnuncioChange} className={`w-full rounded-md p-2 border ${themeClasses.input}`} disabled={!getStatesForCountryCode(anuncio.countryCode).length}>
-                            <option value="">Selecione o estado</option>
-                            {getStatesForCountryCode(anuncio.countryCode).map((s, idx) => {
-                                const opt = mapOption(s)
-                                return <option key={opt.value + idx} value={opt.value}>{opt.label}</option>
-                            })}
-                        </select>
-
-                        <label className="block text-sm mt-2">Cidade</label>
-                        <select name="city" value={anuncio.city ?? ''} onChange={handleAnuncioChange} className={`w-full rounded-md p-2 border ${themeClasses.input}`} disabled={!getCitiesForState(anuncio.countryCode, anuncio.state).length}>
-                            <option value="">Selecione a cidade</option>
-                            {getCitiesForState(anuncio.countryCode, anuncio.state).map((c, idx) => {
-                                const opt = mapOption(c)
-                                return <option key={opt.value + idx} value={opt.value}>{opt.label}</option>
-                            })}
-                        </select>
-
-                        <label for="fileUpload" className={`w-full rounded-md p-2 border ${themeClasses.input} flex flex-col items-center justify-center cursor-pointer mt-2`}>
-                            <span>Selecione a midia do anuncio.</span>
-                        </label>
-                        <input type="file" id='fileUpload' accept={anuncio.anuncioTipo === 'imagem' ? 'image/*' : 'video/*'} onChange={handleFileChange} className='hidden' />
-
-                        {previewUrl && anuncio.anuncioTipo === 'imagem' && <img src={previewUrl} alt="preview" className="max-h-40 rounded-md mt-2 w-full object-contain" />}
-                        {previewUrl && anuncio.anuncioTipo === 'video' && <video src={previewUrl} controls className="max-h-48 rounded-md mt-2 w-full object-contain" />}
-
-                        <button type="submit" className={`${themeClasses.button} px-4 py-2 rounded-md transition-colors duration-200 w-full ${isSubmittingAd ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                            {isSubmittingAd ? 'Enviando...' : (anuncio.anuncioId ? 'Salvar Alterações' : 'Adicionar Anúncio')}
-                        </button>
-                    </form>
-                </div>
-
-                <div className={`col-span-5 lg:col-span-2 p-4 rounded-lg border ${tema === 'dark' ? 'border-gray-700' : 'border-gray-200'} ${themeClasses.container}`}>
-                    <h2 className="text-lg font-bold mb-3">Seus Anúncios</h2>
-
-                    {loadingAds && (
-                        <div className="space-y-2">
-                            <div className="h-24 bg-gray-100 rounded animate-pulse" />
-                            <div className="h-24 bg-gray-100 rounded animate-pulse" />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4 sm:p-6 lg:p-8">
+            <div className="max-w-7xl mx-auto">
+                {/* Header com gradiente e animação */}
+                <div className="bg-gradient-to-r from-slate-800 to-slate-700 dark:from-slate-700 dark:to-slate-600 rounded-2xl shadow-xl p-6 mb-8">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-2">Gerenciar Anúncios</h1>
+                            <p className="text-slate-200">Crie, edite e monitore seus anúncios com analytics em tempo real</p>
                         </div>
-                    )}
-
-                    {!loadingAds && anuncios.length === 0 && <div className="text-sm text-gray-500">Nenhum anúncio encontrado. Crie o primeiro anúncio usando o formulário.</div>}
-
-                    <div className="grid grid-cols-1 gap-4 mt-3">
-                        {anuncios.map((ad) => {
-                            const id = ad.anuncioId || ad._id || ad.id
-                            const mediaUrl = ad.midiaUrl || ad.midia || ad.mediaUrl || ad.image
-                            const isEditingThis = editingId === id
-                            const estatisticas = ad.estatisticas || { impressoes: 0, cliques: 0 }
-
-                            return (
-                                <div id={`ad-card-${id}`} key={id} className={`rounded-lg overflow-hidden ${ad.status === 'ativo' ? 'bg-green-400/30 border-green-400' : 'bg-red-400/30 border-red-400'} border p-3 rounded-2xl shadow-sm`}>
-                                    <div className="relative p-3">
-                                        <h1 className='text-xl font-light mb-2'>Status: <span className='font-semibold'>{ad.status}</span></h1>
-                                        <h1 className='text-xl font-light mb-2'>{ad.status === 'ativo' ? 'Anuncio em atividade.' : 'Anuncio desativado até o momento. (aguarde o processamento dos admins.)'}</h1>
-                                        {!isEditingThis ? (
-                                            <>
-                                                <div className="relative h-40 flex items-center justify-center mb-3">
-                                                    {ad.anuncioTipo === 'video' && mediaUrl ? (
-                                                        <video src={buildImageUrl(mediaUrl)} controls className="h-full w-full object-cover" />
-                                                    ) : ad.anuncioTipo === 'imagem' && mediaUrl ? (
-                                                        <img src={buildImageUrl(mediaUrl)} alt={ad.titulo} className="h-full w-full object-cover" />
-                                                    ) : (
-                                                        <div className="text-sm text-gray-500">Sem mídia</div>
-                                                    )}
-                                                </div>
-
-                                                <h3 className="font-light text-xl"><span className='font-semibold'>Titulo: </span> {ad.titulo}</h3>
-                                                <p className="font-light text-sm"><span className='font-semibold'>Descrição: </span> {ad.descricao}</p>
-                                                <p className="text-sm mt-3 font-semibold line-clamp-1 flex flex-row items-center gap-1">Localidade do anuncio <FaLocationPin color={'red'} /></p>
-                                                <div className="text-xs mt-1 font-light">
-                                                    Disponível {!ad.country ? 'em Brasil e Portugal' :
-                                                        !ad.state ? `em ${ad.country}` :
-                                                            !ad.city ? `em ${ad.country} > ${ad.state}` :
-                                                                `em ${ad.country} > ${ad.state} > ${ad.city}`}
-                                                </div>
-
-                                                {/* Estatisticas */}
-                                                <div className={`p-2 bg-green-300/20 rounded mt-3 border border-green-400 text-green-400 text-sm ${tema === 'dark' ? 'bg-green-900/30 border-green-700 text-green-300' : ''}`}>
-                                                    <h1>Impressoes: {estatisticas.impressoes}</h1>
-                                                    <h1>Cliques: {estatisticas.cliques}</h1>
-                                                </div>
-
-                                                <div className="mt-3 flex items-center gap-2">
-                                                    <a href={ad.link || '#'} target="_blank" rel="noreferrer" className="text-sm underline">Abrir link</a>
-                                                    <button className={`${themeClasses.button} px-4 py-2 rounded-md`} onClick={() => startEdit(ad)}>Editar Anúncio</button>
-                                                    <button className='bg-red-500 text-white font-bolt cursor-pointer p-2 rounded-2xl' onClick={() => handleDeletarAnuncio(ad.anuncioId)}>Deletar Anúncio</button>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                    <div>
-                                                        <label className="text-md">Titulo: </label>
-                                                        <input name="titulo" value={editDraft.titulo ?? ''} onChange={(e) => handleEditChange(id, e)} placeholder="Título" className={`w-full rounded-md p-2 border ${themeClasses.input}`} />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-md">Tipo de midia: </label>
-                                                        <select name="anuncioTipo" value={editDraft.anuncioTipo ?? 'imagem'} onChange={(e) => handleEditChange(id, e)} className={`w-full rounded-md p-2 border ${themeClasses.input}`}>
-                                                            <option value="imagem">Imagem</option>
-                                                            <option value="video">Vídeo</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-
-                                                <label className="block text-sm mt-2">Descrição</label>
-                                                <input type='text' name="descricao" value={editDraft.descricao ?? ''} onChange={(e) => handleEditChange(id, e)} placeholder="Descrição" className={`w-full rounded-md p-2 border ${themeClasses.input}`} />
-
-                                                <label className="block text-sm mt-2">Link</label>
-                                                <input name="link" type="text" value={editDraft.link ?? ''} onChange={(e) => handleEditChange(id, e)} placeholder="Link" className={`w-full rounded-md p-2 border ${themeClasses.input}`} />
-
-                                                <label className="block text-sm mt-2">Localidade do anúncio:</label>
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                                    <select name="countryCode" value={editDraft.countryCode ?? ''} onChange={(e) => handleEditChange(id, e)} className={`w-full rounded-md p-2 border ${themeClasses.input}`}>
-                                                        <option value="">Selecione o país</option>
-                                                        {countryList.map(c => <option key={c.code || c.name} value={c.code || c.name}>{c.name}</option>)}
-                                                    </select>
-                                                    <select name="state" value={editDraft.state ?? ''} onChange={(e) => handleEditChange(id, e)} className={`w-full rounded-md p-2 border ${themeClasses.input}`} disabled={!getStatesForCountryCode(editDraft.countryCode).length}>
-                                                        <option value="">Selecione o estado</option>
-                                                        {getStatesForCountryCode(editDraft.countryCode).map((s, idx) => {
-                                                            const opt = mapOption(s)
-                                                            return <option key={opt.value + idx} value={opt.value}>{opt.label}</option>
-                                                        })}
-                                                    </select>
-                                                    <select name="city" value={editDraft.city ?? ''} onChange={(e) => handleEditChange(id, e)} className={`w-full rounded-md p-2 border ${themeClasses.input}`} disabled={!getCitiesForState(editDraft.countryCode, editDraft.state).length}>
-                                                        <option value="">Selecione a cidade</option>
-                                                        {getCitiesForState(editDraft.countryCode, editDraft.state).map((c, idx) => {
-                                                            const opt = mapOption(c)
-                                                            return <option key={opt.value + idx} value={opt.value}>{opt.label}</option>
-                                                        })}
-                                                    </select>
-                                                </div>
-
-                                                <label for={`editFileUpload-${id}`} className={`w-full rounded-md p-2 border ${themeClasses.input} flex flex-col items-center justify-center cursor-pointer mt-2`}>
-                                                    <span>Selecione a midia do anuncio.</span>
-                                                </label>
-                                                <input type="file" id={`editFileUpload-${id}`} accept={editDraft.anuncioTipo === 'imagem' ? 'image/*' : 'video/*'} onChange={(e) => handleEditFileChange(id, e)} className='hidden' />
-
-                                                {editPreviews[id] && editDraft.anuncioTipo === 'imagem' && <img src={editPreviews[id]} alt="preview-edit" className="max-h-40 rounded-md mt-2 w-full object-contain" />}
-                                                {editPreviews[id] && editDraft.anuncioTipo === 'video' && <video src={editPreviews[id]} controls className="max-h-48 rounded-md mt-2 w-full object-contain" />}
-
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <button className={`${themeClasses.button} px-4 py-2 rounded-md`} onClick={() => handleSaveEdit(id)}>Salvar</button>
-                                                    <button className='bg-gray-500 text-white px-4 py-2 rounded-md' onClick={() => cancelEdit(id)}>Cancelar</button>
-                                                </div>
-
-                                                <div className="text-xs text-gray-400 mt-1">A requisição de edição está comentada — verifique o payload no console ao clicar em Salvar.</div>
-
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )
-                        })}
                     </div>
+                </div>
+
+                {/* Seção de Saldo - Responsiva */}
+                <motion.div
+                    className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8 border border-slate-200 dark:border-slate-700"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                >
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
+                        <div className="flex flex-col space-y-2">
+                            <h3 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white">
+                                Saldo atual: {saldo ? formatarReais(saldo / 175) : 'R$ 0,00'}
+                            </h3>
+                            <h4 className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                                Saldo de impressões: <span className="font-medium text-slate-900 dark:text-white">{saldo}</span>
+                            </h4>
+                        </div>
+
+                        <div className="w-full lg:w-auto grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                value={valor}
+                                onChange={handleValorChange}
+                                placeholder="Valor (ex: 50)"
+                                className="col-span-1 sm:col-span-2 rounded-lg p-2 sm:p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm sm:text-base"
+                            />
+                            <motion.button
+                                onClick={handleAdicionarSaldo}
+                                disabled={isProcessing}
+                                className="col-span-1 px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium text-sm sm:text-base disabled:opacity-60 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                                whileHover={{ scale: isProcessing ? 1 : 1.02 }}
+                                whileTap={{ scale: isProcessing ? 1 : 0.98 }}
+                            >
+                                {isProcessing ? 'Processando...' : 'Adicionar'}
+                            </motion.button>
+                        </div>
+                    </div>
+                </motion.div>
+
+                {/* Layout Principal - Responsivo */}
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 sm:gap-6">
+                    {/* Formulário de Adicionar Anúncio - Responsivo */}
+                    <motion.div
+                        className="xl:col-span-3 bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.5, delay: 0.1 }}
+                    >
+                        <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 text-slate-900 dark:text-white flex items-center gap-2">
+                            <FaPlus className="text-blue-600 dark:text-blue-400" />
+                            Adicionar Anúncio
+                        </h2>
+                        <form onSubmit={handleSubmitAnuncio} className="space-y-3 sm:space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                <div>
+                                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 sm:mb-2">Título</label>
+                                    <input
+                                        type="text"
+                                        name="titulo"
+                                        value={anuncio.titulo}
+                                        onChange={handleAnuncioChange}
+                                        placeholder="Título do anúncio"
+                                        className="w-full rounded-lg p-2 sm:p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm sm:text-base"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 sm:mb-2">Tipo de Mídia</label>
+                                    <select
+                                        name="anuncioTipo"
+                                        value={anuncio.anuncioTipo}
+                                        onChange={handleAnuncioChange}
+                                        className="w-full rounded-lg p-2 sm:p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm sm:text-base"
+                                    >
+                                        <option value="imagem">📷 Imagem</option>
+                                        <option value="video">🎥 Vídeo</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 sm:mb-2">Descrição</label>
+                                <textarea
+                                    name="descricao"
+                                    value={anuncio.descricao}
+                                    onChange={handleAnuncioChange}
+                                    placeholder="Descrição do anúncio"
+                                    rows="3"
+                                    className="w-full rounded-lg p-2 sm:p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm sm:text-base resize-none"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 sm:mb-2">Link</label>
+                                <input
+                                    type="url"
+                                    name="link"
+                                    value={anuncio.link}
+                                    onChange={handleAnuncioChange}
+                                    placeholder="https://exemplo.com"
+                                    className="w-full rounded-lg p-2 sm:p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm sm:text-base"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                                <div>
+                                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 sm:mb-2">País</label>
+                                    <select
+                                        name="countryCode"
+                                        value={anuncio.countryCode ?? ''}
+                                        onChange={handleAnuncioChange}
+                                        className="w-full rounded-lg p-2 sm:p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm sm:text-base"
+                                    >
+                                        <option value="">Selecione o país</option>
+                                        {countryList.map(c => <option key={c.code || c.name} value={c.code || c.name}>{c.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 sm:mb-2">Estado</label>
+                                    <select
+                                        name="state"
+                                        value={anuncio.state ?? ''}
+                                        onChange={handleAnuncioChange}
+                                        className="w-full rounded-lg p-2 sm:p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm sm:text-base disabled:opacity-50"
+                                        disabled={!getStatesForCountryCode(anuncio.countryCode).length}
+                                    >
+                                        <option value="">Selecione o estado</option>
+                                        {getStatesForCountryCode(anuncio.countryCode).map((s, idx) => {
+                                            const opt = mapOption(s)
+                                            return <option key={opt.value + idx} value={opt.value}>{opt.label}</option>
+                                        })}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 sm:mb-2">Cidade</label>
+                                    <select
+                                        name="city"
+                                        value={anuncio.city ?? ''}
+                                        onChange={handleAnuncioChange}
+                                        className="w-full rounded-lg p-2 sm:p-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm sm:text-base disabled:opacity-50"
+                                        disabled={!getCitiesForState(anuncio.countryCode, anuncio.state).length}
+                                    >
+                                        <option value="">Selecione a cidade</option>
+                                        {getCitiesForState(anuncio.countryCode, anuncio.state).map((c, idx) => {
+                                            const opt = mapOption(c)
+                                            return <option key={opt.value + idx} value={opt.value}>{opt.label}</option>
+                                        })}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Mídia do Anúncio</label>
+                                <label
+                                    htmlFor="fileUpload"
+                                    className="w-full rounded-lg p-4 sm:p-6 border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200"
+                                >
+                                    <FaUpload className="text-2xl sm:text-3xl text-slate-400 dark:text-slate-500 mb-2" />
+                                    <span className="text-sm sm:text-base text-slate-600 dark:text-slate-400 text-center">
+                                        Clique para selecionar {anuncio.anuncioTipo === 'imagem' ? 'uma imagem' : 'um vídeo'}
+                                    </span>
+                                    <span className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                                        {anuncio.anuncioTipo === 'imagem' ? 'Máx: 1MB' : 'Máx: 35MB'}
+                                    </span>
+                                </label>
+                                <input
+                                    type="file"
+                                    id="fileUpload"
+                                    accept={anuncio.anuncioTipo === 'imagem' ? 'image/*' : 'video/*'}
+                                    onChange={handleFileChange}
+                                    className="hidden"
+                                />
+                            </div>
+
+                            {previewUrl && (
+                                <div className="mt-4">
+                                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Pré-visualização</label>
+                                    {anuncio.anuncioTipo === 'imagem' ? (
+                                        <img
+                                            src={previewUrl}
+                                            alt="Preview"
+                                            className="max-h-32 sm:max-h-40 rounded-lg w-full object-contain bg-slate-100 dark:bg-slate-700"
+                                        />
+                                    ) : (
+                                        <video
+                                            src={previewUrl}
+                                            controls
+                                            className="max-h-40 sm:max-h-48 rounded-lg w-full object-contain bg-slate-100 dark:bg-slate-700"
+                                        />
+                                    )}
+                                </div>
+                            )}
+
+                            <motion.button
+                                type="submit"
+                                className="w-full px-4 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-200 font-medium text-sm sm:text-base disabled:opacity-60 disabled:cursor-not-allowed shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                                disabled={isSubmittingAd}
+                                whileHover={{ scale: isSubmittingAd ? 1 : 1.02 }}
+                                whileTap={{ scale: isSubmittingAd ? 1 : 0.98 }}
+                            >
+                                {isSubmittingAd ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                        Enviando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaPlus className="text-sm" />
+                                        {anuncio.anuncioId ? 'Salvar Alterações' : 'Adicionar Anúncio'}
+                                    </>
+                                )}
+                            </motion.button>
+                        </form>
+                    </motion.div>
+
+                    {/* Lista de Anúncios - Responsiva */}
+                    <motion.div
+                        className="xl:col-span-2 bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
+                    >
+                        <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 text-slate-900 dark:text-white flex items-center gap-2">
+                            <FaBullhorn className="text-green-600 dark:text-green-400" />
+                            Seus Anúncios
+                        </h2>
+
+                        {loadingAds && (
+                            <div className="space-y-3 sm:space-y-4">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="h-20 sm:h-24 bg-slate-100 dark:bg-slate-700 rounded-lg animate-pulse" />
+                                ))}
+                            </div>
+                        )}
+
+                        {!loadingAds && anuncios.length === 0 && (
+                            <div className="text-center py-8 sm:py-12">
+                                <FaBullhorn className="text-4xl sm:text-5xl text-slate-300 dark:text-slate-600 mx-auto mb-3 sm:mb-4" />
+                                <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">
+                                    Nenhum anúncio encontrado.
+                                </p>
+                                <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1">
+                                    Crie seu primeiro anúncio usando o formulário ao lado.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="space-y-3 sm:space-y-4">
+                            {anuncios.map((ad) => {
+                                const id = ad.anuncioId || ad._id || ad.id
+                                const mediaUrl = ad.midiaUrl || ad.midia || ad.mediaUrl || ad.image
+                                const isEditingThis = editingId === id
+                                const estatisticas = ad.estatisticas || { impressoes: 0, cliques: 0 }
+
+                                // Dados para os gráficos (simulados - você pode substituir pelos dados reais)
+                                const chartData = [
+                                    { name: 'Seg', impressoes: Math.floor(estatisticas.impressoes * 0.1), cliques: Math.floor(estatisticas.cliques * 0.1) },
+                                    { name: 'Ter', impressoes: Math.floor(estatisticas.impressoes * 0.15), cliques: Math.floor(estatisticas.cliques * 0.15) },
+                                    { name: 'Qua', impressoes: Math.floor(estatisticas.impressoes * 0.2), cliques: Math.floor(estatisticas.cliques * 0.2) },
+                                    { name: 'Qui', impressoes: Math.floor(estatisticas.impressoes * 0.25), cliques: Math.floor(estatisticas.cliques * 0.25) },
+                                    { name: 'Sex', impressoes: Math.floor(estatisticas.impressoes * 0.3), cliques: Math.floor(estatisticas.cliques * 0.3) },
+                                ]
+
+                                return (
+                                    <motion.div
+                                        key={id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                        className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border ${ad.status === 'ativo'
+                                            ? 'border-emerald-200 dark:border-emerald-700'
+                                            : 'border-red-200 dark:border-red-700'
+                                            }`}
+                                    >
+                                        {/* Status Badge */}
+                                        <div className={`px-4 py-2 ${ad.status === 'ativo'
+                                            ? 'bg-gradient-to-r from-emerald-500 to-emerald-600'
+                                            : 'bg-gradient-to-r from-red-500 to-red-600'
+                                            }`}>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-white font-semibold text-sm">
+                                                    {ad.status === 'ativo' ? '🟢 Ativo' : '🔴 Inativo'}
+                                                </span>
+                                                <span className="text-white/80 text-xs">
+                                                    {ad.status === 'ativo' ? 'Em exibição' : 'Aguardando aprovação'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-6">
+                                            {!isEditingThis ? (
+                                                <>
+                                                    {/* Mídia do anúncio */}
+                                                    <div className="relative h-48 bg-slate-100 dark:bg-slate-700 rounded-xl overflow-hidden mb-4">
+                                                        {ad.anuncioTipo === 'video' && mediaUrl ? (
+                                                            <video src={buildImageUrl(mediaUrl)} controls className="h-full w-full object-cover" />
+                                                        ) : ad.anuncioTipo === 'imagem' && mediaUrl ? (
+                                                            <img src={buildImageUrl(mediaUrl)} alt={ad.titulo} className="h-full w-full object-cover" />
+                                                        ) : (
+                                                            <div className="h-full flex items-center justify-center text-slate-400">
+                                                                <FaImage className="text-4xl" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Informações do anúncio */}
+                                                    <div className="space-y-3 mb-6">
+                                                        <h3 className="text-xl font-bold text-slate-800 dark:text-white">{ad.titulo}</h3>
+                                                        <p className="text-slate-600 dark:text-slate-300 text-sm">{ad.descricao}</p>
+
+                                                        {/* Localização */}
+                                                        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                                                            <FaLocationPin className="text-red-500" />
+                                                            <span>
+                                                                {!ad.country ? 'Brasil e Portugal' :
+                                                                    !ad.state ? ad.country :
+                                                                        !ad.city ? `${ad.country} > ${ad.state}` :
+                                                                            `${ad.country} > ${ad.state} > ${ad.city}`}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Analytics Cards */}
+                                                    <div className="grid grid-cols-2 gap-4 mb-6">
+                                                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 p-4 rounded-xl border border-blue-200 dark:border-blue-700">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <FaEye className="text-blue-600 dark:text-blue-400 text-lg" />
+                                                                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">IMPRESSÕES</span>
+                                                            </div>
+                                                            <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                                                                {estatisticas.impressoes.toLocaleString()}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/30 p-4 rounded-xl border border-emerald-200 dark:border-emerald-700">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <FaHandPointer className="text-emerald-600 dark:text-emerald-400 text-lg" />
+                                                                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">CLIQUES</span>
+                                                            </div>
+                                                            <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                                                                {estatisticas.cliques.toLocaleString()}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Gráfico de Performance */}
+                                                    <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-6">
+                                                        <div className="flex items-center gap-2 mb-4">
+                                                            <FaChartLine className="text-slate-600 dark:text-slate-300" />
+                                                            <h4 className="font-semibold text-slate-700 dark:text-slate-200">Performance Semanal</h4>
+                                                        </div>
+                                                        <div className="h-32">
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                <LineChart data={chartData}>
+                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                                                    <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="#64748b" />
+                                                                    <YAxis tick={{ fontSize: 12 }} stroke="#64748b" />
+                                                                    <Tooltip
+                                                                        contentStyle={{
+                                                                            backgroundColor: '#1e293b',
+                                                                            border: 'none',
+                                                                            borderRadius: '8px',
+                                                                            color: '#fff'
+                                                                        }}
+                                                                    />
+                                                                    <Line
+                                                                        type="monotone"
+                                                                        dataKey="impressoes"
+                                                                        stroke="#3b82f6"
+                                                                        strokeWidth={2}
+                                                                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                                                                    />
+                                                                    <Line
+                                                                        type="monotone"
+                                                                        dataKey="cliques"
+                                                                        stroke="#10b981"
+                                                                        strokeWidth={2}
+                                                                        dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                                                                    />
+                                                                </LineChart>
+                                                            </ResponsiveContainer>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Ações */}
+                                                    <div className="flex flex-wrap gap-3">
+                                                        <a
+                                                            href={ad.link || '#'}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium underline transition-colors"
+                                                        >
+                                                            Abrir link
+                                                        </a>
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            className="bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+                                                            onClick={() => startEdit(ad)}
+                                                        >
+                                                            <FaEdit className="inline mr-2" />
+                                                            Editar
+                                                        </motion.button>
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+                                                            onClick={() => handleDeletarAnuncio(ad.anuncioId)}
+                                                        >
+                                                            <FaTrash className="inline mr-2" />
+                                                            Deletar
+                                                        </motion.button>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="space-y-6">
+                                                    <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Editando Anúncio</h3>
+
+                                                    {/* Título e Tipo de Mídia */}
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                                                Título
+                                                            </label>
+                                                            <input
+                                                                name="titulo"
+                                                                value={editDraft.titulo ?? ''}
+                                                                onChange={(e) => handleEditChange(id, e)}
+                                                                placeholder="Título"
+                                                                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-all duration-200"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                                                Tipo de Mídia
+                                                            </label>
+                                                            <select
+                                                                name="anuncioTipo"
+                                                                value={editDraft.anuncioTipo ?? 'imagem'}
+                                                                onChange={(e) => handleEditChange(id, e)}
+                                                                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-all duration-200"
+                                                            >
+                                                                <option value="imagem">Imagem</option>
+                                                                <option value="video">Vídeo</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Descrição */}
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                                            Descrição
+                                                        </label>
+                                                        <input
+                                                            type='text'
+                                                            name="descricao"
+                                                            value={editDraft.descricao ?? ''}
+                                                            onChange={(e) => handleEditChange(id, e)}
+                                                            placeholder="Descrição"
+                                                            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-all duration-200"
+                                                        />
+                                                    </div>
+
+                                                    {/* Link */}
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                                            Link
+                                                        </label>
+                                                        <input
+                                                            name="link"
+                                                            type="text"
+                                                            value={editDraft.link ?? ''}
+                                                            onChange={(e) => handleEditChange(id, e)}
+                                                            placeholder="Link"
+                                                            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-all duration-200"
+                                                        />
+                                                    </div>
+
+                                                    {/* Localidade */}
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                                            Localidade do Anúncio
+                                                        </label>
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                            <select
+                                                                name="countryCode"
+                                                                value={editDraft.countryCode ?? ''}
+                                                                onChange={(e) => handleEditChange(id, e)}
+                                                                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-all duration-200"
+                                                            >
+                                                                <option value="">Selecione o país</option>
+                                                                {countryList.map(c => <option key={c.code || c.name} value={c.code || c.name}>{c.name}</option>)}
+                                                            </select>
+                                                            <select
+                                                                name="state"
+                                                                value={editDraft.state ?? ''}
+                                                                onChange={(e) => handleEditChange(id, e)}
+                                                                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-all duration-200 disabled:opacity-50"
+                                                                disabled={!getStatesForCountryCode(editDraft.countryCode).length}
+                                                            >
+                                                                <option value="">Selecione o estado</option>
+                                                                {getStatesForCountryCode(editDraft.countryCode).map((s, idx) => {
+                                                                    const opt = mapOption(s)
+                                                                    return <option key={opt.value + idx} value={opt.value}>{opt.label}</option>
+                                                                })}
+                                                            </select>
+                                                            <select
+                                                                name="city"
+                                                                value={editDraft.city ?? ''}
+                                                                onChange={(e) => handleEditChange(id, e)}
+                                                                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-all duration-200 disabled:opacity-50"
+                                                                disabled={!getCitiesForState(editDraft.countryCode, editDraft.state).length}
+                                                            >
+                                                                <option value="">Selecione a cidade</option>
+                                                                {getCitiesForState(editDraft.countryCode, editDraft.state).map((c, idx) => {
+                                                                    const opt = mapOption(c)
+                                                                    return <option key={opt.value + idx} value={opt.value}>{opt.label}</option>
+                                                                })}
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Upload de Mídia */}
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                                            Mídia do Anúncio
+                                                        </label>
+                                                        <label
+                                                            htmlFor={`editFileUpload-${id}`}
+                                                            className="w-full px-4 py-8 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700/50 transition-all duration-200"
+                                                        >
+                                                            <FaCloudUploadAlt className="text-3xl text-slate-400 mb-2" />
+                                                            <span className="text-slate-600 dark:text-slate-300">Selecione a mídia do anúncio</span>
+                                                            <span className="text-xs text-slate-400 mt-1">
+                                                                {editDraft.anuncioTipo === 'imagem' ? 'Imagens aceitas' : 'Vídeos aceitos'}
+                                                            </span>
+                                                        </label>
+                                                        <input
+                                                            type="file"
+                                                            id={`editFileUpload-${id}`}
+                                                            accept={editDraft.anuncioTipo === 'imagem' ? 'image/*' : 'video/*'}
+                                                            onChange={(e) => handleEditFileChange(id, e)}
+                                                            className='hidden'
+                                                        />
+                                                    </div>
+
+                                                    {/* Preview da Mídia */}
+                                                    {editPreviews[id] && (
+                                                        <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
+                                                            <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Preview</h4>
+                                                            {editDraft.anuncioTipo === 'imagem' ? (
+                                                                <img
+                                                                    src={editPreviews[id]}
+                                                                    alt="preview-edit"
+                                                                    className="max-h-40 rounded-lg w-full object-contain"
+                                                                />
+                                                            ) : (
+                                                                <video
+                                                                    src={editPreviews[id]}
+                                                                    controls
+                                                                    className="max-h-48 rounded-lg w-full object-contain"
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Ações */}
+                                                    <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200 dark:border-slate-600">
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2"
+                                                            onClick={() => handleSaveEdit(id)}
+                                                        >
+                                                            <FaSave />
+                                                            Salvar
+                                                        </motion.button>
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2"
+                                                            onClick={() => cancelEdit(id)}
+                                                        >
+                                                            <FaTimes />
+                                                            Cancelar
+                                                        </motion.button>
+                                                    </div>
+
+                                                    <div className="text-xs text-slate-400 mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                                                        ⚠️ A requisição de edição está comentada — verifique o payload no console ao clicar em Salvar.
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                    </motion.div>
+                                )
+                            })}
+                        </div>
+                    </motion.div>
                 </div>
             </div>
         </div>

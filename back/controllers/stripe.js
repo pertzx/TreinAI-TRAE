@@ -10,6 +10,7 @@ import ProcessedStripeEvent from '../models/ProcessedStripeEvent.js';
 import mongoose from 'mongoose';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
+import { sendNotificationEmail } from '../utils/sendEmail.js';
 
 dotenv.config();
 
@@ -369,8 +370,6 @@ export const CriarAssinaturaProLocal = async (req, res) => {
   }
 };
 
-
-
 // =======================
 // Create Checkout Session (outro fluxo de planos) - sem mudanças importantes
 // =======================
@@ -565,6 +564,8 @@ export const StripeWebhook = async (req, res) => {
               const userSaldo = await User.findById(userId);
               if (userSaldo) {
                 userSaldo.saldoDeImpressoes = (userSaldo.saldoDeImpressoes || 0) + quantidade;
+                // Enviar email de confirmação
+                sendNotificationEmail(userSaldo.email, 'Saldo de Impressões Adicionado', `Seu saldo foi adicionado com sucesso. Quantidade adicionada: +${quantidade}. Total atual: ${userSaldo.saldoDeImpressoes}`);
                 await userSaldo.save();
                 log(`Saldo de impressões adicionado ao user ${userId}: +${quantidade} (total: ${userSaldo.saldoDeImpressoes})`);
               } else {
@@ -617,6 +618,8 @@ export const StripeWebhook = async (req, res) => {
             user.planInfos.lastProcessedInvoiceId = invoiceId;
 
             await user.save();
+            // Enviar email de confirmação
+            sendNotificationEmail(user.email, 'Plano Ativado', 'Seu plano foi ativado com sucesso!');
             log('Usuario ativado via invoice.paid:', user._id);
           }
         } else {
@@ -722,8 +725,11 @@ export const StripeWebhook = async (req, res) => {
             const bySub = await Local.findOne({ subscriptionId });
             if (bySub) {
               bySub.status = 'ativo';
-              bySub.atualizadoEm = new Date();
+              bySub.atualizadoEm = new Date(getBrazilDate());
               await bySub.save();
+              // Enviar email de confirmação
+              const user = await User.findById(bySub.userId);
+              if (user) sendNotificationEmail(user.email, 'Plano de local ativado', 'Seu plano de local foi ativado com sucesso!');
               log('Local atualizado por subscriptionId:', bySub._id);
               break;
             }
@@ -740,8 +746,11 @@ export const StripeWebhook = async (req, res) => {
               if (subscriptionId && !exists.subscriptionId) {
                 exists.subscriptionId = subscriptionId;
                 exists.status = 'ativo';
-                exists.atualizadoEm = new Date();
+                exists.atualizadoEm = new Date(getBrazilDate());
                 await exists.save();
+                // Enviar email de confirmação
+                const user = await User.findById(exists.userId);
+                if (user) sendNotificationEmail(user.email, 'Plano de local ativado', 'Seu plano de local foi ativado com sucesso!');
                 log('Local existente atualizado com subscriptionId:', exists._id);
               } else {
                 log('Local já existe, nada a fazer.');
@@ -763,6 +772,10 @@ export const StripeWebhook = async (req, res) => {
                 criadoVia: 'invoice.paid'
               };
               const created = await Local.create(payloadForLocal);
+
+              // Enviar email de confirmação
+              const user = await User.findById(created.userId);
+              if (user) sendNotificationEmail(user.email, 'Plano de local ativado', 'Seu plano de local foi ativado com sucesso!');
               log('Local criado a partir de metadata do invoice.paid:', created._id);
             }
           } catch (err) {
@@ -817,6 +830,10 @@ export const StripeWebhook = async (req, res) => {
               local.lastPaymentFailedAt = new Date(evtCreatedMs);
               local.updatedAt = new Date();
               await local.save();
+
+              // Enviar email de confirmação
+              const user = await User.findById(local.userId);
+              if (user) sendNotificationEmail(user.email, 'Plano de local cancelado', 'Seu plano de local foi cancelado com sucesso!');
               log('Local existente marcado inativo por invoice.payment_failed:', local._id);
             }
           }
@@ -836,6 +853,10 @@ export const StripeWebhook = async (req, res) => {
             user.planInfos.lastPaymentFailed = invoice.id;
             user.planInfos.lastStripeEventTimestamp = evtCreatedMs;
             await user.save();
+
+            // Enviar email de confirmação
+            if (user) sendNotificationEmail(user.email, 'Plano de cancelado', 'Seu plano foi cancelado com sucesso!');
+
             log('Usuário marcado inativo por invoice.payment_failed:', user._id);
           }
         } catch (errUser) {
@@ -886,6 +907,10 @@ export const StripeWebhook = async (req, res) => {
               local.status = 'inativo';
               local.atualizadoEm = new Date();
               await local.save();
+
+              // Enviar email de confirmação
+              const user = await User.findById(local.userId);
+              if (user) sendNotificationEmail(user.email, 'Plano de local cancelado', 'Seu plano de local foi cancelado com sucesso!');
               log('Local marcado inativo por subscription.deleted:', local._id);
             } else {
               log('subscription.deleted indica publish_local mas Local não encontrado (provavelmente já removido):', { subscriptionId, metadata: md });
@@ -908,6 +933,9 @@ export const StripeWebhook = async (req, res) => {
               user.planInfos.nextPaymentValue = null;
               user.planInfos.lastStripeEventTimestamp = evtCreatedMs;
               await user.save();
+
+              // Enviar email de confirmação
+              if (user) sendNotificationEmail(user.email, 'Plano cancelado', 'Seu plano foi cancelado com sucesso!');
               log('Usuário atualizado por subscription.deleted (plano removido):', user._id);
             } else {
               log('customer.subscription.deleted: usuário não encontrado para subscriptionId/customerId.', { subscriptionId, customerId });
@@ -1076,6 +1104,17 @@ export const atualizarPlano = async (req, res) => {
       user.planInfos.subscriptionId = null;
       await user.save();
 
+      sendNotificationEmail(
+        user.email,
+        'Assinatura downgradada para FREE',
+        `Sua assinatura foi downgradada para o plano FREE. Agradecemos por sua preferência. Se você tiver alguma dúvida, por favor, entre em contato conosco.`
+      );
+      sendNotificationEmail(
+        process.env.EMAIL_USER,
+        'Assinatura downgradada para FREE',
+        `A assinatura de ${user.username} do _id: ${user._id} foi downgradada para o plano FREE.`
+      );
+
       return res.json({
         msg: 'Assinatura cancelada e plano setado para free',
         planInfos: user.planInfos,
@@ -1196,6 +1235,17 @@ export const atualizarPlano = async (req, res) => {
       })) || []
     } : null;
 
+    sendNotificationEmail(
+      user.email,
+      'Assinatura atualizada',
+      `Sua assinatura foi atualizada para o plano ${requestedPlan.toUpperCase()}. Aproveite agora mesmo o seu novo plano.`
+    );
+    sendNotificationEmail(
+      process.env.EMAIL_USER,
+      'Assinatura atualizada',
+      `A assinatura de ${user.username} do _id: ${user._id} foi atualizada para o plano ${requestedPlan.toUpperCase()}.`
+    );
+
     return res.json({
       msg: 'Assinatura atualizada no Stripe (aguardando invoice). Confira invoicePreview.',
       planInfos: user.planInfos,
@@ -1222,6 +1272,9 @@ export const deletarLocal = async (req, res) => {
 
   try {
     // buscar local e validar dono (tenta achar por localId campo ou por _id)
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ msg: 'Usuário não encontrado' });
+
     let local = await Local.findOne({ localId }) || await Local.findOne({ localId });
     if (!local) return res.status(404).json({ msg: 'Local não encontrado' });
     if (String(local.userId) !== String(userId)) return res.status(403).json({ msg: 'Não autorizado' });
@@ -1271,6 +1324,18 @@ export const deletarLocal = async (req, res) => {
       console.error('deletarLocal: erro ao apagar local do DB:', errDelete);
       return res.status(500).json({ msg: 'Erro ao apagar local do banco', error: errDelete?.message || String(errDelete) });
     }
+
+
+    sendNotificationEmail(
+      user.email,
+      'Assinatura cancelada',
+      `Sua assinatura foi cancelada. Refund: ${refundInfo?.id || 'Nenhum'}.`
+    );
+    sendNotificationEmail(
+      process.env.EMAIL_USER,
+      'Assinatura cancelada',
+      `A assinatura de ${user.username} do _id: ${user._id} foi cancelada. Refund: ${refundInfo?.id || 'Nenhum'}.`
+    );
 
     return res.json({
       msg: 'Local removido. Subscription cancelada quando aplicável.',

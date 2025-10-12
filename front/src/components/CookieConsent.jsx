@@ -48,7 +48,7 @@ const CookieConsent = () => {
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
       }`}
     >
-      <div className={`bg-blue-600/10 rounded-2xl backdrop-blur-sm border-t border-blue-700/50 shadow-2xl transition-all duration-300 ${
+      <div className={`bg-blue-600/50 rounded-2xl backdrop-blur-sm border-t border-blue-700/50 shadow-2xl transition-all duration-300 ${
         isMinimized ? 'pb-2' : 'pb-6'
       }`}>
         <div className="max-w-7xl mx-auto">

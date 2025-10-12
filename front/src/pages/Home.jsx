@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import Header from '../components/Header'
 import SmartphoneAnimation from '../components/SmartphoneAnimation'
 import { motion } from 'framer-motion'
@@ -9,6 +9,7 @@ import {
     LuHeart, LuClock, LuStar, LuAward, LuChartBar, LuSmartphone
 } from "react-icons/lu"
 import { NavLink } from 'react-router-dom'
+import { useState } from 'react'
 
 // Animações de entrada
 const fadeInUp = {
@@ -32,11 +33,19 @@ const scaleIn = {
 }
 
 function Home({logado}) {
+    const titleRef = useRef(null)
+    useState(() => {
+        setTimeout(() => {
+            if (titleRef.current) {
+                titleRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }
+        }, 1000)
+    }, [])
     return (
         <div className='min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900'>
             {/* HERO SECTION */}
             <motion.section 
-                className='flex gap-y-10 md:gap-y-0 items-center md:gap-10 flex-col md:justify-center md:flex-row min-h-screen px-4 md:px-8'
+                className='flex pt-40 gap-y-10 md:gap-y-0 items-center md:gap-10 flex-col md:justify-center md:flex-row min-h-screen px-4 md:px-8'
                 initial="initial"
                 animate="animate"
                 variants={staggerContainer}
@@ -46,10 +55,11 @@ function Home({logado}) {
                     variants={fadeInUp}
                 >
                     <Header logado={logado} />
-                    <div className='mt-30 flex flex-col items-center text-center md:items-start md:text-start gap-6'>
+                    <div className='flex flex-col items-center text-center md:items-start md:text-start gap-6'>
                         <motion.h1 
                             className='text-5xl md:text-7xl font-bold text-white leading-tight'
                             variants={fadeInUp}
+                            ref={titleRef}
                         >
                             Seu <span className='text-blue-400'>coach digital</span> pessoal
                         </motion.h1>
