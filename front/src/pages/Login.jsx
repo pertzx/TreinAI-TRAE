@@ -13,6 +13,7 @@ function Login({ plano }) {
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const navigate = useNavigate();
   const { csrfToken, loading: csrfLoading, getValidToken, clearToken } = useCSRF();
   const { showError, showSuccess } = useToast();
@@ -54,6 +55,12 @@ function Login({ plano }) {
     if (mode === "signup") {
       if (data.password !== data.confirm) {
         showError("As senhas não conferem.");
+        setLoading(false);
+        return;
+      }
+      
+      if (!agreedToTerms) {
+        showError("Você deve concordar com a Política de Privacidade e Termos de Uso para criar uma conta.");
         setLoading(false);
         return;
       }
@@ -101,7 +108,7 @@ function Login({ plano }) {
       
       console.log(response)
 
-      if (response.status === 200) {
+      if (response.status === 200 || response.data.msg === "Usuário criado com sucesso!") {
         // Armazenar token JWT em cookie seguro
         console.log('🔑 Token recebido do servidor:', response.data.token);
         authCookies.setToken(response.data.token);
@@ -272,9 +279,51 @@ function Login({ plano }) {
             </div>
           )}
 
+          {mode === "signup" && (
+            <div className="flex items-start gap-3 p-4 bg-slate-800/30 rounded-lg border border-slate-700">
+              <input
+                id="terms-agreement"
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-2 focus:ring-blue-600 focus:ring-offset-0 focus:ring-offset-slate-800"
+                required
+                aria-describedby="terms-description"
+              />
+              <div className="flex-1">
+                <label htmlFor="terms-agreement" className="text-sm text-slate-300 leading-relaxed cursor-pointer">
+                  Li e concordo com a{" "}
+                  <a
+                    href="/politica-de-privacidade"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 focus:ring-offset-slate-800 rounded"
+                    aria-label="Abrir Política de Privacidade em nova aba"
+                  >
+                    Política de Privacidade
+                  </a>{" "}
+                  e os{" "}
+                  <a
+                    href="/termos"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 focus:ring-offset-slate-800 rounded"
+                    aria-label="Abrir Termos de Uso em nova aba"
+                  >
+                    Termos de Uso
+                  </a>{" "}
+                  da plataforma.
+                </label>
+                <div id="terms-description" className="sr-only">
+                  Campo obrigatório para criar uma conta. Você deve concordar com nossa Política de Privacidade e Termos de Uso.
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={loading || csrfLoading}
+            disabled={loading || csrfLoading || (mode === "signup" && !agreedToTerms)}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition flex items-center justify-center gap-2"
           >
             {loading ? (

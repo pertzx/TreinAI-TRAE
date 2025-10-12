@@ -1030,7 +1030,7 @@ return (
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 mb-8">
+      <div className="flex overflow-x-auto p-2 gap-2 space-x-1 mb-8">
         {[
           { id: 'geral', label: 'Visão Geral', icon: FaChartLine },
           { id: 'rankings', label: 'Rankings', icon: FaTrophy },

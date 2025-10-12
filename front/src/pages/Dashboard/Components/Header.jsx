@@ -32,20 +32,20 @@ const Header = ({ user, tema }) => {
   // Classes do tema
   const themeClasses = tema === 'dark'
     ? {
-      headerBg: 'bg-[#10151e] text-white border-b border-blue-600',
+      headerBg: 'text-white border-b border-blue-600',
       logoText: 'text-blue-600',
       linkHover: 'hover:text-blue-400',
       buttonBg: 'bg-green-500 hover:bg-green-600 text-white'
     }
     : {
-      headerBg: 'bg-white text-black border-b border-gray-300',
+      headerBg: 'text-black border-b border-gray-300',
       logoText: 'text-blue-700',
       linkHover: 'hover:text-blue-500',
       buttonBg: 'bg-green-600 hover:bg-green-700 text-white'
     };
 
   return (
-    <header className={`${themeClasses.headerBg} p-3`}>
+    <header className={`${themeClasses.headerBg} p-3 mb-3`}>
       <div className="flex justify-between flex-col gap-2 sm:flex-row sm:gap-0 items-center">
         {/* Logo e nome */}
         <NavLink to="/dashboard" className="flex items-center gap-2">

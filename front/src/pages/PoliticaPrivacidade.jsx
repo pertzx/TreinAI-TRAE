@@ -80,7 +80,7 @@ const PoliticaPrivacidade = () => {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className={`fixed lg:sticky lg:top-0 max-h-screen overflow-hidden top-0 left-0 w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-40 ${
+        <aside className={`fixed lg:sticky lg:top-0 h-screen overflow-hidden top-0 left-0 w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-40 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}>
           <div className="p-6 border-b border-gray-200">
@@ -95,7 +95,7 @@ const PoliticaPrivacidade = () => {
             </p>
           </div>
           
-          <nav className="p-6 overflow-y-auto max-h-[calc(100vh-200px)]">
+          <nav className="p-4 overflow-y-auto h-full pb-20">
             <ul className="space-y-2">
               {sections.map((section) => (
                 <li key={section.id}>
@@ -631,7 +631,7 @@ const PoliticaPrivacidade = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12 mt-16">
+      <footer className="bg-gray-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-8">
             <div>
