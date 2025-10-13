@@ -8,7 +8,7 @@ const UserSchema = new Schema({
   username: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
-  avatar: { type: String, default: null },
+  avatar: { type: String, default: '/uploads/image-perfil/avatar_base.jpg' },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   isCoach: { type: Boolean, default: false },
   saldoDeImpressoes: { type: Number, default: 0 },
@@ -98,8 +98,6 @@ const UserSchema = new Schema({
   ],
 
   stats: {
-    loginCount: { type: Number, default: 0 },
-    lastLogin: { type: Date, default: null },
     ipHistory: [{ type: String }],
     tokens: [
       {
@@ -107,7 +105,26 @@ const UserSchema = new Schema({
         data: { type: Date, default: getBrazilDate },
       }
     ],
-    deviceHistory: [{ type: String }],
+    deviceHistory: [{
+      deviceId: { type: String, unique: true, required: true },
+      bloqueado: { type: Boolean, default: false },
+      
+      // Informações do sistema (substituindo campos individuais de browser/os/device)
+      systemInfo: { type: String, default: null },
+      
+      // Informações de rede e localização
+      location: {
+        lat: { type: Number, default: null },
+        lon: { type: Number, default: null },
+      },
+      
+      // Datas e controle
+      firstLoginDate: { type: Date, required: true, default: getBrazilDate },
+      loginDate: { type: Date, required: true, default: getBrazilDate },
+      blockedAt: { type: Date, default: null },
+      lastActivity: { type: Date, default: getBrazilDate },
+      loginCount: { type: Number, default: 1 },  
+    }],
     failedLoginAttempts: { type: Number, default: 0 },
     onboarded: { type: Boolean, default: false },
   },

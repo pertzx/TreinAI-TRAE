@@ -8,7 +8,7 @@ const profissionalSchema = new Schema({
   profissionalId: { type: String, required: true, unique: true, index: true, default: () => uuidv4() },
   profissionalName: { type: String, required: true },
   biografia: { type: String, required: true, default: 'Profissional dedicado.' },
-  imageUrl: { type: String, default: null },
+  imageUrl: { type: String, default: '/uploads/image-profissional/avatar_base.jpg' },
   userId: { type: String, required: true, unique: true, index: true },
   especialidade: { type: String, enum: ['personal-trainner', 'fisioterapeuta', 'nutricionista'], required: true },
   criadoEm: { type: Date, default: getBrazilDate },

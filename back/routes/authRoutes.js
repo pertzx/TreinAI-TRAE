@@ -1,8 +1,8 @@
 // routes/authRoutes.js
 import { Router } from 'express';
-import { login, dashboard, signup, changeTheme, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser } from '../controllers/authController.js';
+import { login, dashboard, signup, changeTheme, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser, loginNaoAutorizado } from '../controllers/authController.js';
 import { verificarToken } from '../middlewares/authMiddleware.js';
-import { validateLogin, validateSignup, validateUpdateProfile } from '../middlewares/validationMiddleware.js';
+import { validateLogin, validateSignup, validateDashboard, validateUpdateProfile } from '../middlewares/validationMiddleware.js';
 import { validateEmailReal, validateEmailBasic } from '../middlewares/emailValidation.js';
 import { loginRateLimit, signupRateLimit, uploadRateLimit, passwordResetRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { validateCSRF, validateCSRFAuth, getCSRFToken, provideCSRFToken } from '../middlewares/csrfMiddleware.js';
@@ -38,7 +38,8 @@ router.get('/csrf-token', getCSRFToken);
 
 router.post('/login', loginRateLimit, validateCSRFAuth, validateEmailBasic, validateLogin, login);
 router.post('/signup', signupRateLimit, validateCSRFAuth, validateEmailReal, validateSignup, signup);
-router.get('/dashboard', verificarToken, dashboard);
+router.post('/login-nao-autorizado', loginNaoAutorizado);
+router.post('/dashboard', verificarToken, dashboard);
 router.post('/create-checkout-session', CreateCheckoutSession);
 router.get('/session-status', SessionStatus); // verificar status
 router.post('/change-theme', changeTheme)
@@ -210,7 +211,7 @@ router.post('/marcar-clique', marcarClique); // corpo => userId e anuncioId.
 router.get('/supports', getSupports)
 router.post('/supports', pedirSuporte)
 
-// LGPD - Direitos do titular
+// LGPD - Solicitar dados pessoais
 router.post('/lgpd/solicitar-dados', verificarToken, async (req, res) => {
   try {
     const userId = req.user.id;

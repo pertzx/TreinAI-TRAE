@@ -240,7 +240,7 @@ export const getAnuncios = async (req, res) => {
         const requestData = req.body || req.query || {};
         const { anunciosVisualizados = [], userId, country = null, state = null, city = null, quantidade } = requestData;
 
-        console.log('[getAnuncios] Parâmetros de entrada:', { userId, country, state, city, quantidade, anunciosVisualizados });
+        // console.log('[getAnuncios] Parâmetros de entrada:', { userId, country, state, city, quantidade, anunciosVisualizados });
 
         // Validação e processamento do array de anúncios visualizados
         let excludeAnuncioIds = [];
@@ -258,17 +258,17 @@ export const getAnuncios = async (req, res) => {
                             if (typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)) {
                                 return true;
                             }
-                            console.warn('[getAnuncios] ID inválido ignorado:', id);
+                            // console.warn('[getAnuncios] ID inválido ignorado:', id);
                             return false;
                         })
                         .map(id => new mongoose.Types.ObjectId(`${id}`));
 
-                    console.log(`[getAnuncios] ${excludeAnuncioIds.length} IDs válidos para exclusão`);
+                    // console.log(`[getAnuncios] ${excludeAnuncioIds.length} IDs válidos para exclusão`);
                 } else {
-                    console.warn('[getAnuncios] Parâmetro anuncios não é um array válido');
+                    // console.warn('[getAnuncios] Parâmetro anuncios não é um array válido');
                 }
             } catch (error) {
-                console.warn('[getAnuncios] Erro ao processar array de anúncios visualizados:', error.message);
+                // console.warn('[getAnuncios] Erro ao processar array de anúncios visualizados:', error.message);
             }
         }
 
@@ -289,7 +289,7 @@ export const getAnuncios = async (req, res) => {
 
         // Caso específico: buscar anúncios de um usuário específico
         if (userId) {
-            console.log('[getAnuncios] Buscando anúncios para o userId:', userId);
+            // console.log('[getAnuncios] Buscando anúncios para o userId:', userId);
 
             // Validate userId format
             if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
@@ -313,7 +313,7 @@ export const getAnuncios = async (req, res) => {
                 .sort({ 'estatisticas.impressoes': 1 })
                 .exec();
 
-            console.log(`[getAnuncios] Encontrados ${anuncios.length} anúncios para o usuário ${userId}`);
+            // console.log(`[getAnuncios] Encontrados ${anuncios.length} anúncios para o usuário ${userId}`);
 
             return res.status(200).json({
                 anuncios,
@@ -323,7 +323,7 @@ export const getAnuncios = async (req, res) => {
             });
         }
 
-        console.log('[getAnuncios] Iniciando busca de anúncios com priorização por impressões');
+        // console.log('[getAnuncios] Iniciando busca de anúncios com priorização por impressões');
 
         // Pipeline principal: priorizar impressões, depois localização hierárquica
         const pipeline = [
@@ -440,16 +440,16 @@ export const getAnuncios = async (req, res) => {
             }
         ];
 
-        console.log('[getAnuncios] Executando pipeline com priorização por impressões');
+        // console.log('[getAnuncios] Executando pipeline com priorização por impressões');
 
         // Executar agregação
         const anuncios = await Anuncio.aggregate(pipeline);
 
-        console.log(`[getAnuncios] Pipeline retornou ${anuncios.length} anúncios`);
+        // console.log(`[getAnuncios] Pipeline retornou ${anuncios.length} anúncios`);
 
         // Se não encontrou anúncios (por saldo ou exclusão), tentar fallback
         if (anuncios.length === 0) {
-            console.log('[getAnuncios] Nenhum anúncio encontrado, tentando fallback');
+            // console.log('[getAnuncios] Nenhum anúncio encontrado, tentando fallback');
 
             // Determinar tipo de fallback baseado na presença de exclusões
             const isExclusionFallback = excludeAnuncioIds.length > 0;
@@ -457,7 +457,7 @@ export const getAnuncios = async (req, res) => {
                 ? 'sem filtro de exclusão de anúncios visualizados'
                 : 'sem filtro de saldo';
 
-            console.log(`[getAnuncios] Executando fallback ${fallbackMessage}`);
+            // console.log(`[getAnuncios] Executando fallback ${fallbackMessage}`);
 
             const fallbackPipeline = [
                 // Estágio 1: Filtro básico por status ativo
@@ -552,11 +552,11 @@ export const getAnuncios = async (req, res) => {
             ];
 
             const anunciosFallback = await Anuncio.aggregate(fallbackPipeline);
-            console.log(`[getAnuncios] Fallback retornou ${anunciosFallback.length} anúncios`);
+            // console.log(`[getAnuncios] Fallback retornou ${anunciosFallback.length} anúncios`);
 
             // Se o fallback não retornou resultados, executar fallback final sem lógica de remoção
             if (anunciosFallback.length === 0) {
-                console.log('[getAnuncios] Fallback não retornou resultados, executando fallback final sem filtros');
+                // console.log('[getAnuncios] Fallback não retornou resultados, executando fallback final sem filtros');
 
                 const fallbackFinalPipeline = [
                     // Estágio 1: Filtro básico por status ativo apenas
@@ -637,7 +637,7 @@ export const getAnuncios = async (req, res) => {
                 ];
 
                 const anunciosFallbackFinal = await Anuncio.aggregate(fallbackFinalPipeline);
-                console.log(`[getAnuncios] Fallback final retornou ${anunciosFallbackFinal.length} anúncios`);
+                // console.log(`[getAnuncios] Fallback final retornou ${anunciosFallbackFinal.length} anúncios`);
 
                 // Gerar tickets para cada anúncio retornado do fallback final
                 const anunciosFallbackFinalComTickets = await Promise.all(anunciosFallbackFinal.map(async (anuncio) => {
@@ -722,7 +722,7 @@ export const getAnuncios = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[getAnuncios] Erro ao buscar anúncios:', error);
+        // console.error('[getAnuncios] Erro ao buscar anúncios:', error);
         return res.status(500).json({
             msg: "Erro interno do servidor ao buscar anúncios",
             error: "INTERNAL_SERVER_ERROR"

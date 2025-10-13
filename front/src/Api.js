@@ -5,7 +5,7 @@ import { getBrazilDate } from "../helpers/getBrazilDate.js";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
-  timeout: 10000,
+  timeout: 15000,
   withCredentials: true, // Habilita envio automático de cookies
   headers: {
     'Content-Type': 'application/json'

@@ -328,6 +328,10 @@ export const editarProfissional = async (req, res) => {
         const parsed = imageUrl.split('/').pop();
         if (!parsed) return;
         const filename = parsed.split('?')[0].split('#')[0];
+        
+        // Não deletar a imagem base avatar_base.jpg
+        if (filename === 'avatar_base.jpg') return;
+        
         const candidatePath = path.join(UPLOAD_DIR, filename);
 
         // apenas remove se o arquivo estiver dentro do upload dir e existir

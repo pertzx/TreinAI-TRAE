@@ -5,6 +5,7 @@ import "../src/app.css";
 import Menu from './components/Menu';
 import Planos from './pages/Planos';
 import Login from './pages/Login';
+import LoginNaoAutorizado from './pages/LoginNaoAutorizado';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Success from './pages/Stripe/Success';
 import Cancel from './pages/Stripe/Cancel';
@@ -27,6 +28,7 @@ function App() {
           <Route path='/' element={<Home />} />
           <Route path='/planos' element={<Planos setPlano={setPlano} />} />
           <Route path='/login' element={<Login plano={plano} />} />
+          <Route path='/login-nao-autorizado' element={<LoginNaoAutorizado />} />
           <Route path='/dashboard/*' element={<Dashboard plano={plano} />} />
           <Route path='/success?' element={<Success />} />
           <Route path='/cancel' element={<Cancel />} />

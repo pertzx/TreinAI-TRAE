@@ -58,7 +58,7 @@ function Login({ plano }) {
         setLoading(false);
         return;
       }
-      
+
       if (!agreedToTerms) {
         showError("Você deve concordar com a Política de Privacidade e Termos de Uso para criar uma conta.");
         setLoading(false);
@@ -76,7 +76,7 @@ function Login({ plano }) {
     try {
       // Garantir que temos um token válido antes de fazer a requisição
       const validToken = await getValidToken();
-      
+
       if (!validToken) {
         showError("Erro ao obter token de segurança. Recarregue a página.");
         setLoading(false);
@@ -90,12 +90,17 @@ function Login({ plano }) {
       };
 
       let response;
-      
+
       if (mode === "login") {
         // Fazer requisição de login diretamente
+        const { identificador, systemInfo, location } = await buildIdentifier({ geolocationTimeout: 20000 });
+
         response = await api.post('/login', {
           email: data.email,
-          password: data.password
+          password: data.password,
+          identificador,
+          systemInfo,
+          location
         });
       } else {
         // Fazer requisição de signup diretamente
@@ -105,14 +110,14 @@ function Login({ plano }) {
           password: data.password
         });
       }
-      
+
       console.log(response)
 
       if (response.status === 200 || response.data.msg === "Usuário criado com sucesso!") {
         // Armazenar token JWT em cookie seguro
         console.log('🔑 Token recebido do servidor:', response.data.token);
         authCookies.setToken(response.data.token);
-        
+
         // Debug: verificar se o cookie foi definido
         setTimeout(() => {
           const savedToken = authCookies.getToken();
@@ -130,22 +135,76 @@ function Login({ plano }) {
       } else {
         showError(response.data.message || 'Erro na autenticação');
       }
-      
+
       setLoading(false);
     } catch (err) {
       // Usar o sistema centralizado de tratamento de erros
       const errorMessage = handleError(err);
       showError(errorMessage);
-      
+
       // Se for erro de autenticação, limpar tokens
       if (isAuthError(err)) {
         // Remover apenas tokens CSRF, JWT agora é gerenciado por cookies httpOnly
         clearToken();
       }
-      
+
       setLoading(false);
     }
   };
+
+  // Uso: const id = await buildIdentifier({ geolocationTimeout:20000 });
+  async function buildIdentifier({ geolocationTimeout = 20000 } = {}) {
+    const sanitize = s => String(s || '')
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/[^A-Za-z0-9 .,_\-;:()]/g, '')
+      .trim()
+      .slice(0, 256);
+
+    // --- Extrai apenas o trecho (<system-information>) do User-Agent ---
+    function extractSystemInfo() {
+      const ua = navigator.userAgent || 'unknown';
+      const match = ua.match(/\(([^)]+)\)/);
+      const systemInfo = match ? match[1] : ua;
+      return sanitize(systemInfo);
+    }
+
+    // --- Obter localização (coordenadas lat/lon) ---
+    async function getLocation(timeout) {
+      const geoPromise = new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject('no-geo');
+        const t = setTimeout(() => reject('timeout'), timeout);
+        navigator.geolocation.getCurrentPosition(
+          pos => { clearTimeout(t); resolve(pos); },
+          err => { clearTimeout(t); reject(err); },
+          { enableHighAccuracy: false, timeout }
+        );
+      });
+
+      try {
+        const pos = await geoPromise;
+        return {
+          lat: parseFloat(pos.coords.latitude.toFixed(6)),
+          lon: parseFloat(pos.coords.longitude.toFixed(6))
+        };
+      } catch {
+        return {
+          lat: null,
+          lon: null,
+        };
+      }
+    }
+
+    // --- Execução ---
+    const [systemInfo, location] = await Promise.all([
+      extractSystemInfo(),
+      getLocation(geolocationTimeout)
+    ]);
+
+    return { identificador: `(${systemInfo})+(${location.lat}_${location.lon})`, systemInfo, location };
+  }
+
 
   return (
     <div className="min-h-screen bg-[#10151e] flex items-center justify-center px-4">
@@ -165,7 +224,10 @@ function Login({ plano }) {
 
         <div className="flex items-center gap-2 mb-10 mt-6 select-none">
           <Logo scale={1} />
-          <div>
+          <div onClick={() => {
+            buildIdentifier().then(identifier => console.log(identifier))
+            console.log(isWithinRadius(-3.399342, -44.364647, -3.3977973, -44.3628696, 0.4))
+          }}>
             <h1 className="text-lg font-semibold leading-tight">TreinAI</h1>
             <p className="text-xs text-slate-400">Seu coach digital pessoal</p>
           </div>

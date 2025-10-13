@@ -15,7 +15,7 @@ import Profissional from '../models/Profissional.js';
 import mongoose from 'mongoose';
 import { registerTokenUsage } from '../middlewares/tokenLimitMiddleware.js';
 import { sendNotificationEmail } from '../utils/sendEmail.js';
-import { validateSecurityTicket, createSecurityTicketData, formatDeviceInfoForEmail } from '../utils/ticketManager.js';
+import { validateSecurityTicket } from '../utils/ticketManager.js';
 
 dotenv.config();
 
@@ -27,33 +27,6 @@ if (!SECRET_JWT) {
 }
 
 const SALT_ROUNDS = 10;
-
-/**
- * Calcula a distância entre duas coordenadas geográficas usando a fórmula de Haversine
- * @param {number} lat1 - Latitude do primeiro ponto
- * @param {number} lon1 - Longitude do primeiro ponto
- * @param {number} lat2 - Latitude do segundo ponto
- * @param {number} lon2 - Longitude do segundo ponto
- * @param {number} radiusKm - Raio em quilômetros para verificar proximidade
- * @returns {boolean} - True se a distância for menor ou igual ao raio especificado
- */
-function isWithinRadius(lat1, lon1, lat2, lon2, radiusKm) {
-  // Converter graus para radianos
-  const toRad = (deg) => deg * (Math.PI / 180);
-
-  const R = 6371; // Raio da Terra em km
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distância em km
-
-  return distance <= radiusKm;
-}
 
 // cria __filename e __dirname em ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -167,181 +140,6 @@ export const login = async (req, res) => {
     }
 
     // Logica de analise de device aqui abaixo..
-    // Só executa se o usuário permitiu a localização (location.lat e location.lon não são null)
-    if (location && location.lat !== null && location.lon !== null) {
-      // Inicializar histórico de dispositivos se não existir
-      if (!user.stats) user.stats = {};
-      if (!user.stats.deviceHistory) user.stats.deviceHistory = [];
-
-      // Verificar se estamos em ambiente de desenvolvimento ou se a localização é inválida
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      if (isDevelopment && location) {
-        location.lat = -11.1993055;
-        location.lon = -50.068226;
-      }
-      const hasValidLocation = location && typeof location.lat === 'number' && typeof location.lon === 'number';
-
-      // 1) Buscar dispositivo por identificador (deviceId) - verificação principal
-      let existingDevice = user.stats.deviceHistory.find(device => device.deviceId === identificador);
-
-      // 2) Se não encontrou por deviceId, buscar por systemInfo para evitar duplicatas
-      if (!existingDevice && systemInfo) {
-        existingDevice = user.stats.deviceHistory.find(device =>
-          device.systemInfo === systemInfo &&
-          (!device.deviceId || device.deviceId === identificador)
-        );
-
-        // Se encontrou um dispositivo com mesmo systemInfo, atualizar o deviceId
-        if (existingDevice && !existingDevice.deviceId) {
-          existingDevice.deviceId = identificador;
-        }
-      }
-
-      // 2) Buscar por systemInfo se não encontrou por deviceId
-      let similarDevices = [];
-      if (systemInfo) {
-        similarDevices = user.stats.deviceHistory.filter(device =>
-          device.systemInfo === systemInfo && device.deviceId !== identificador
-        );
-      }
-
-      // 3) Checar bloqueio por proximidade (raio = 2 km) - apenas em produção com localização válida
-      if (!isDevelopment && hasValidLocation && location.lat !== null && location.lon !== null) {
-        const blockedDevicesInRadius = user.stats.deviceHistory.filter(device => {
-          if (!device.bloqueado || !device.location || !device.location.lat || !device.location.lon) {
-            return false;
-          }
-          // Não verificar o próprio dispositivo
-          if (device.deviceId === identificador) {
-            return false;
-          }
-          return isWithinRadius(location.lat, location.lon, device.location.lat, device.location.lon, 2);
-        });
-
-        if (blockedDevicesInRadius.length > 0) {
-          // Incrementar tentativas de login falhadas
-          user.stats.failedLoginAttempts = (user.stats.failedLoginAttempts || 0) + 1;
-          await user.save();
-          return res.status(403).json({
-            msg: "Acesso negado. Dispositivo bloqueado detectado na região.",
-            bloqueado: true
-          });
-        }
-      }
-
-      // 4) Atualizar ou criar registro de device
-      if (existingDevice) {
-        // Verificar se o dispositivo está bloqueado
-        if (existingDevice.bloqueado) {
-          user.stats.failedLoginAttempts = (user.stats.failedLoginAttempts || 0) + 1;
-          await user.save();
-          return res.status(403).json({
-            msg: "Dispositivo bloqueado. Acesso negado.",
-            blocked: true
-          });
-        }
-
-        // Atualizar dispositivo existente
-        existingDevice.loginDate = getBrazilDate();
-        existingDevice.lastActivity = getBrazilDate();
-        existingDevice.loginCount = (existingDevice.loginCount || 0) + 1;
-
-        // Atualizar localização se válida
-        if (hasValidLocation) {
-          existingDevice.location = {
-            lat: location.lat,
-            lon: location.lon
-          };
-        }
-
-        // Atualizar systemInfo se fornecido
-        if (systemInfo) {
-          existingDevice.systemInfo = systemInfo;
-        }
-      } else {
-        // Verificar se já existe um dispositivo com o mesmo deviceId antes de criar
-        const duplicateDevice = user.stats.deviceHistory.find(device => device.deviceId === identificador);
-        if (duplicateDevice) {
-          // Se já existe, atualizar o existente em vez de criar novo
-          duplicateDevice.loginDate = getBrazilDate();
-          duplicateDevice.lastActivity = getBrazilDate();
-          duplicateDevice.loginCount = (duplicateDevice.loginCount || 0) + 1;
-
-          // Atualizar localização se válida
-          if (hasValidLocation) {
-            duplicateDevice.location = {
-              lat: location.lat,
-              lon: location.lon
-            };
-          }
-
-          // Atualizar systemInfo se fornecido
-          if (systemInfo) {
-            duplicateDevice.systemInfo = systemInfo;
-          }
-        } else {
-          // Criar novo dispositivo apenas se não existir
-          const newDevice = {
-            deviceId: identificador,
-            bloqueado: false,
-            systemInfo: systemInfo || null,
-            location: hasValidLocation ? { lat: location.lat, lon: location.lon } : { lat: null, lon: null },
-            firstLoginDate: getBrazilDate(),
-            loginDate: getBrazilDate(),
-            lastActivity: getBrazilDate(),
-            loginCount: 1,
-          };
-
-          user.stats.deviceHistory.push(newDevice);
-        }
-      }
-
-      // 5) Enviar alerta de segurança
-      try {
-        // Gerar dados do ticket de segurança
-        const ticketData = createSecurityTicketData(user._id, identificador, {
-          systemInfo,
-          location: hasValidLocation ? location : null,
-          userAgent: req.headers['user-agent'] || '',
-          ip: req.ip || req.connection.remoteAddress,
-          timestamp: getBrazilDate(),
-          isNewDevice: !existingDevice
-        });
-
-        // Formatar informações do dispositivo para o e-mail
-        const deviceInfo = formatDeviceInfoForEmail({
-          deviceId: identificador,
-          systemInfo,
-          location: hasValidLocation ? location : null,
-          userAgent: req.headers['user-agent'] || '',
-          loginDate: getBrazilDate(),
-          isNewDevice: !existingDevice
-        });
-
-        // Criar link para bloqueio do dispositivo
-        const blockLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login-nao-autorizado?ticket=${ticketData.ticket}`;
-
-        // Enviar e-mail de notificação
-        await sendNotificationEmail(
-          user.email,
-          'Novo acesso detectado em sua conta',
-          `
-          <h2>Novo acesso detectado</h2>
-          <p>Detectamos um novo acesso em sua conta:</p>
-          ${deviceInfo}
-          <p>Se este acesso não foi autorizado por você, clique no link abaixo para bloquear este dispositivo:</p>
-          <a href="${blockLink}" style="background-color: #dc3545; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Bloquear Dispositivo</a>
-          <p>Se você reconhece este acesso, pode ignorar este e-mail.</p>
-          `
-        );
-      } catch (emailError) {
-        console.error('Erro ao enviar e-mail de alerta de segurança:', emailError);
-        // Não interromper o fluxo de login por falha no e-mail
-      }
-    }
-
-    // 6) Persistir mudanças
-    await user.save();
     /*
 
     Schemma > deviceHistory: [{
@@ -432,10 +230,10 @@ Observações:
 // =======================
 export const signup = async (req, res) => {
   try {
-    const { email, password, username } = req.body;
+    const { email, password, nameername } = req.body;
 
     // Usar 'name' se disponível, senão usar 'username' para compatibilidade
-    const userName = username;
+    const userName = name || username;
 
     if (!email || !password || !userName) {
       return res.status(400).json({ msg: 'Email, senha e nome são obrigatórios.' });
@@ -486,13 +284,6 @@ export const signup = async (req, res) => {
 // =======================
 export const dashboard = async (req, res) => {
   try {
-    // Extrair parâmetros do corpo da requisição
-    const {
-      identificador,
-      systemInfo,
-      location
-    } = req.body;
-
     const user = await User.findOne({ email: req.userEmail }).select('-password -salt -tokens -__v');
     if (!user) {
       return res.status(404).json({ msg: "Usuário não encontrado no dashboard." });
@@ -502,153 +293,73 @@ export const dashboard = async (req, res) => {
     const ip = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'] || 'Dispositivo desconhecido';
 
-    // Só executa lógica de dispositivos se o usuário permitiu a localização (location.lat e location.lon não são null)
-    if (location && location.lat !== null && location.lon !== null) {
-      // Inicializar histórico de dispositivos se não existir
-      if (!user.stats) user.stats = {};
-      if (!user.stats.deviceHistory) user.stats.deviceHistory = [];
+    // Verificar se o dispositivo atual está bloqueado
+    let bloqueado = false;
 
-      // Verificar se estamos em ambiente de desenvolvimento ou se a localização é inválida
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      if (isDevelopment && location) {
-        location.lat = -11.1993055;
-        location.lon = -50.068226;
-      }
-      const hasValidLocation = location && typeof location.lat === 'number' && typeof location.lon === 'number';
+    // Inicializar deviceHistory se não existir (compatibilidade com versão antiga)
+    user.stats = user.stats || {};
+    user.stats.deviceHistory = user.stats.deviceHistory || [];
 
-      // Verificar se o dispositivo atual está bloqueado
-      let bloqueado = false;
-      let currentDeviceInfo = null;
+    // Se deviceHistory é um array de strings (versão antiga), converter para novo formato
+    if (user.stats.deviceHistory.length > 0 && typeof user.stats.deviceHistory[0] === 'string') {
+      // Converter formato antigo (strings) para novo formato (objetos)
+      console.log('[DASHBOARD] Migrando deviceHistory do formaigo para o novo');
 
-      // 1) Buscar dispositivo por identificador (deviceId)
-      let existingDevice = user.stats.deviceHistory.find(device => device.deviceId === identificador);
+      // Limpar o array antigo e inicializar como array vazio para o novo formato
+      user.seviceHistory = [];
 
-      // 3) Checar bloqueio por proximidade (raio = 2 km) - apenas em produção com localização válida
-      if (!isDevelopment && hasValidLocation && location.lat !== null && location.lon !== null) {
-        console.log(systemInfo, location)
-        const blockedDevicesInRadius = user.stats.deviceHistory.filter(device => {
-          if (!device.bloqueado || !device.location || !device.location.lat || !device.location.lon) {
-            return false;
+      // Não verificar bloqueio para dados migrados
+      bloqueado = false;
+    } else {
+      // Novo formato: array de objetos com informações detalhadas
+      try {
+        // Importar funções de detecção de dispositivo
+        const { analyzeDeviceFromRequest, updateExistingDevice } = await import('../utieDetection.js');
+
+        // Analisar dispositivo atual para comparação passando o histórico existente
+        const currentDeviceInfo = await analyzeDeviceFromRequest(req, us.deviceHistory);
+
+        // Procurar dispositivo correspondente no histórico baseado no deviceId
+        const matchingDevice = user.stats.deviceHistory.find(device => device.deviceId === curreInfo.deviceId);
+
+        if (matchingDevice) {
+          bloqueado = matchingDeeado || false;
+
+          // Atualizar última atividade se não estiver bloqueado
+          if (!bloqueado) {
+            const updatedDevice = updateExistingDevice(matchingDevice, currentDeviceInfo);
+            const deviceIndex = user.stats.deviceHistory.findIndex(d => d.deviceId === matchingDevice.deviceId);
+            user.stats.deviceHistory[deviceIndex] = updatedDevice;
           }
-          // Não verificar o próprio dispositivo
-          if (device.deviceId === identificador) {
-            return false;
-          }
-          return isWithinRadius(location.lat, location.lon, device.location.lat, device.location.lon, 2);
-        });
-
-        if (blockedDevicesInRadius.length > 0) {
-          return res.status(403).json({
-            msg: "Acesso negado. Dispositivo bloqueado detectado na sua região.",
-            bloqueado: true
-          });
         }
-      }
-
-      // 4) Verificar se o dispositivo está bloqueado
-      if (existingDevice && existingDevice.bloqueado) {
-        return res.status(403).json({
-          msg: "Dispositivo bloqueado. Acesso negado.",
-          bloqueado: true
-        });
-      }
-
-      // 5) Atualizar ou criar registro de device
-      if (existingDevice) {
-        // Atualizar dispositivo existente
-        existingDevice.loginDate = getBrazilDate();
-        existingDevice.lastActivity = getBrazilDate();
-        existingDevice.loginCount = (existingDevice.loginCount || 0) + 1;
-
-        // Atualizar localização se válida
-        if (hasValidLocation) {
-          existingDevice.location = {
-            lat: location.lat,
-            lon: location.lon
-          };
-        }
-
-        // Atualizar systemInfo se fornecido
-        if (systemInfo) {
-          existingDevice.systemInfo = systemInfo;
-        }
-
-        currentDeviceInfo = existingDevice;
-      } else {
-        // Verificar se já existe um dispositivo com o mesmo deviceId antes de criar
-        const duplicateDevice = user.stats.deviceHistory.find(device => device.deviceId === identificador);
-        if (duplicateDevice) {
-          // Se já existe, atualizar o existente em vez de criar novo
-          duplicateDevice.loginDate = getBrazilDate();
-          duplicateDevice.lastActivity = getBrazilDate();
-          duplicateDevice.loginCount = (duplicateDevice.loginCount || 0) + 1;
-
-          // Atualizar localização se válida
-          if (hasValidLocation) {
-            duplicateDevice.location = {
-              lat: location.lat,
-              lon: location.lon
-            };
-          }
-
-          // Atualizar systemInfo se fornecido
-          if (systemInfo) {
-            duplicateDevice.systemInfo = systemInfo;
-          }
-
-          currentDeviceInfo = duplicateDevice;
-        } else {
-          // Criar novo dispositivo apenas se não existir
-          const newDevice = {
-            deviceId: identificador,
-            bloqueado: false,
-            systemInfo: systemInfo || null,
-            location: hasValidLocation ? { lat: location.lat, lon: location.lon } : { lat: null, lon: null },
-            firstLoginDate: getBrazilDate(),
-            loginDate: getBrazilDate(),
-            lastActivity: getBrazilDate(),
-            loginCount: 1,
-          };
-
-          user.stats.deviceHistory.push(newDevice);
-          currentDeviceInfo = newDevice;
-        }
-      }
-
-      // Atualizar estatísticas (apenas se não estiver bloqueado)
-      if (!bloqueado) {
-        user.stats.lastLogin = new Date(getBrazilDate());
-
-        // Manter compatibilidade com ipHistory
-        user.stats.ipHistory = user.stats.ipHistory || [];
-        if (!user.stats.ipHistory.includes(ip)) {
-          user.stats.ipHistory.push(ip);
-        }
-
-        await user.save();
+      } catch (error) {
+        console.error('[DASHBOARD] Erro ao verificar dispositivo:', error);
+        // Em caso de erro, não bloquear o acesso
+        bloqueado = false;
       }
     }
 
-    // Preparar resposta com informações do dispositivo atual
-    const response = {
+    // Atualizar estatísticas (apenas se não estiver bloqueado)
+    if (!bloqueado) {
+      user.stats.lastLogin = new Date(getBrazilDate());
+
+      // Manter compatibilidade com ipHistory
+      user.stats.ipHistory = user.stats.ipHistory || [];
+      if (!user.stats.ipHistory.includes(ip)) {
+        user.stats.ipHistory.push(ip);
+      }
+
+      // Não adicionar mais strings ao deviceHistory - apenas objetos válidos
+      // O deviceHistory agora só aceita objetos com o schema correto
+
+      await user.save();
+    }
+
+    return res.json({
       msg: `Bem-vindo ao dashboard, ${user.username}!`,
       user,
       bloqueado
-    };
-
-    // Adicionar informações do dispositivo atual se disponível
-    if (currentDeviceInfo) {
-      response.currentDevice = {
-        deviceId: currentDeviceInfo.deviceId,
-        systemInfo: currentDeviceInfo.systemInfo,
-        location: currentDeviceInfo.location,
-        isNewDevice: !existingDevice,
-        lastAccess: currentDeviceInfo.lastActivity,
-        loginCount: currentDeviceInfo.loginCount
-      };
-    }
-
-    return res.json(response);
+    });
   } catch (err) {
     return res.status(500).json({ msg: "Erro ao acessar dashboard", error: err.message });
   }
@@ -1255,17 +966,17 @@ export const pegarUser = async (req, res) => {
 // Nova rota para bloquear dispositivos não autorizados
 export const loginNaoAutorizado = async (req, res) => {
   try {
-    const { ticket } = req.body;
+    const { ticket, userId, deviceId } = req.body;
 
     // Validar parâmetros obrigatórios
-    if (!ticket) {
+    if (!ticket || !userId || !deviceId) {
       return res.status(400).json({
         success: false,
-        message: 'Ticket é obrigatório'
+        message: 'Ticket, userId e deviceId são obrigatórios'
       });
     }
 
-    // Validar o ticket de segurança e extrair dados
+    // Validar o ticket de segurança
     const ticketData = validateSecurityTicket(ticket);
     if (!ticketData) {
       return res.status(400).json({
@@ -1274,8 +985,13 @@ export const loginNaoAutorizado = async (req, res) => {
       });
     }
 
-    // Extrair userId e deviceId do ticket
-    const { userId, deviceId } = ticketData;
+    // Verificar se o ticket corresponde ao userId e deviceId
+    if (ticketData.userId !== userId || ticketData.deviceId !== deviceId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ticket não corresponde aos dados fornecidos'
+      });
+    }
 
     // Buscar o usuário
     const user = await User.findById(userId);
@@ -1287,20 +1003,14 @@ export const loginNaoAutorizado = async (req, res) => {
     }
 
     // Inicializar deviceHistory se não existir
-    if (!user.stats) user.stats = {};
-    if (!user.stats.deviceHistory) user.stats.deviceHistory = [];
+    if (!user.stats.deviceHistory) {
+      user.stats.deviceHistory = [];
+    }
 
-    // Encontrar o dispositivo específico no histórico por deviceId
-    let deviceIndex = user.stats.deviceHistory.findIndex(
+    // Encontrar o dispositivo específico no histórico
+    const deviceIndex = user.stats.deviceHistory.findIndex(
       device => device.deviceId === deviceId
     );
-
-    // Se não encontrou por deviceId, tentar buscar por systemInfo do ticket
-    if (deviceIndex === -1 && ticketData.deviceInfo && ticketData.deviceInfo.location && ticketData.deviceInfo.systemInfo) {
-      deviceIndex = user.stats.deviceHistory.findIndex(
-        device => device.location === ticketData.deviceInfo.location && device.systemInfo === ticketData.deviceInfo.systemInfo
-      );
-    }
 
     if (deviceIndex === -1) {
       return res.status(404).json({
@@ -1311,13 +1021,14 @@ export const loginNaoAutorizado = async (req, res) => {
 
     // Atualizar o campo bloqueado para true
     user.stats.deviceHistory[deviceIndex].bloqueado = true;
-    user.stats.deviceHistory[deviceIndex].blockedAt = getBrazilDate();
+    user.stats.deviceHistory[deviceIndex].blockedAt = new Date();
+    user.stats.deviceHistory[deviceIndex].blockedReason = 'Bloqueado pelo usuário via link de segurança';
 
     // Salvar as alterações
     await user.save();
 
     // Log de segurança
-    console.log(`[SECURITY] Dispositivo ${deviceId} bloqueado para usuário ${userId} em ${new Date(getBrazilDate()).toISOString()}`);
+    console.log(`[SECURITY] Dispositivo ${deviceId} bloqueado para usuário ${userId} em ${new Date().toISOString()}`);
 
     return res.status(200).json({
       success: true,
@@ -1329,10 +1040,7 @@ export const loginNaoAutorizado = async (req, res) => {
           systemInfo: user.stats.deviceHistory[deviceIndex].systemInfo,
           location: user.stats.deviceHistory[deviceIndex].location,
           loginCount: user.stats.deviceHistory[deviceIndex].loginCount,
-          lastActivity: user.stats.deviceHistory[deviceIndex].lastActivity,
-          firstLoginDate: user.stats.deviceHistory[deviceIndex].firstLoginDate,
-          loginDate: user.stats.deviceHistory[deviceIndex].loginDate,
-          userAgent: user.stats.deviceHistory[deviceIndex].userAgent
+          lastActivity: user.stats.deviceHistory[deviceIndex].lastActivity
         }
       }
     });
