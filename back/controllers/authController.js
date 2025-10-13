@@ -498,6 +498,9 @@ export const dashboard = async (req, res) => {
       return res.status(404).json({ msg: "Usuário não encontrado no dashboard." });
     }
 
+    let bloqueado = false;
+    let currentDeviceInfo = null;
+    
     // Coletar dados do acesso atual
     const ip = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'] || 'Dispositivo desconhecido';
@@ -517,8 +520,6 @@ export const dashboard = async (req, res) => {
       const hasValidLocation = location && typeof location.lat === 'number' && typeof location.lon === 'number';
 
       // Verificar se o dispositivo atual está bloqueado
-      let bloqueado = false;
-      let currentDeviceInfo = null;
 
       // 1) Buscar dispositivo por identificador (deviceId)
       let existingDevice = user.stats.deviceHistory.find(device => device.deviceId === identificador);
@@ -616,17 +617,18 @@ export const dashboard = async (req, res) => {
       }
 
       // Atualizar estatísticas (apenas se não estiver bloqueado)
-      if (!bloqueado) {
-        user.stats.lastLogin = new Date(getBrazilDate());
+    }
 
-        // Manter compatibilidade com ipHistory
-        user.stats.ipHistory = user.stats.ipHistory || [];
-        if (!user.stats.ipHistory.includes(ip)) {
-          user.stats.ipHistory.push(ip);
-        }
+    if (!bloqueado) {
+      user.stats.lastLogin = new Date(getBrazilDate());
 
-        await user.save();
+      // Manter compatibilidade com ipHistory
+      user.stats.ipHistory = user.stats.ipHistory || [];
+      if (!user.stats.ipHistory.includes(ip)) {
+        user.stats.ipHistory.push(ip);
       }
+
+      await user.save();
     }
 
     // Preparar resposta com informações do dispositivo atual

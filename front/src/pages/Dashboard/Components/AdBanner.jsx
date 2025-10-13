@@ -316,7 +316,7 @@ const AdBanner = ({ tema = 'light', displayTime = 10000, user }) => {
         <div className="flex items-center gap-3">
           <Logo className="w-8 h-8" />
           <span className={`text-lg font-semibold ${classes.text}`}>
-            TREINAI
+            TreinAI - <a href="/dashboard/anuncios" className='text-blue-300 border-b-2 border-blue-300'>Anuncie o seu negocio.</a>
           </span>
         </div>
       </div>
