@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { motion } from 'framer-motion'
 import api from '../../../Api'
 import locationsRaw from '../../../data/locations.json'
 import { buildImageUrl } from '../../../utils/imageUtils'
 import { getBrazilDate } from '../../../../helpers/getBrazilDate'
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Componente Locais — exibe 2 colunas:
 //  - Visualizar Meus Locais (com botão cancelar assinatura / deletar local / editar)
@@ -458,171 +458,657 @@ const Locais = ({ user = {}, tema = 'light' }) => {
           {error && <div className="mb-2 text-sm text-red-500">{error}</div>}
 
           <form onSubmit={submitLocal}>
-            <label className="block text-sm">Nome do Local <span className="text-red-500">*</span></label>
-            <input className={`w-full p-2 rounded border mt-1 ${fieldErrors.localName ? 'border-red-500' : ''}`} value={form.localName} onChange={e => handleChange('localName', e.target.value)} />
-            {fieldErrors.localName && <div className="text-red-500 text-xs mt-1">{fieldErrors.localName}</div>}
-
-            <label className="block text-sm mt-3">Descrição <span className="text-red-500">*</span></label>
-            <textarea className={`w-full p-2 rounded border mt-1 ${fieldErrors.localDescricao ? 'border-red-500' : ''}`} value={form.localDescricao} onChange={e => handleChange('localDescricao', e.target.value)} />
-            {fieldErrors.localDescricao && <div className="text-red-500 text-xs mt-1">{fieldErrors.localDescricao}</div>}
-
-            <label className="block text-sm mt-3">Link <span className="text-red-500">*</span></label>
-            <input className={`w-full p-2 rounded border mt-1 ${fieldErrors.link ? 'border-red-500' : ''}`} value={form.link} onChange={e => handleChange('link', e.target.value)} />
-            {fieldErrors.link && <div className="text-red-500 text-xs mt-1">{fieldErrors.link}</div>}
-
-            <label className="block text-sm mt-3">Tipo de Local <span className="text-red-500">*</span></label>
-            <select disabled={editing && !saveAsNew} className={`w-full p-2 rounded border mt-1 ${fieldErrors.localType ? 'border-red-500' : ''} ${editing && !saveAsNew ? 'opacity-60 cursor-not-allowed' : ''}`} value={form.localType} onChange={e => handleChange('localType', e.target.value)}>
-              {tiposPermitidos.map(t => <option className={`text-black`} key={t} value={t}>{t}</option>)}
-            </select>
-            {fieldErrors.localType && <div className="text-red-500 text-xs mt-1">{fieldErrors.localType}</div>}
-            {editing && !saveAsNew && <div className="text-xs mt-1 text-yellow-600">O tipo não pode ser alterado ao editar — cada tipo tem preço diferente.</div>}
-
-            <label className="block text-sm mt-3">País <span className="text-red-500">*</span></label>
-            <select className={`w-full p-2 rounded border mt-1 ${fieldErrors.country ? 'border-red-500' : ''}`} value={form.country} onChange={e => handleChange('country', e.target.value)}>
-              <option className={`text-black`} value="">Selecione um país</option>
-              {countries.map(c => <option className={`text-black`} key={c.code} value={c.name}>{c.name}</option>)}
-            </select>
-            {fieldErrors.country && <div className="text-red-500 text-xs mt-1">{fieldErrors.country}</div>}
-
-            <label className="block text-sm mt-3">Estado <span className="text-red-500">*</span></label>
-            <select className={`w-full p-2 rounded border mt-1 ${fieldErrors.state ? 'border-red-500' : ''}`} value={form.state} onChange={e => handleChange('state', e.target.value)}>
-              <option className={`text-black`} value="">Selecione um estado</option>
-              {states.map(s => <option className={`text-black`} key={s} value={s}>{s}</option>)}
-            </select>
-            {fieldErrors.state && <div className="text-red-500 text-xs mt-1">{fieldErrors.state}</div>}
-
-            <label className="block text-sm mt-3">Cidade <span className="text-red-500">*</span></label>
-            <select className={`w-full p-2 rounded border mt-1 ${fieldErrors.city ? 'border-red-500' : ''}`} value={form.city} onChange={e => handleChange('city', e.target.value)}>
-              <option className={`text-black`} value="">Selecione uma cidade</option>
-              {cities.map(c => <option className={`text-black`} key={c} value={c}>{c}</option>)}
-            </select>
-            {fieldErrors.city && <div className="text-red-500 text-xs mt-1">{fieldErrors.city}</div>}
-
-            <label className="block text-sm mt-3">Imagem <span className="text-red-500">*</span></label>
-
-            {/* 
-              Política: não tentamos (e não conseguimos) setar value em <input type="file" /> via JS com uma URL.
-              Em vez disso, quando estamos editando e há uma imageUrl existente mostramos o preview e deixamos o usuário
-              optar por "Substituir imagem" (exibe input file) ou manter a atual. Isso resolve o problema de o input não
-              receber a URL.
-            */}
-
-            {editing && imagePreview && !replaceImage ? (
-              <div className="mt-2">
-                <div className="text-xs text-slate-500 mb-1">Imagem atual:</div>
-                <div className="flex items-center gap-3">
-                  <img src={imagePreview} alt="imagem atual" className="w-48 h-28 object-cover rounded border" />
-                  <div className="flex flex-col gap-2">
-                    <button type="button" onClick={() => {
-                      // quando o usuário optar por substituir, limpamos o form.image (string) e mostramos o input
-                      setReplaceImage(true)
-                      setForm(f => ({ ...f, image: null }))
-                      // limpa preview (o usuário poderá ver o preview do arquivo que escolher)
-                      if (imagePreview && imagePreview.startsWith('blob:')) {
-                        try { URL.revokeObjectURL(imagePreview) } catch (e) { /* ignore */ }
-                      }
-                      setImagePreview(null)
-                      if (fileInputRef.current) fileInputRef.current.value = null
-                    }} className="px-3 py-1 rounded border text-sm">Substituir imagem</button>
-                    <button type="button" onClick={() => {
-                      // permite remover completamente a imagem atual
-                      const ok = window.confirm('Remover imagem atual?')
-                      if (!ok) return
-                      setForm(f => ({ ...f, image: null }))
-                      setImagePreview(null)
-                      setReplaceImage(true)
-                      if (fileInputRef.current) fileInputRef.current.value = null
-                    }} className="px-3 py-1 rounded bg-red-500 text-white text-sm">Remover imagem</button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-2">
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={e => handleFile(e.target.files?.[0] || null)} className={`w-full mt-1 ${fieldErrors.image ? 'border-red-500' : ''}`} />
-                {/* se estávamos em modo de edição e o usuário abriu o input para substituir, mostramos botão para cancelar a substituição */}
-                {editing && replaceImage && (
-                  <div className="mt-2">
-                    <button type="button" onClick={() => {
-                      // cancelar substituição: restaurar preview a partir de form.image (string) se existir
-                      setReplaceImage(false)
-                      setForm(f => ({ ...f, image: form.image }))
-                      setImagePreview(form.image || null)
-                      if (fileInputRef.current) fileInputRef.current.value = null
-                    }} className="px-3 py-1 rounded border text-sm">Manter imagem atual</button>
-                  </div>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.25, duration: 0.3 }}
+            >
+              <label className="block text-sm font-medium mb-2">
+                Nome do Local <span className="text-red-500">*</span>
+              </label>
+              <input className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 resize-none ${
+                  fieldErrors.localName 
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
+                    : tema === 'dark' 
+                      ? 'border-slate-600 bg-slate-700/50 text-white placeholder-slate-400' 
+                      : 'border-slate-300 bg-white text-slate-900 placeholder-slate-500'
+                }`} 
+                rows="3"
+                value={form.localName} 
+                onChange={e => handleChange('localName', e.target.value)}
+                placeholder="Descreva seu local"
+              />
+              <AnimatePresence>
+                {fieldErrors.localName && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    className="text-red-500 text-xs mt-1"
+                  >
+                    {fieldErrors.localName}
+                  </motion.div>
                 )}
-              </div>
-            )}
+              </AnimatePresence>
+            </motion.div>
 
-            {fieldErrors.image && <div className="text-red-500 text-xs mt-1">{fieldErrors.image}</div>}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.25, duration: 0.3 }}
+            >
+              <label className="block text-sm font-medium mb-2">
+                Descrição <span className="text-red-500">*</span>
+              </label>
+              <textarea 
+                className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 resize-none ${
+                  fieldErrors.localDescricao 
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
+                    : tema === 'dark' 
+                      ? 'border-slate-600 bg-slate-700/50 text-white placeholder-slate-400' 
+                      : 'border-slate-300 bg-white text-slate-900 placeholder-slate-500'
+                }`} 
+                rows="3"
+                value={form.localDescricao} 
+                onChange={e => handleChange('localDescricao', e.target.value)}
+                placeholder="Descreva seu local"
+              />
+              <AnimatePresence>
+                {fieldErrors.localDescricao && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    className="text-red-500 text-xs mt-1"
+                  >
+                    {fieldErrors.localDescricao}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
-            {/* When editing, show the "Salvar como novo" checkbox (checked by default) to avoid irreversible overwrite */}
-            {editing && (
-              <div className="mt-3 text-sm">
-                <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" checked={saveAsNew} onChange={() => {
-                    const next = !saveAsNew
-                    setSaveAsNew(next)
-                    // se o usuário optar por NÃO salvar como novo, então colocamos localId para permitir edição (sobrescrever)
-                    if (!next && editingSourceId) {
-                      setForm(f => ({ ...f, localId: editingSourceId }))
-                    } else {
-                      // se voltar para salvar como novo, limpamos localId para criar novo registro
-                      setForm(f => ({ ...f, localId: null }))
-                    }
-                  }} />
-                  Salvar como novo (não sobrescrever o local original)
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.3 }}
+            >
+              <label className="block text-sm font-medium mb-2">
+                Link <span className="text-red-500">*</span>
+              </label>
+              <input 
+                className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 ${
+                  fieldErrors.link 
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
+                    : tema === 'dark' 
+                      ? 'border-slate-600 bg-slate-700/50 text-white placeholder-slate-400' 
+                      : 'border-slate-300 bg-white text-slate-900 placeholder-slate-500'
+                }`} 
+                value={form.link} 
+                onChange={e => handleChange('link', e.target.value)}
+                placeholder="https://exemplo.com"
+              />
+              <AnimatePresence>
+                {fieldErrors.link && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    className="text-red-500 text-xs mt-1"
+                  >
+                    {fieldErrors.link}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.35, duration: 0.3 }}
+            >
+              <label className="block text-sm font-medium mb-2">
+                Tipo de Local <span className="text-red-500">*</span>
+              </label>
+              <select 
+                disabled={editing && !saveAsNew} 
+                className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 ${
+                  fieldErrors.localType 
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
+                    : tema === 'dark' 
+                      ? 'border-slate-600 bg-slate-700/50 text-white' 
+                      : 'border-slate-300 bg-white text-slate-900'
+                } ${editing && !saveAsNew ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`} 
+                value={form.localType} 
+                onChange={e => handleChange('localType', e.target.value)}
+              >
+                {tiposPermitidos.map(t => (
+                  <option className="text-black" key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <AnimatePresence>
+                {fieldErrors.localType && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    className="text-red-500 text-xs mt-1"
+                  >
+                    {fieldErrors.localType}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {editing && !saveAsNew && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-xs mt-1 text-yellow-600 dark:text-yellow-400"
+                >
+                  O tipo não pode ser alterado ao editar — cada tipo tem preço diferente.
+                </motion.div>
+              )}
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4, duration: 0.3 }}
+              >
+                <label className="block text-sm font-medium mb-2">
+                  País <span className="text-red-500">*</span>
                 </label>
-                {!saveAsNew && <div className="text-xs mt-1 text-yellow-600">Atenção: ao desmarcar essa opção, você irá sobrescrever o local original — ação potencialmente irreversível.</div>}
-              </div>
+                <select 
+                  className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 ${
+                    fieldErrors.country 
+                      ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
+                      : tema === 'dark' 
+                        ? 'border-slate-600 bg-slate-700/50 text-white' 
+                        : 'border-slate-300 bg-white text-slate-900'
+                  }`} 
+                  value={form.country} 
+                  onChange={e => handleChange('country', e.target.value)}
+                >
+                  <option className="text-black" value="">Selecione um país</option>
+                  {countries.map(c => (
+                    <option className="text-black" key={c.code} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+                <AnimatePresence>
+                  {fieldErrors.country && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className="text-red-500 text-xs mt-1"
+                    >
+                      {fieldErrors.country}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.45, duration: 0.3 }}
+              >
+                <label className="block text-sm font-medium mb-2">
+                  Estado <span className="text-red-500">*</span>
+                </label>
+                <select 
+                  className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 ${
+                    fieldErrors.state 
+                      ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
+                      : tema === 'dark' 
+                        ? 'border-slate-600 bg-slate-700/50 text-white' 
+                        : 'border-slate-300 bg-white text-slate-900'
+                  }`} 
+                  value={form.state} 
+                  onChange={e => handleChange('state', e.target.value)}
+                >
+                  <option className="text-black" value="">Selecione um estado</option>
+                  {states.map(s => (
+                    <option className="text-black" key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <AnimatePresence>
+                  {fieldErrors.state && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className="text-red-500 text-xs mt-1"
+                    >
+                      {fieldErrors.state}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5, duration: 0.3 }}
+              >
+                <label className="block text-sm font-medium mb-2">
+                  Cidade <span className="text-red-500">*</span>
+                </label>
+                <select 
+                  className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 ${
+                    fieldErrors.city 
+                      ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
+                      : tema === 'dark' 
+                        ? 'border-slate-600 bg-slate-700/50 text-white' 
+                        : 'border-slate-300 bg-white text-slate-900'
+                  }`} 
+                  value={form.city} 
+                  onChange={e => handleChange('city', e.target.value)}
+                >
+                  <option className="text-black" value="">Selecione uma cidade</option>
+                  {cities.map(c => (
+                    <option className="text-black" key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <AnimatePresence>
+                  {fieldErrors.city && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      className="text-red-500 text-xs mt-1"
+                    >
+                      {fieldErrors.city}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.55, duration: 0.3 }}
+            >
+              <label className="block text-sm font-medium mb-2">
+                Imagem <span className="text-red-500">*</span>
+              </label>
+
+              {editing && imagePreview && !replaceImage ? (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="mt-2"
+                >
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">Imagem atual:</div>
+                  <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <motion.img 
+                      whileHover={{ scale: 1.05 }}
+                      transition={{ duration: 0.2 }}
+                      src={imagePreview} 
+                      alt="imagem atual" 
+                      className="w-32 h-20 object-cover rounded-lg border shadow-sm" 
+                    />
+                    <div className="flex flex-col gap-2">
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        type="button" 
+                        onClick={() => {
+                          setReplaceImage(true)
+                          setForm(f => ({ ...f, image: null }))
+                          if (imagePreview && imagePreview.startsWith('blob:')) {
+                            try { URL.revokeObjectURL(imagePreview) } catch (e) { /* ignore */ }
+                          }
+                          setImagePreview(null)
+                          if (fileInputRef.current) fileInputRef.current.value = null
+                        }} 
+                        className="px-4 py-2 rounded-lg border border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 text-sm font-medium"
+                      >
+                        Substituir imagem
+                      </motion.button>
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        type="button" 
+                        onClick={() => {
+                          const ok = window.confirm('Remover imagem atual?')
+                          if (!ok) return
+                          setForm(f => ({ ...f, image: null }))
+                          setImagePreview(null)
+                          setReplaceImage(true)
+                          if (fileInputRef.current) fileInputRef.current.value = null
+                        }} 
+                        className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-all duration-200 text-sm font-medium"
+                      >
+                        Remover imagem
+                      </motion.button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="mt-2">
+                  <motion.div
+                    whileHover={{ scale: 1.01 }}
+                    className="relative"
+                  >
+                    <input 
+                      ref={fileInputRef} 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={e => handleFile(e.target.files?.[0] || null)} 
+                      className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-400 ${
+                        fieldErrors.image 
+                          ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
+                          : tema === 'dark' 
+                            ? 'border-slate-600 bg-slate-700/50 text-white' 
+                            : 'border-slate-300 bg-white text-slate-900'
+                      }`} 
+                    />
+                  </motion.div>
+                  {editing && replaceImage && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-2"
+                    >
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        type="button" 
+                        onClick={() => {
+                          setReplaceImage(false)
+                          setForm(f => ({ ...f, image: form.image }))
+                          setImagePreview(form.image || null)
+                          if (fileInputRef.current) fileInputRef.current.value = null
+                        }} 
+                        className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
+                      >
+                        Manter imagem atual
+                      </motion.button>
+                    </motion.div>
+                  )}
+                </div>
+              )}
+
+              <AnimatePresence>
+                {fieldErrors.image && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    className="text-red-500 text-xs mt-1"
+                  >
+                    {fieldErrors.image}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {editing && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6, duration: 0.3 }}
+                className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg"
+              >
+                <label className="inline-flex items-center gap-3 cursor-pointer">
+                  <motion.input 
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    type="checkbox" 
+                    checked={saveAsNew} 
+                    onChange={() => {
+                      const next = !saveAsNew
+                      setSaveAsNew(next)
+                      if (!next && editingSourceId) {
+                        setForm(f => ({ ...f, localId: editingSourceId }))
+                      } else {
+                        setForm(f => ({ ...f, localId: null }))
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <span className="text-sm font-medium">
+                    Salvar como novo (não sobrescrever o local original)
+                  </span>
+                </label>
+                {!saveAsNew && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="text-xs mt-2 text-yellow-700 dark:text-yellow-400"
+                  >
+                    ⚠️ Atenção: ao desmarcar essa opção, você irá sobrescrever o local original — ação potencialmente irreversível.
+                  </motion.div>
+                )}
+              </motion.div>
             )}
 
-            <div className="flex gap-3 mt-4">
-              <button type="submit" disabled={submitting || !isFormValid} className="px-4 py-2 rounded bg-blue-600 text-white">{submitting ? 'Enviando...' : (form.localId ? 'Salvar Alterações' : (editing ? 'Adicionar como novo' : 'Adicionar Local'))}</button>
-              <button type="button" onClick={resetForm} className="px-4 py-2 rounded border">Limpar</button>
-            </div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.65, duration: 0.3 }}
+              className="flex gap-3 pt-4"
+            >
+              <motion.button 
+                whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)" }}
+                whileTap={{ scale: 0.98 }}
+                type="submit" 
+                disabled={submitting || !isFormValid} 
+                className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                  submitting || !isFormValid
+                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-lg'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  {submitting && (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                    />
+                  )}
+                  {submitting ? 'Enviando...' : (form.localId ? 'Salvar Alterações' : (editing ? 'Adicionar como novo' : 'Adicionar Local'))}
+                </div>
+              </motion.button>
+              <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                type="button" 
+                onClick={resetForm} 
+                className="px-6 py-3 rounded-lg border border-slate-300 dark:border-slate-600 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
+              >
+                Limpar
+              </motion.button>
+            </motion.div>
           </form>
-          <p className="mt-3 text-xs text-slate-500">Observação: todos os campos são obrigatórios antes de publicar. Se seu backend exigir criação de pagamento/assinatura antes do cadastro, adapte a chamada para '/createPayment' conforme sua API.</p>
+          
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.7, duration: 0.3 }}
+            className="mt-4 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700"
+          >
+            💡 <strong>Observação:</strong> todos os campos são obrigatórios antes de publicar. Se seu backend exigir criação de pagamento/assinatura antes do cadastro, adapte a chamada para '/createPayment' conforme sua API.
+          </motion.p>
         </motion.section>
 
         {/* LISTA DE LOCAIS */}
-        <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`rounded-2xl p-6 shadow overflow-auto max-h-[70vh] ${tema === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
-          <h2 className="text-xl font-semibold mb-3">Meus Locais</h2>
-          {loading && <div>Carregando...</div>}
-          {!loading && meusLocais.length === 0 && <div className="text-sm">Você ainda não tem locais cadastrados.</div>}
+        <motion.section 
+          initial={{ opacity: 0, y: 20, scale: 0.95 }} 
+          animate={{ opacity: 1, y: 0, scale: 1 }} 
+          transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+          className={`rounded-2xl p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl overflow-hidden ${
+            tema === 'dark' 
+              ? 'bg-slate-800/90 border border-slate-700/50' 
+              : 'bg-white/90 border border-slate-200/50'
+          }`}
+        >
+          <motion.h2 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2, duration: 0.3 }}
+            className="text-xl font-semibold mb-4 flex items-center gap-2"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="w-2 h-2 bg-green-500 rounded-full"
+            />
+            Meus Locais
+            {meusLocais.length > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="ml-2 px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full font-medium"
+              >
+                {meusLocais.length}
+              </motion.span>
+            )}
+          </motion.h2>
+          
+          <div className="max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
+            <AnimatePresence>
+              {loading && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex items-center justify-center py-8"
+                >
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full"
+                  />
+                  <span className="ml-3 text-slate-600 dark:text-slate-400">Carregando...</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            
+            <AnimatePresence>
+              {!loading && meusLocais.length === 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="text-center py-12"
+                >
+                  <motion.div
+                    animate={{ y: [0, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="text-6xl mb-4"
+                  >
+                    📍
+                  </motion.div>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    Você ainda não tem locais cadastrados.
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-500 mt-2">
+                    Comece adicionando seu primeiro local!
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          <div className="space-y-3 mt-2">
-            {meusLocais.map(local => (
-              <div key={local.localId || local._id || Math.random()} className="p-3 rounded border flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  {/* thumbnail: prefer local.imageUrl, se não tiver, mostra placeholder */}
-                  <div className="w-20 h-12 bg-slate-100 rounded overflow-hidden flex-shrink-0">
-                    {local.imageUrl ? (
-                      <img src={buildImageUrl(local.imageUrl)} alt={local.localName} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Sem imagem</div>
-                    )}
-                  </div>
+            <div className="space-y-3">
+              <AnimatePresence>
+                {meusLocais.map((local, index) => (
+                  <motion.div 
+                    key={local.localId || local._id || Math.random()}
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    whileHover={{ y: -2, boxShadow: "0 8px 25px rgba(0,0,0,0.1)" }}
+                    className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-700 transition-all duration-200 hover:border-blue-300 dark:hover:border-blue-600"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-4 flex-1">
+                        <motion.div 
+                          whileHover={{ scale: 1.05 }}
+                          className="w-24 h-16 bg-slate-100 dark:bg-slate-600 rounded-lg overflow-hidden flex-shrink-0 shadow-sm"
+                        >
+                          {local.imageUrl ? (
+                            <img 
+                              src={buildImageUrl(local.imageUrl)} 
+                              alt={local.localName} 
+                              className="w-full h-full object-cover transition-transform duration-200 hover:scale-110" 
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 dark:text-slate-500">
+                              <motion.div
+                                animate={{ rotate: [0, 10, -10, 0] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                              >
+                                🖼️
+                              </motion.div>
+                            </div>
+                          )}
+                        </motion.div>
 
-                  <div>
-                    <div className="font-semibold">{local.localName}</div>
-                    <div className="text-xs text-slate-500">{local.localType} • {local.city} - {local.state} • {local.country}</div>
-                    <div className="text-xs mt-1">Status: <span className={`font-medium uppercase ${local.status === 'ativo' ? 'text-green-600' : 'text-yellow-600'}`}>{local.status}</span></div>
-                    <div className="text-xs mt-1">Impressões: {local.estatisticas?.impressoes ?? 0} • Cliques: {local.estatisticas?.cliques ?? 0}</div>
-                  </div>
-                </div>
+                        <div className="flex-1 min-w-0">
+                          <motion.h3 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="font-semibold text-slate-900 dark:text-white truncate"
+                          >
+                            {local.localName}
+                          </motion.h3>
+                          <motion.p 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.1 }}
+                            className="text-xs text-slate-500 dark:text-slate-400 mt-1"
+                          >
+                            {local.localType} • {local.city} - {local.state} • {local.country}
+                          </motion.p>
+                          <div className="flex items-center gap-4 mt-2 text-xs">
+                            <motion.div
+                              whileHover={{ scale: 1.05 }}
+                              className={`px-2 py-1 rounded-full font-medium uppercase ${
+                                local.status === 'ativo' 
+                                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                                  : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                              }`}
+                            >
+                              {local.status}
+                            </motion.div>
+                            <span className="text-slate-500 dark:text-slate-400">
+                              👁️ {local.estatisticas?.impressoes ?? 0} • 👆 {local.estatisticas?.cliques ?? 0}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-                <div className="flex flex-col items-end gap-2">
-                  <button onClick={() => openForEdit(local)} className="px-3 py-1 rounded bg-slate-200 text-sm">Editar</button>
-                  <button onClick={() => handleDeletarLocal(local.localId)} className="px-3 py-1 rounded bg-red-500 text-white text-sm">Deletar</button>
-                </div>
-              </div>
-            ))}
+                      <div className="flex flex-col gap-2">
+                        <motion.button 
+                          whileHover={{ scale: 1.05, backgroundColor: "rgb(59 130 246)" }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => openForEdit(local)} 
+                          className="px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium transition-all duration-200 hover:shadow-lg"
+                        >
+                          ✏️ Editar
+                        </motion.button>
+                        <motion.button 
+                          whileHover={{ scale: 1.05, backgroundColor: "rgb(239 68 68)" }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleDeletarLocal(local.localId)} 
+                          className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium transition-all duration-200 hover:shadow-lg"
+                        >
+                          🗑️ Deletar
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
           </div>
-
         </motion.section>
-      </div >
-    </div >
+      </div>
+    </div>
   )
 }
 

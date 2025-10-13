@@ -27,6 +27,7 @@ export default function AdminUsuarios({ tema, user }) {
     try {
       // Buscar usuários usando apenas cookies httpOnly
       const res = await api.post('/admin/usuarios', { adminId: user._id })
+      console.log(res)
       if (res.data?.users) setUsuarios(res.data.users)
       if (res.data?.msg) setMsg(res.data.msg)
       if (res.data?.erro) setErro(res.data.erro)
@@ -46,21 +47,42 @@ export default function AdminUsuarios({ tema, user }) {
 
   // Enriquecer com tokens calculados
   const enrichedUsers = useMemo(() => {
-    const now = new Date(getBrazilDate())
+    // Função para gerar chave do dia no fuso horário do Brasil
+    const brazilDayKey = (date) => {
+      try {
+        const dt = date ? new Date(date) : new Date();
+        return dt.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+      } catch (err) {
+        const dt = date ? new Date(date) : new Date();
+        return dt.toISOString().slice(0, 10);
+      }
+    };
+
+    const todayKey = brazilDayKey(new Date());
+
     return usuarios.map(u => {
-      const tokensArr = Array.isArray(u?.stats?.tokens) ? u.stats.tokens : []
-      const tokensTotal = tokensArr.reduce((s, t) => s + (Number(t?.value) || 0), 0)
-      const tokensToday = tokensArr.reduce((s, t) => {
-        try {
-          const d = new Date(t?.data)
-          if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()) {
-            return s + (Number(t?.value) || 0)
-          }
-        } catch (e) { }
-        return s
-      }, 0)
-      return { ...u, __tokensTotal: tokensTotal, __tokensToday: tokensToday }
-    })
+      const tokensArr = Array.isArray(u?.stats?.tokens) ? u.stats.tokens : [];
+      
+      // Calcular tokens total
+      const tokensTotal = tokensArr.reduce((acc, entry) => {
+        const valor = Number(entry?.valor ?? entry?.value ?? 0);
+        return acc + (Number.isFinite(valor) ? valor : 0);
+      }, 0);
+
+      // Calcular tokens do dia atual
+      const tokensToday = tokensArr.reduce((acc, entry) => {
+        const dateField = entry?.data ?? entry?.date ?? entry?.createdAt ?? entry?.publishedAt ?? null;
+        const entryDayKey = dateField ? brazilDayKey(dateField) : null;
+        
+        if (entryDayKey === todayKey) {
+          const valor = Number(entry?.valor ?? entry?.value ?? 0);
+          return acc + (Number.isFinite(valor) ? valor : 0);
+        }
+        return acc;
+      }, 0);
+
+      return { ...u, __tokensTotal: tokensTotal, __tokensToday: tokensToday };
+    });
   }, [usuarios])
 
   // Lista filtrada e ordenada
