@@ -164,6 +164,16 @@ async function connectRedis() {
 connectDB();
 connectRedis();
 
+// Rota de health check para Vercel
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    serverless: !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
+  });
+});
+
 // Rotas da API
 app.get('/', limiter, cors(corsOptions), (req, res) => {
   res.send(`
