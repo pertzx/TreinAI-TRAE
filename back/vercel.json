@@ -3,7 +3,7 @@
   "name": "treinai-api",
   "builds": [
     {
-      "src": "api/index.js",
+      "src": "./index.js",
       "use": "@vercel/node",
       "config": {
         "maxLambdaSize": "50mb"
@@ -12,7 +12,7 @@
   ],
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/(.*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -48,7 +48,7 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/api"
+      "destination": "/"
     }
   ],
   "env": {
