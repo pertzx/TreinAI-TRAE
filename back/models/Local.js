@@ -66,6 +66,12 @@ if (!LocalSchema._indexes || !LocalSchema._indexes.find(i => i[0] && i[0].locati
   LocalSchema.index({ location: '2dsphere' });
 }
 
-const Local = mongoose.model('Local', LocalSchema, 'Locais');
+// Verificar se o modelo já foi compilado para evitar OverwriteModelError
+let Local;
+try {
+  Local = mongoose.model('Local');
+} catch (error) {
+  Local = mongoose.model('Local', LocalSchema, 'Locais');
+}
 
 export default Local;
