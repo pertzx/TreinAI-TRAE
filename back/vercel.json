@@ -3,34 +3,16 @@
   "name": "treinai-api",
   "builds": [
     {
-      "src": "index.js",
+      "src": "api/index.js",
       "use": "@vercel/node",
       "config": {
-        "maxLambdaSize": "50mb",
-        "excludeFiles": [
-          "node_modules/.cache/**",
-          "node_modules/**/test/**",
-          "node_modules/**/tests/**",
-          "node_modules/**/*.md",
-          "node_modules/**/*.txt",
-          "node_modules/**/docs/**",
-          "node_modules/**/examples/**",
-          "node_modules/**/coverage/**",
-          "uploads/**",
-          "*.log",
-          ".git/**",
-          ".vercel/**"
-        ]
+        "maxLambdaSize": "50mb"
       }
     }
   ],
-
-  "env": {
-    "NODE_ENV": "production"
-  },
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -54,13 +36,8 @@
         },
         {
           "key": "Strict-Transport-Security",
-          "value": "max-age=31536000; includeSubDomains; preload"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
+          "value": "max-age=31536000; includeSubDomains"
+        },
         {
           "key": "Cache-Control",
           "value": "no-cache, no-store, must-revalidate"
@@ -71,7 +48,10 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/$1"
+      "destination": "/api"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
