@@ -7,7 +7,20 @@
       "use": "@vercel/node",
       "config": {
         "maxLambdaSize": "50mb",
-        "includeFiles": "**"
+        "excludeFiles": [
+          "node_modules/.cache/**",
+          "node_modules/**/test/**",
+          "node_modules/**/tests/**",
+          "node_modules/**/*.md",
+          "node_modules/**/*.txt",
+          "node_modules/**/docs/**",
+          "node_modules/**/examples/**",
+          "node_modules/**/coverage/**",
+          "uploads/**",
+          "*.log",
+          ".git/**",
+          ".vercel/**"
+        ]
       }
     }
   ],
