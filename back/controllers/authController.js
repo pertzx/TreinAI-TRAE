@@ -1032,25 +1032,29 @@ export const atualizarPerfil = async (req, res) => {
 
     // === avatar (req.file) ===
     if (req.file) {
-      const avatarUrl = `/uploads/image-perfil/${req.file.filename}`;
+      // Para ambiente serverless, usar a URL do blob diretamente
+      const avatarUrl = req.file.blobUrl || req.file.path || `/uploads/image-perfil/${req.file.filename}`;
 
-      // tenta remover avatar antigo se local em /uploads/ mas se o arquivo antigo for de avatar_base.jpg entao nao remover
-      try {
-        if (user.avatar && typeof user.avatar === 'string') {
-          const parsed = new URL(user.avatar, `${req.protocol}://${req.get('host')}`).pathname;
-          if (parsed && parsed.startsWith('/uploads/')) {
-            const oldFilename = path.basename(parsed);
+      // Em ambiente serverless, não precisamos gerenciar arquivos locais
+      // A limpeza de arquivos antigos será feita automaticamente pelo Vercel Blob
+      if (!process.env.VERCEL_ENV && !process.env.NODE_ENV === 'production') {
+        // Apenas em desenvolvimento local, tentar remover avatar antigo
+        try {
+          if (user.avatar && typeof user.avatar === 'string') {
+            const parsed = new URL(user.avatar, `${req.protocol}://${req.get('host')}`).pathname;
+            if (parsed && parsed.startsWith('/uploads/')) {
+              const oldFilename = path.basename(parsed);
 
-            // Não deletar a imagem base avatar_base.jpg
-            if (oldFilename !== 'avatar_base.jpg') {
-              const oldPath = path.join(UPLOAD_DIR, oldFilename);
-              if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+              // Não deletar a imagem base avatar_base.jpg
+              if (oldFilename !== 'avatar_base.jpg') {
+                const oldPath = path.join(UPLOAD_DIR, oldFilename);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+              }
             }
           }
+        } catch (error) {
+          console.warn('[atualizarPerfil] Erro ao remover avatar antigo:', error.message);
         }
-      } catch (err) {
-        console.warn('Falha ao remover avatar antigo (não crítico):', err.message || err);
-        // Continuar com a atualização mesmo se falhar ao remover arquivo antigo
       }
 
       user.avatar = avatarUrl;
