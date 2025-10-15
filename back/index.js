@@ -120,6 +120,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Conexão com MongoDB
 const MONGO_URI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.vcxrbu2.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
 
+let isMongoConnected = false;
+
 async function connectDB() {
   try {
     // Configurações específicas para ambiente serverless
@@ -130,6 +132,7 @@ async function connectDB() {
     };
 
     await mongoose.connect(MONGO_URI, mongooseOptions);
+    isMongoConnected = true;
     console.log('✅ Banco de dados conectado com sucesso!');
     
     // Log adicional para debug em ambiente serverless
@@ -138,6 +141,7 @@ async function connectDB() {
     }
   } catch (err) {
     console.error('❌ Erro ao conectar ao banco:', err.message);
+    isMongoConnected = false;
     
     // Em ambiente serverless, não encerrar o processo
     if (process.env.VERCEL) {
@@ -148,6 +152,30 @@ async function connectDB() {
     process.exit(1);
   }
 }
+
+// Middleware para garantir conexão MongoDB antes de executar rotas
+const ensureMongoConnection = async (req, res, next) => {
+  if (!isMongoConnected) {
+    console.log('🔄 Conexão MongoDB não estabelecida, tentando reconectar...');
+    try {
+      await connectDB();
+      if (isMongoConnected) {
+        console.log('✅ Reconexão MongoDB bem-sucedida');
+        next();
+      } else {
+        throw new Error('Falha na reconexão');
+      }
+    } catch (error) {
+      console.error('❌ Falha na reconexão MongoDB:', error.message);
+      return res.status(503).json({
+        msg: "Serviço temporariamente indisponível. Tente novamente em alguns instantes.",
+        error: "DATABASE_CONNECTION_ERROR"
+      });
+    }
+  } else {
+    next();
+  }
+};
 
 // Inicializar Redis
 async function connectRedis() {
@@ -161,8 +189,15 @@ async function connectRedis() {
 }
 
 // Conectar aos bancos de dados
-connectDB();
-connectRedis();
+async function initializeConnections() {
+  console.log('🚀 Inicializando conexões...');
+  await connectDB();
+  await connectRedis();
+  console.log('✅ Inicialização completa!');
+}
+
+// Inicializar conexões
+initializeConnections();
 
 // Rota de health check para Vercel
 app.get('/api/health', (req, res) => {
@@ -232,12 +267,12 @@ app.get('/', limiter, cors(corsOptions), (req, res) => {
   `);
 });
 
-app.use('/', apiSecurityHeaders, authRoutes);
-app.use('/reports', apiSecurityHeaders, reportRoutes);
-app.use('/', apiSecurityHeaders, userRoutes);
-app.use('/tokens', apiSecurityHeaders, tokenRoutes);
-app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
-app.use('/admin', apiSecurityHeaders, adminRoutes);
+app.use('/', apiSecurityHeaders, ensureMongoConnection, authRoutes);
+app.use('/reports', apiSecurityHeaders, ensureMongoConnection, reportRoutes);
+app.use('/users', apiSecurityHeaders, ensureMongoConnection, userRoutes);
+app.use('/tokens', apiSecurityHeaders, ensureMongoConnection, tokenRoutes);
+app.use('/gamification', apiSecurityHeaders, ensureMongoConnection, gamificationRoutes);
+app.use('/admin', apiSecurityHeaders, ensureMongoConnection, adminRoutes);
 
 // Verificar se está em ambiente serverless (Vercel)
 const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
