@@ -3,9 +3,6 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
-  "engines": {
-    "node": "22.x"
-  },
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
