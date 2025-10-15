@@ -160,7 +160,7 @@ connectDB();
 connectRedis();
 
 // Rotas da API
-app.get('/', (req, res) => {
+app.get('/', limiter, cors(corsOptions), (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -216,6 +216,7 @@ app.get('/', (req, res) => {
     </html>
   `);
 });
+
 app.use('/', apiSecurityHeaders, authRoutes);
 app.use('/reports', apiSecurityHeaders, reportRoutes);
 app.use('/', apiSecurityHeaders, userRoutes);
