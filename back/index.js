@@ -26,13 +26,23 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 const app = express();
 
+// Configurar trust proxy para ambiente serverless
+if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  app.set('trust proxy', 1); // Confia no primeiro proxy (Vercel)
+}
+
 // Stripe Webhook (usa raw body)
 app.post('/webhook', express.raw({ type: 'application/json' }), StripeWebhook);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
   max: 500, // 500 requisições por IP (aumentado para navegação normal)
-  message: "Muitas requisiçoes. Tente novamente mais tarde."
+  message: "Muitas requisiçoes. Tente novamente mais tarde.",
+  // Configurações específicas para serverless
+  validate: {
+    xForwardedForHeader: false, // Desabilita validação X-Forwarded-For
+    forwardedHeader: false, // Desabilita validação Forwarded header
+  }
 })
 
 // Outros middlewares
@@ -59,7 +69,14 @@ const corsOptions = {
         console.log(`🔒 CORS [PROD]: Verificando origem: ${origin}`);
         console.log(`🔒 CORS [PROD]: Origens permitidas:`, allowedOrigins);
         
-        // Rejeita requisições sem origin em produção
+        // Em ambiente serverless, permite requisições sem origin (health checks, etc.)
+        const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+        if (!origin && isServerless) {
+            console.log('✅ CORS [SERVERLESS]: Permitindo requisição sem origin (health check)');
+            return callback(null, true);
+        }
+        
+        // Rejeita requisições sem origin em produção não-serverless
         if (!origin) {
             console.log('❌ CORS [PROD]: Requisição sem origin rejeitada');
             return callback(new Error('Origem não especificada não permitida em produção'));
@@ -105,7 +122,6 @@ async function connectDB() {
       serverSelectionTimeoutMS: 5000, // Timeout de 5 segundos
       socketTimeoutMS: 45000, // Socket timeout de 45 segundos
       bufferCommands: false, // Desabilita buffering para serverless
-      bufferMaxEntries: 0, // Não armazena comandos em buffer
     };
 
     await mongoose.connect(MONGO_URI, mongooseOptions);
