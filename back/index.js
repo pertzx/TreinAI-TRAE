@@ -54,7 +54,7 @@ app.use(securityHeaders);
 // Configuração CORS baseada no ambiente
 const corsOptions = {
     origin: function (origin, callback) {
-        // Em desenvolvimento, permite QUALQUER origem
+        // Em desenvolvimento local (NODE_ENV !== 'production'), permite QUALQUER origem
         if (process.env.NODE_ENV !== 'production') {
             console.log(`🔧 CORS [DEV]: Permitindo origem: ${origin || 'sem origin'}`);
             return callback(null, true);
@@ -76,18 +76,23 @@ const corsOptions = {
             return callback(null, true);
         }
         
-        // Rejeita requisições sem origin em produção não-serverless
-        if (!origin) {
+        // Se não há origin e não é serverless, rejeita
+        if (!origin && !isServerless) {
             console.log('❌ CORS [PROD]: Requisição sem origin rejeitada');
             return callback(new Error('Origem não especificada não permitida em produção'));
         }
         
-        if (allowedOrigins.includes(origin)) {
+        // Verifica se a origem está na lista de permitidas
+        if (origin && allowedOrigins.includes(origin)) {
             console.log(`✅ CORS [PROD]: Origem permitida: ${origin}`);
             callback(null, true);
-        } else {
+        } else if (origin) {
             console.log(`❌ CORS [PROD]: Origem rejeitada: ${origin}`);
+            console.log(`💡 CORS [PROD]: Para permitir esta origem, adicione '${origin}' na variável FRONTEND_URL ou ALLOWED_ORIGINS`);
             callback(new Error('Não permitido pelo CORS'));
+        } else {
+            // Caso não tenha origin mas seja serverless, já foi tratado acima
+            callback(null, true);
         }
     },
     credentials: true, // Permite cookies
