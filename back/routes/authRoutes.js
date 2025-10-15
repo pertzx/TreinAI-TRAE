@@ -1,6 +1,6 @@
 // routes/authRoutes.js
 import { Router } from 'express';
-import { login, dashboard, signup, changeTheme, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser, loginNaoAutorizado } from '../controllers/authController.js';
+import { login, dashboard, signup, changeTheme, changeLoginSeguro, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser, loginNaoAutorizado } from '../controllers/authController.js';
 import { verificarToken } from '../middlewares/authMiddleware.js';
 import { validateLogin, validateSignup, validateDashboard, validateUpdateProfile } from '../middlewares/validationMiddleware.js';
 import { validateEmailReal, validateEmailBasic } from '../middlewares/emailValidation.js';
@@ -43,6 +43,7 @@ router.post('/dashboard', verificarToken, dashboard);
 router.post('/create-checkout-session', CreateCheckoutSession);
 router.get('/session-status', SessionStatus); // verificar status
 router.post('/change-theme', changeTheme)
+router.post('/change-loginSeguro', changeLoginSeguro)
 router.post('/complete-onboarding', checkTokenLimit, completeOnboarding)
 router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, upload('uploads/image-perfil', 'avatar'), atualizarPerfil)
 router.post('/criar-meusTreinos', checkTokenLimit, carregarTreinos);

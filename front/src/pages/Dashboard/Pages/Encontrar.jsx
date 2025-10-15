@@ -4,6 +4,124 @@ import api from '../../../Api'; // sua instância axios
 import locationsData from '../../../data/locations.json';
 import { buildImageUrl } from '../../../utils/imageUtils';
 
+// Componente de Loading com IA
+const AILoadingAnimation = ({ isVisible, message = "Sua IA está procurando os melhores resultados..." }) => {
+  const [dots, setDots] = useState('');
+  const [searchAngle, setSearchAngle] = useState(0);
+  
+  useEffect(() => {
+    if (!isVisible) return;
+    
+    const dotsInterval = setInterval(() => {
+      setDots(prev => prev.length >= 3 ? '' : prev + '.');
+    }, 500);
+    
+    const searchInterval = setInterval(() => {
+      setSearchAngle(prev => (prev + 30) % 360);
+    }, 200);
+    
+    return () => {
+      clearInterval(dotsInterval);
+      clearInterval(searchInterval);
+    };
+  }, [isVisible]);
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
+      <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 max-w-md mx-4 border border-white/20 shadow-2xl">
+        <div className="flex flex-col items-center space-y-6">
+          {/* Animação de busca com logo TreinAI */}
+          <div className="relative w-24 h-24">
+            {/* Ondas de radar/busca */}
+            <div className="absolute inset-0 rounded-full border-2 border-blue-400/30 animate-ping"></div>
+            <div className="absolute inset-2 rounded-full border-2 border-cyan-400/40 animate-ping" style={{ animationDelay: '0.5s' }}></div>
+            <div className="absolute inset-4 rounded-full border-2 border-purple-400/50 animate-ping" style={{ animationDelay: '1s' }}></div>
+            
+            {/* Logo TreinAI no centro */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative w-12 h-12 bg-blue-600 rounded-lg shadow-lg">
+                {/* Logo icon baseada no logo-icon.svg */}
+                <div className="absolute inset-2 bg-white rounded-sm"></div>
+                
+                {/* Linha de busca rotativa */}
+                <div 
+                  className="absolute inset-0 flex items-center justify-center"
+                  style={{ transform: `rotate(${searchAngle}deg)` }}
+                >
+                  <div className="w-8 h-0.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent"></div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Pontos de busca orbitando */}
+            <div className="absolute inset-0">
+              <div className="absolute w-2 h-2 bg-blue-400 rounded-full animate-pulse" 
+                   style={{ 
+                     top: '10%', 
+                     left: '50%', 
+                     transform: `rotate(${searchAngle}deg) translateX(30px) rotate(-${searchAngle}deg)`,
+                     transformOrigin: '0 0'
+                   }}>
+              </div>
+              <div className="absolute w-2 h-2 bg-cyan-400 rounded-full animate-pulse" 
+                   style={{ 
+                     top: '50%', 
+                     right: '10%', 
+                     transform: `rotate(${searchAngle + 120}deg) translateX(30px) rotate(-${searchAngle + 120}deg)`,
+                     transformOrigin: '0 0'
+                   }}>
+              </div>
+              <div className="absolute w-2 h-2 bg-purple-400 rounded-full animate-pulse" 
+                   style={{ 
+                     bottom: '10%', 
+                     left: '30%', 
+                     transform: `rotate(${searchAngle + 240}deg) translateX(30px) rotate(-${searchAngle + 240}deg)`,
+                     transformOrigin: '0 0'
+                   }}>
+              </div>
+            </div>
+          </div>
+          
+          {/* Texto animado com ênfase em busca */}
+          <div className="text-center">
+            <h3 className="text-xl font-semibold text-white mb-2 flex items-center justify-center gap-2">
+              <span className="animate-pulse">🔍</span>
+              TreinAI Procurando
+              <span className="animate-pulse">🔍</span>
+            </h3>
+            <p className="text-white/80 text-sm">
+              {message}{dots}
+            </p>
+          </div>
+          
+          {/* Barra de progresso com efeito de busca */}
+          <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-cyan-400 to-purple-600 rounded-full animate-pulse"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent rounded-full animate-ping"></div>
+          </div>
+          
+          {/* Indicadores de busca ativa */}
+          <div className="flex items-center gap-2 text-white/60 text-xs">
+            <div className="flex gap-1">
+              <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"></div>
+              <div className="w-1 h-1 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            </div>
+            <span>Analisando dados</span>
+            <div className="flex gap-1">
+              <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+              <div className="w-1 h-1 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+              <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.5s' }}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* -------------------- Constantes / mocks (mantive os seus) -------------------- */
 const TABS = {
   PROFISSIONAIS: 'profissionais',
@@ -44,6 +162,10 @@ export default function Encontrar({ user, tema = 'dark' }) {
 
   const [tab, setTab] = useState(TABS.PROFISSIONAIS);
   const [search, setSearch] = useState('');
+  
+  // Estado para animação de loading inicial
+  const [showInitialLoading, setShowInitialLoading] = useState(true);
+  const [isPageLoaded, setIsPageLoaded] = useState(false);
 
   // localidades
   const [countries, setCountries] = useState([]);
@@ -417,6 +539,19 @@ export default function Encontrar({ user, tema = 'dark' }) {
   }, []);
 
   useEffect(() => {
+    // Animação inicial sempre que a página for acessada
+    setShowInitialLoading(true);
+    setIsPageLoaded(false);
+    
+    const timer = setTimeout(() => {
+      setShowInitialLoading(false);
+      setIsPageLoaded(true);
+    }, 3500); // 3.5 segundos de animação
+    
+    return () => clearTimeout(timer);
+  }, []); // Executa apenas na montagem do componente
+
+  useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     // reset pages on filter/search/tab change
@@ -474,35 +609,86 @@ export default function Encontrar({ user, tema = 'dark' }) {
   };
 
   return (
-    <div className={`p-6 max-w-6xl mx-auto ${themeClass(temaValue, 'bg-white text-gray-900', 'bg-gray-900 text-white')} rounded-md`}>
-      <header className="mb-6 w-full text-clip">
-        <h1 className="text-3xl font-extrabold">Encontrar</h1>
-        <p className="text-sm text-gray-500 w-full">Busque profissionais e locais por país, estado e cidade.</p>
-      </header>
+    <>
+      {/* Animação de Loading Inicial */}
+      <AILoadingAnimation 
+        isVisible={showInitialLoading} 
+        message="Procurando os melhores resultados na sua região."
+      />
+      
+      {/* Conteúdo Principal com animação de entrada */}
+      <div className={`transition-all duration-700 ${isPageLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <div className={`p-8 max-w-7xl mx-auto ${themeClass(temaValue, 'bg-gradient-to-br from-gray-50 to-white text-gray-900', 'bg-gradient-to-br from-gray-900 to-gray-800 text-white')} rounded-3xl shadow-2xl border ${themeClass(temaValue, 'border-gray-200', 'border-gray-700')}`}>
+          
+          {/* Header Modernizado */}
+          <header className="mb-8 text-center">
+            <div className="inline-flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Encontrar
+              </h1>
+            </div>
+            <p className={`text-lg ${themeClass(temaValue, 'text-gray-600', 'text-gray-300')} max-w-2xl mx-auto`}>
+              Descubra profissionais qualificados e locais incríveis com o poder da nossa IA
+            </p>
+          </header>
 
-      <div className="mb-6 flex flex-col sm:flex-row gap-3">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Procure por profissional ou local..."
-          className={`flex-1 px-4 py-3 rounded-xl border shadow-sm ${tema === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}
-        />
+          {/* Barra de Busca Modernizada */}
+          <div className="mb-8">
+            <div className="relative max-w-2xl mx-auto">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <svg className={`w-5 h-5 ${themeClass(temaValue, 'text-gray-400', 'text-gray-500')}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="🤖 Digite sua busca e deixe nossa IA encontrar o melhor para você..."
+                className={`w-full pl-12 pr-4 py-4 rounded-2xl border-2 transition-all duration-300 focus:scale-[1.02] focus:shadow-xl ${
+                  tema === 'dark' 
+                    ? 'bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 focus:bg-gray-800' 
+                    : 'bg-white border-gray-200 text-gray-800 placeholder-gray-500 focus:border-blue-500 focus:bg-gray-50'
+                } backdrop-blur-sm shadow-lg`}
+              />
+            </div>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setTab(TABS.PROFISSIONAIS)}
-            className={`px-4 py-2 rounded-xl font-semibold ${tab === TABS.PROFISSIONAIS ? 'bg-blue-600 text-white' : themeClass(temaValue, 'bg-gray-100', 'bg-gray-800')}`}>
-            Profissionais
-          </button>
-          <button
-            onClick={() => setTab(TABS.ACADEMIAS)}
-            className={`px-4 py-2 rounded-xl font-semibold ${tab === TABS.ACADEMIAS ? 'bg-blue-600 text-white' : themeClass(temaValue, 'bg-gray-100', 'bg-gray-800')}`}>
-            Locais
-          </button>
-        </div>
-      </div>
+          {/* Tabs Modernizadas */}
+          <div className="mb-8 flex justify-center">
+            <div className={`inline-flex rounded-2xl p-1 ${themeClass(temaValue, 'bg-gray-100', 'bg-gray-800')} shadow-lg`}>
+              <button
+                onClick={() => setTab(TABS.PROFISSIONAIS)}
+                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                  tab === TABS.PROFISSIONAIS 
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg transform scale-105' 
+                    : `${themeClass(temaValue, 'text-gray-600 hover:text-gray-800', 'text-gray-400 hover:text-white')} hover:bg-white/10`
+                }`}
+              >
+                👨‍⚕️ Profissionais
+              </button>
+              <button
+                onClick={() => setTab(TABS.ACADEMIAS)}
+                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                  tab === TABS.ACADEMIAS 
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg transform scale-105' 
+                    : `${themeClass(temaValue, 'text-gray-600 hover:text-gray-800', 'text-gray-400 hover:text-white')} hover:bg-white/10`
+                }`}
+              >
+                🏢 Locais
+              </button>
+            </div>
+          </div>
 
-      {error && <div className="mb-4 text-red-600">{error}</div>}
+          {error && (
+            <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 text-center">
+              ⚠️ {error}
+            </div>
+          )}
 
       <main className="space-y-6">
         {/* filtros de localização */}
@@ -700,6 +886,372 @@ export default function Encontrar({ user, tema = 'dark' }) {
           </section>
         )}
       </main>
-    </div>
+        </div>
+      </div>
+    </>
   );
 }
+
+// // Componente de Loading com IA
+// const AILoadingAnimation = ({ isVisible, message = "Sua IA está procurando os melhores resultados..." }) => {
+//   const [dots, setDots] = useState('');
+  
+//   useEffect(() => {
+//     if (!isVisible) return;
+    
+//     const interval = setInterval(() => {
+//       setDots(prev => prev.length >= 3 ? '' : prev + '.');
+//     }, 500);
+    
+//     return () => clearInterval(interval);
+//   }, [isVisible]);
+
+//   if (!isVisible) return null;
+
+//   return (
+//     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
+//       <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 max-w-md mx-4 border border-white/20 shadow-2xl">
+//         <div className="flex flex-col items-center space-y-6">
+//           {/* Animação de IA - Círculos pulsantes */}
+//           <div className="relative">
+//             <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 animate-pulse"></div>
+//             <div className="absolute inset-0 w-16 h-16 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 animate-ping opacity-75"></div>
+//             <div className="absolute inset-2 w-12 h-12 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 animate-pulse delay-150"></div>
+            
+//             {/* Ícone de IA no centro */}
+//             <div className="absolute inset-0 flex items-center justify-center">
+//               <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+//                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+//                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+//               </svg>
+//             </div>
+//           </div>
+          
+//           {/* Texto animado */}
+//           <div className="text-center">
+//             <h3 className="text-xl font-semibold text-white mb-2">
+//               🤖 TreinAI Buscando
+//             </h3>
+//             <p className="text-white/80 text-sm">
+//               {message}{dots}
+//             </p>
+//           </div>
+          
+//           {/* Barra de progresso animada */}
+//           <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+//             <div className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse"></div>
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// /* --------------------- Effects de disparo (debounce) --------------------- */
+//   useEffect(() => {
+//     mountedRef.current = true;
+//     // carrega países do arquivo local
+//     loadCountriesLocal();
+
+//     // se o usuário já tiver país/estado salvo, pré-carrega os estados e cidades
+//     if (selectedCountry) {
+//       loadStatesForCountryLocal(selectedCountry);
+//       if (selectedState) loadCitiesForStateLocal(selectedCountry, selectedState);
+//     }
+
+//     return () => {
+//       mountedRef.current = false;
+//       try { abortRef.current.prof?.abort(); } catch (_) { }
+//       try { abortRef.current.academias?.abort(); } catch (_) { }
+//       try { abortRef.current.locais?.abort(); } catch (_) { }
+//     };
+//     // eslint-disable-next-line react-hooks/exhaustive-deps
+//   }, []);
+
+//   useEffect(() => {
+//     if (debounceRef.current) clearTimeout(debounceRef.current);
+
+//     // reset pages on filter/search/tab change
+//     setProfPage(1);
+//     setLocaisPage(1);
+
+//     debounceRef.current = setTimeout(() => {
+//       fetchProfissionais();
+//       if (tab === TABS.ACADEMIAS) {
+//         fetchLocais({ localType: localTypeFilter });
+//       }
+//     }, 400);
+
+//     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+//     // eslint-disable-next-line react-hooks/exhaustive-deps
+//   }, [search, selectedCountry, selectedState, selectedCity, especialidade, localTypeFilter, tab]);
+
+//   useEffect(() => {
+//     if (!selectedCountry) {
+//       setStates([]); setSelectedState(''); setCities([]); setSelectedCity(''); return;
+//     }
+//     loadStatesForCountryLocal(selectedCountry);
+//     // eslint-disable-next-line react-hooks/exhaustive-deps
+//   }, [selectedCountry]);
+
+//   useEffect(() => {
+//     if (!selectedState) { setCities([]); setSelectedCity(''); return; }
+//     if (!selectedCountry) return;
+//     loadCitiesForStateLocal(selectedCountry, selectedState);
+//     // eslint-disable-next-line react-hooks/exhaustive-deps
+//   }, [selectedState, selectedCountry]);
+
+//   /* --------------------- UI helpers --------------------- */
+//   const norm = (v) => String(v ?? '').toLowerCase().trim();
+
+//   const goToSolicitacao = (prof) => {
+//     const raw = prof?.raw || {};
+//     const key = raw.userId || raw.profissionalId || prof.id || raw._id || '';
+//     if (!key) {
+//       navigate(`/dashboard/coach/u?q=${encodeURIComponent(prof.id || '')}`);
+//       return;
+//     }
+//     navigate(`/dashboard/coach/u?q=${encodeURIComponent(key)}`);
+//   };
+
+//   const Pagination = ({ page, totalPages, onPrev, onNext }) => {
+//     if (!totalPages || totalPages <= 1) return null;
+//     return (
+//       <div className="mt-4 flex items-center gap-2">
+//         <button onClick={onPrev} className="px-3 py-1 rounded bg-gray-200">Anterior</button>
+//         <div className="text-sm">Página {page} de {totalPages}</div>
+//         <button onClick={onNext} className="px-3 py-1 rounded bg-gray-200">Próximo</button>
+//       </div>
+//     );
+//   };
+
+//   return (
+//     <div className={`p-6 max-w-6xl mx-auto ${themeClass(temaValue, 'bg-white text-gray-900', 'bg-gray-900 text-white')} rounded-md`}>
+//       <header className="mb-6 w-full text-clip">
+//         <h1 className="text-3xl font-extrabold">Encontrar</h1>
+//         <p className="text-sm text-gray-500 w-full">Busque profissionais e locais por país, estado e cidade.</p>
+//       </header>
+
+//       <div className="mb-6 flex flex-col sm:flex-row gap-3">
+//         <input
+//           value={search}
+//           onChange={(e) => setSearch(e.target.value)}
+//           placeholder="Procure por profissional ou local..."
+//           className={`flex-1 px-4 py-3 rounded-xl border shadow-sm ${tema === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}
+//         />
+
+//         <div className="flex flex-wrap gap-2">
+//           <button
+//             onClick={() => setTab(TABS.PROFISSIONAIS)}
+//             className={`px-4 py-2 rounded-xl font-semibold ${tab === TABS.PROFISSIONAIS ? 'bg-blue-600 text-white' : themeClass(temaValue, 'bg-gray-100', 'bg-gray-800')}`}>
+//             Profissionais
+//           </button>
+//           <button
+//             onClick={() => setTab(TABS.ACADEMIAS)}
+//             className={`px-4 py-2 rounded-xl font-semibold ${tab === TABS.ACADEMIAS ? 'bg-blue-600 text-white' : themeClass(temaValue, 'bg-gray-100', 'bg-gray-800')}`}>
+//             Locais
+//           </button>
+//         </div>
+//       </div>
+
+//       {error && <div className="mb-4 text-red-600">{error}</div>}
+
+//       <main className="space-y-6">
+//         {/* filtros de localização */}
+//         <div className="flex flex-col md:flex-row gap-3 items-start mb-4">
+//           <div className="w-full md:w-1/3">
+//             <label className="text-xs text-gray-400 mb-1 block">País</label>
+//             <select
+//               value={selectedCountry}
+//               onChange={(e) => setSelectedCountry(e.target.value)}
+//               className={`w-full px-3 py-2 rounded-lg ${themeClass(temaValue, 'border', 'border-gray-300')}`}>
+//               <option className={`text-black`} value="">Todos os países</option>
+//               {countries.length ? countries.map(c => (
+//                 <option className={`text-black`} key={c.name} value={c.name}>{c.name}</option>
+//               )) : <option className={`text-black`}>Carregando países...</option>}
+//             </select>
+//           </div>
+
+//           <div className="w-full md:w-1/3">
+//             <label className="text-xs text-gray-400 mb-1 block">Estado / Região</label>
+//             <select
+//               value={selectedState}
+//               onChange={(e) => setSelectedState(e.target.value)}
+//               className={`w-full px-3 py-2 rounded-lg ${themeClass(temaValue, 'border', 'border-gray-300')}`}>
+//               <option className={`text-black`} value="">Todos os estados</option>
+//               {states.length ? states.map(s => <option className={`text-black`} key={s} value={s}>{s}</option>) : null}
+//             </select>
+//           </div>
+
+//           <div className="w-full md:w-1/3">
+//             <label className="text-xs text-gray-400 mb-1 block">Cidade</label>
+//             <select
+//               value={selectedCity}
+//               onChange={(e) => setSelectedCity(e.target.value)}
+//               className={`w-full px-3 py-2 rounded-lg ${themeClass(temaValue, 'border', 'border-gray-300')}`}>
+//               <option className={`text-black`} value="">Todas as cidades</option>
+//               {cities.length ? cities.map(c => <option className={`text-black`} key={c} value={c}>{c}</option>) : null}
+//             </select>
+//           </div>
+//         </div>
+
+//         <div className="mb-4">
+//           <div className="inline-flex w-full flex-wrap items-center gap-3 px-4 py-2 rounded-xl bg-gray-100 text-sm text-gray-700">
+//             <strong>Selecionado:</strong>
+//             <span>{selectedCountry || 'Todos os países'}</span>
+//             <span>›</span>
+//             <span>{selectedState || 'Todos os estados'}</span>
+//             <span>›</span>
+//             <span>{selectedCity || 'Todas as cidades'}</span>
+//           </div>
+//         </div>
+
+//         {/* Removido: Receitas e qualquer publicação */}
+
+//         {/* Profissionais */}
+//         {tab === TABS.PROFISSIONAIS && (
+//           <section>
+//             <div className="flex items-center justify-between flex-wrap mb-3 gap-4">
+//               <h2 className="text-xl font-bold">Profissionais</h2>
+//               <div className="flex items-center gap-2">
+//                 <select value={especialidade} onChange={(e) => setEspecialidade(e.target.value)} className={`px-3 py-2 rounded-lg ${themeClass(temaValue, 'border', 'border-gray-600')}`}>
+//                   <option className={`text-black`} value="">Todas as especialidades</option>
+//                   <option className={`text-black`} value="nutricionista">Nutricionista</option>
+//                   <option className={`text-black`} value="personal-trainner">Personal Trainer</option>
+//                   <option className={`text-black`} value="fisioterapeuta">Fisioterapeuta</option>
+//                 </select>
+//               </div>
+//             </div>
+
+//             {loadingProf ? <div>Carregando profissionais...</div> : (
+//               <div>
+//                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+//                   {profissionais.length ? profissionais.map(p => (
+//                     <div key={p.id || p.name} style={{
+//                       backgroundImage: `url(${buildImageUrl(p.imageUrl)})`,
+//                       backgroundPosition: 'center',
+//                       backgroundSize: 'cover',
+//                       backgroundRepeat: 'no-repeat'
+//                     }} className={`rounded-xl ${themeClass(temaValue, 'bg-white', 'bg-gray-800')} shadow-sm border`}>
+//                       <div className="p-2 rounded-xl flex bg-gradient-to-b from-black/80 to-black/0 flex-wrap items-start gap-4">
+//                         <div className="w-16 h-16 rounded-full overflow-hidden border flex-shrink-0">
+//                           {p.imageUrl ? (
+//                   <img src={buildImageUrl(p.imageUrl)} alt={p.name} className="w-full h-full object-cover" />
+//                           ) : (
+//                             <div className="w-full h-full flex items-center justify-center bg-gray-200 text-black">{(p.name || '—')[0]}</div>
+//                           )}
+//                         </div>
+
+//                         <div className="flex-1">
+//                           <div className="font-semibold text-white">{p.name}</div>
+//                           <div className="font-normal text-white">{p.biografia}</div>
+//                           <div className="text-sm text-gray-200 uppercase">{p.title}</div>
+//                           <div className="text-xs text-gray-100 mt-2 uppercase">{p.cidade} — {p.estado} — {p.country || '—'}</div>
+//                         </div>
+
+//                         <div className="flex flex-col gap-2 items-end">
+//                           <button
+//                             onClick={() => goToSolicitacao(p)}
+//                             className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm"
+//                           >
+//                             Ver Perfil / Solicitar
+//                           </button>
+//                         </div>
+//                       </div>
+//                     </div>
+//                   )) : <div className="text-sm text-gray-400">Nenhum profissional encontrado com esses filtros.</div>}
+//                 </div>
+
+//                 <Pagination
+//                   page={profPage}
+//                   totalPages={profTotalPages}
+//                   onPrev={() => {
+//                     const novo = Math.max(1, profPage - 1);
+//                     setProfPage(novo);
+//                     fetchProfissionais({ page: novo });
+//                   }}
+//                   onNext={() => {
+//                     const novo = Math.min(profTotalPages, profPage + 1);
+//                     setProfPage(novo);
+//                     fetchProfissionais({ page: novo });
+//                   }}
+//                 />
+//               </div>
+//             )}
+//           </section>
+//         )}
+
+//         {/* Academias / Locais */}
+//         {tab === TABS.ACADEMIAS && (
+//           <section>
+//             <div className="mb-4 flex items-center flex-wrap justify-between gap-4">
+//               <h2 className="text-xl font-bold">Locais</h2>
+
+//               <div className="flex items-center flex-wrap sm:flex-nowrap gap-2">
+//                 <label className="text-sm">Tipo:</label>
+//                 <select value={localTypeFilter} onChange={(e) => setLocalTypeFilter(e.target.value)} className="px-3 py-2 rounded-lg w-full border">
+//                   {LOCAL_TYPES.map(t => <option key={t.value} className='text-black' value={t.value}>{t.label}</option>)}
+//                 </select>
+
+//                 <button onClick={() => fetchLocais({ localType: localTypeFilter })} className="px-3 py-2 rounded-lg bg-blue-600 text-white">Buscar</button>
+//               </div>
+//             </div>
+
+//             {loadingLocais ? <div>Carregando locais...</div> : (
+//               <div>
+//                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+//                   {(locais && locais.length) ? locais.map(l => (
+//                     <div
+//                       key={l.id || l.localName}
+//                       style={{
+//                         backgroundImage: `url(${buildImageUrl(l.imageUrl)})`,
+//                         backgroundPosition: 'center',
+//                         backgroundSize: 'cover',
+//                         backgroundRepeat: 'no-repeat',
+//                       }}
+//                       className={`rounded-2xl shadow-sm border ring ring-blue-600 border-gray-800 text-white`}
+//                     >
+//                       <div className="flex flex-wrap p-4 items-start bg-gradient-to-b rounded-2xl from-black/80 to-black/0 gap-4">
+//                         <div className="w-16 h-16 rounded-md overflow-hidden border flex-shrink-0 bg-gray-200">
+//                           {l.imageUrl ? <img src={buildImageUrl(l.imageUrl)} alt={l.localName} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-black">LK</div>}
+//                         </div>
+
+//                         <div className="flex-1">
+//                           <div className="font-semibold">{l.localName}</div>
+//                           <div className="text-sm contrast-100">{(LOCAL_TYPES.find(t => t.value === l.localType)?.label) || l.localType}</div>
+//                           <div className="text-xs contrast-50 mt-2">{l.cidade} — {l.estado} — {l.country || '—'}</div>
+//                           {l.localDescricao ? <div className="text-xs mt-2 contrast-100">{l.localDescricao}</div> : null}
+//                         </div>
+
+//                         <div className="flex flex-col gap-2">
+//                           <button className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm" onClick={() => {
+//                             window.open(l.link, '_blank', 'noopener,noreferrer');
+//                           }}>Saber mais..</button>
+//                         </div>
+//                       </div>
+//                     </div>
+//                   )) : <div className="text-sm text-gray-400">Nenhum local encontrado com esses filtros.</div>}
+//                 </div>
+
+//                 <Pagination
+//                   page={locaisPage}
+//                   totalPages={locaisTotalPages}
+//                   onPrev={() => {
+//                     const novo = Math.max(1, locaisPage - 1);
+//                     setLocaisPage(novo);
+//                     fetchLocais({ page: novo });
+//                   }}
+//                   onNext={() => {
+//                     const novo = Math.min(locaisTotalPages, locaisPage + 1);
+//                     setLocaisPage(novo);
+//                     fetchLocais({ page: novo });
+//                   }}
+//                 />
+//               </div>
+//             )}
+//           </section>
+//         )}
+//       </main>
+//     </div>
+//   );
+// }

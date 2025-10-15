@@ -303,6 +303,43 @@ const Termos = () => {
                       para proteger seus dados pessoais contra acesso não autorizado, alteração ou destruição.
                     </p>
                   </div>
+
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4 mt-6">Notificações de Segurança por Email</h3>
+                  <p className="text-gray-700 leading-relaxed mb-4">
+                    Para sua segurança, enviamos notificações automáticas por email sempre que detectamos atividades 
+                    importantes em sua conta, incluindo novos logins e acessos de dispositivos não reconhecidos.
+                  </p>
+
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+                    <p className="text-orange-800 text-sm">
+                      <strong>Importante:</strong> Essas notificações são enviadas automaticamente pelo nosso sistema 
+                      de segurança e não podem ser desabilitadas, pois são essenciais para proteger sua conta.
+                    </p>
+                  </div>
+
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3">Tipos de Notificações Enviadas:</h4>
+                  <ul className="list-disc list-inside space-y-2 text-gray-700 mb-4">
+                    <li>Login realizado com sucesso em novo dispositivo</li>
+                    <li>Tentativas de login de localizações não reconhecidas</li>
+                    <li>Alterações nas configurações de segurança da conta</li>
+                    <li>Atividades suspeitas detectadas pelo sistema</li>
+                  </ul>
+
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3">Controle de Segurança:</h4>
+                  <p className="text-gray-700 leading-relaxed mb-4">
+                    Caso receba uma notificação sobre atividade não autorizada, você pode imediatamente bloquear 
+                    o dispositivo suspeito e todos os dispositivos próximos à região geográfica desse acesso através 
+                    das configurações de segurança da sua conta.
+                  </p>
+
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-800 text-sm">
+                      <strong>Isenção de Responsabilidade:</strong> A TreinAI não se responsabiliza por emails de 
+                      notificação que não sejam entregues devido a problemas com seu provedor de email, filtros de 
+                      spam, ou configurações de sua caixa de entrada. É sua responsabilidade manter um email válido 
+                      e acessível para receber essas notificações de segurança.
+                    </p>
+                  </div>
                 </div>
               </section>
 
@@ -395,12 +432,31 @@ const Termos = () => {
                   </div>
 
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Limitações Legais</h3>
-                  <ul className="list-disc list-inside space-y-2 text-gray-700">
+                  <ul className="list-disc list-inside space-y-2 text-gray-700 mb-4">
                     <li>Recomendamos consultar profissionais de saúde antes de iniciar exercícios</li>
                     <li>Os treinos são sugestões e devem ser adaptados às suas condições físicas</li>
                     <li>Manteremos os serviços disponíveis conforme nossos termos de nível de serviço</li>
                     <li>Conteúdo de terceiros é de responsabilidade de seus respectivos autores</li>
                   </ul>
+
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Limitações Específicas sobre Comunicações</h3>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-yellow-800 text-sm">
+                      <strong>Notificações por Email:</strong> A TreinAI não se responsabiliza pela entrega, 
+                      recebimento ou processamento de emails de notificação de segurança enviados para sua conta. 
+                      Problemas relacionados a provedores de email, filtros de spam, configurações de caixa de entrada 
+                      ou falhas na infraestrutura de email de terceiros estão fora do nosso controle e responsabilidade.
+                    </p>
+                  </div>
+
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+                    <p className="text-red-800 text-sm">
+                      <strong>Segurança da Conta:</strong> É sua responsabilidade manter um endereço de email válido 
+                      e acessível, verificar regularmente suas notificações de segurança e tomar as medidas apropriadas 
+                      caso detecte atividades suspeitas. A TreinAI fornece as ferramentas de segurança, mas o uso 
+                      adequado dessas ferramentas é de sua responsabilidade.
+                    </p>
+                  </div>
                 </div>
               </section>
 

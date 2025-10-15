@@ -565,8 +565,8 @@ export const StripeWebhook = async (req, res) => {
               if (userSaldo) {
                 userSaldo.saldoDeImpressoes = (userSaldo.saldoDeImpressoes || 0) + quantidade;
                 // Enviar email de confirmação
-                sendNotificationEmail(userSaldo.email, 'Saldo de Impressões Adicionado', `Seu saldo foi adicionado com sucesso. Quantidade adicionada: +${quantidade}. Total atual: ${userSaldo.saldoDeImpressoes}`);
                 await userSaldo.save();
+                sendNotificationEmail(userSaldo.email, 'Saldo de Impressões Adicionado', `Seu saldo foi adicionado com sucesso. Quantidade adicionada: +${quantidade}. Total atual: ${userSaldo.saldoDeImpressoes}`);
                 log(`Saldo de impressões adicionado ao user ${userId}: +${quantidade} (total: ${userSaldo.saldoDeImpressoes})`);
               } else {
                 log('saldo_impressoes: usuário não encontrado para userId:', userId);
@@ -855,7 +855,7 @@ export const StripeWebhook = async (req, res) => {
             await user.save();
 
             // Enviar email de confirmação
-            if (user) sendNotificationEmail(user.email, 'Plano de cancelado', 'Seu plano foi cancelado com sucesso!');
+            if (user) sendNotificationEmail(user.email, 'Plano cancelado', 'Seu plano foi cancelado com sucesso!');
 
             log('Usuário marcado inativo por invoice.payment_failed:', user._id);
           }
@@ -1325,7 +1325,6 @@ export const deletarLocal = async (req, res) => {
       return res.status(500).json({ msg: 'Erro ao apagar local do banco', error: errDelete?.message || String(errDelete) });
     }
 
-
     sendNotificationEmail(
       user.email,
       'Assinatura cancelada',
@@ -1334,7 +1333,7 @@ export const deletarLocal = async (req, res) => {
     sendNotificationEmail(
       process.env.EMAIL_USER,
       'Assinatura cancelada',
-      `A assinatura de ${user.username} do _id: ${user._id} foi cancelada. Refund: ${refundInfo?.id || 'Nenhum'}.`
+      `A assinatura de ${user?._id} do _id: ${user._id} foi cancelada. Refund: ${refundInfo?.id || 'Nenhum'}.`
     );
 
     return res.json({

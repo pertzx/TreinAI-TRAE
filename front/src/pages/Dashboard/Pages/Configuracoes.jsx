@@ -31,6 +31,7 @@ const Switch = ({ checked, onChange, label, tema }) => (
 const Configuracoes = ({ setTema, tema, user }) => {
   const navigate = useNavigate();
   const [lang, setLang] = useState('pt');
+  const [loginSeguro, setLoginSeguro] = useState(user?.stats?.loginSeguro || false);
   const [notificacoes, setNotificacoes] = useState(true);
 
   const [saving, setSaving] = useState({ theme: false, lang: false, notifications: false });
@@ -49,6 +50,10 @@ const Configuracoes = ({ setTema, tema, user }) => {
   const [tokensTotal, setTokensTotal] = useState(0);
   const [tokensToday, setTokensToday] = useState(0);
 
+  // Estado para controlar exibição de dispositivos
+  const [showAllDevices, setShowAllDevices] = useState(false);
+  const INITIAL_DEVICES_SHOWN = 1;
+
   // Função de logout
   const handleLogout = async () => {
     try {
@@ -60,14 +65,14 @@ const Configuracoes = ({ setTema, tema, user }) => {
       // Limpar todos os dados locais independentemente do resultado da requisição
       localStorage.clear();
       sessionStorage.clear();
-      
+
       // Limpar cookies (se houver)
       document.cookie.split(";").forEach((c) => {
         const eqPos = c.indexOf("=");
         const name = eqPos > -1 ? c.substr(0, eqPos) : c;
         document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
       });
-      
+
       // Redirecionar para login
       navigate('/login');
     }
@@ -84,6 +89,12 @@ const Configuracoes = ({ setTema, tema, user }) => {
   const fmt = (n) => (typeof n === 'number' ? Math.round(n).toLocaleString('pt-BR') : '0');
 
   useEffect(() => {
+    if (user?.stats?.loginSeguro === true) {
+      setLoginSeguro(true);
+    } else {
+      setLoginSeguro(false);
+    }
+
     // Sincroniza tema -> se user tiver preferência usa ela
     if (user?.preferences?.theme === 'dark' || user?.preferences?.theme === 'light') {
       setTema(user.preferences.theme);
@@ -206,6 +217,57 @@ const Configuracoes = ({ setTema, tema, user }) => {
       console.error('Erro ao salvar tema no servidor:', err);
     } finally {
       setSaving((prev) => ({ ...prev, theme: false }));
+      setGlobalLoading(false);
+    }
+  };
+
+  const toggleLoginSeguro = async () => {
+    const novoLoginSeguro = !loginSeguro;
+
+    // Atualiza o estado local imediatamente para feedback visual
+    setLoginSeguro(novoLoginSeguro);
+
+    setSaving((prev) => ({ ...prev, loginSeguro: true }));
+    setGlobalLoading(true);
+
+    try {
+      const res = await api.post('/change-loginSeguro', {
+        email: user.email,
+        novoLoginSeguro
+      });
+
+      // Verifica se a resposta foi bem-sucedida
+      if (res.data && res.data.success) {
+        console.log('Login seguro alterado com sucesso:', res.data.loginSeguro);
+        // O estado já foi atualizado acima, então não precisa fazer nada mais
+      } else {
+        // Se houve erro, reverte o estado
+        setLoginSeguro(!novoLoginSeguro);
+        console.error('Erro na resposta do servidor:', res.data?.msg || 'Erro desconhecido');
+
+        // Aqui você pode adicionar um toast ou notificação de erro
+        // toast.error(res.data?.msg || 'Erro ao alterar configuração de login seguro');
+      }
+    } catch (err) {
+      // Em caso de erro, reverte o estado
+      setLoginSeguro(!novoLoginSeguro);
+      console.error('Erro ao salvar login seguro no servidor:', err);
+
+      // Tratamento de diferentes tipos de erro
+      if (err.response?.status === 400) {
+        console.error('Dados inválidos:', err.response.data?.msg);
+      } else if (err.response?.status === 404) {
+        console.error('Usuário não encontrado:', err.response.data?.msg);
+      } else if (err.response?.status === 500) {
+        console.error('Erro interno do servidor:', err.response.data?.msg);
+      } else {
+        console.error('Erro de conexão ou desconhecido');
+      }
+
+      // Aqui você pode adicionar um toast ou notificação de erro
+      // toast.error('Erro ao alterar configuração de login seguro. Tente novamente.');
+    } finally {
+      setSaving((prev) => ({ ...prev, loginSeguro: false }));
       setGlobalLoading(false);
     }
   };
@@ -418,32 +480,31 @@ const Configuracoes = ({ setTema, tema, user }) => {
           <div className="text-xs ">Seu identificador único no sistema</div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <code className={`px-3 py-1 rounded-lg text-xs font-mono ${
-            tema === 'dark' 
-              ? 'bg-gray-700 text-green-400' 
-              : 'bg-gray-100 text-gray-800'
-          }`}>
+          <code className={`px-3 py-1 rounded-lg text-xs font-mono ${tema === 'dark'
+            ? 'bg-gray-700 text-green-400'
+            : 'bg-gray-100 text-gray-800'
+            }`}>
             {user?._id || 'N/A'}
           </code>
           <button
             onClick={() => {
               const textToCopy = user?._id || '';
-              
+
               // Função de fallback para navegadores sem Clipboard API
               const fallbackCopyTextToClipboard = (text) => {
                 const textArea = document.createElement("textarea");
                 textArea.value = text;
-                
+
                 // Evita scroll para o elemento
                 textArea.style.top = "0";
                 textArea.style.left = "0";
                 textArea.style.position = "fixed";
                 textArea.style.opacity = "0";
-                
+
                 document.body.appendChild(textArea);
                 textArea.focus();
                 textArea.select();
-                
+
                 try {
                   const successful = document.execCommand('copy');
                   if (successful) {
@@ -455,10 +516,10 @@ const Configuracoes = ({ setTema, tema, user }) => {
                 } catch (err) {
                   console.error('Fallback: Unable to copy', err);
                 }
-                
+
                 document.body.removeChild(textArea);
               };
-              
+
               // Tentar usar a Clipboard API moderna primeiro
               if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(textToCopy).then(() => {
@@ -474,11 +535,10 @@ const Configuracoes = ({ setTema, tema, user }) => {
                 fallbackCopyTextToClipboard(textToCopy);
               }
             }}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
-              tema === 'dark' 
-                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${tema === 'dark'
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
           >
             Copiar
           </button>
@@ -493,11 +553,10 @@ const Configuracoes = ({ setTema, tema, user }) => {
         </div>
         <button
           onClick={handleLogout}
-          className={`px-4 py-2 rounded-lg font-semibold transition ${
-            tema === 'dark' 
-              ? 'bg-red-600 hover:bg-red-700 text-white' 
-              : 'bg-red-500 hover:bg-red-600 text-white'
-          }`}
+          className={`px-4 py-2 rounded-lg font-semibold transition ${tema === 'dark'
+            ? 'bg-red-600 hover:bg-red-700 text-white'
+            : 'bg-red-500 hover:bg-red-600 text-white'
+            }`}
         >
           Logout
         </button>
@@ -506,7 +565,7 @@ const Configuracoes = ({ setTema, tema, user }) => {
       {/* Tokens summary */}
       <div className={`${cardClass} w-full max-w-2xl p-4 rounded-2xl border`}>
         <h3 className="font-semibold mb-4">Usagem (IA)</h3>
-        
+
         {/* Resumo dos tokens */}
         <div className="flex items-center justify-between gap-4 mb-4">
           <div>
@@ -526,6 +585,151 @@ const Configuracoes = ({ setTema, tema, user }) => {
         </div>
 
         <div className={`text-xs mt-2 ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Contagem baseada nos registros de <code>user.stats.tokens</code> (fuso America/Sao_Paulo).</div>
+      </div>
+
+      {/* Devices history */}
+      <div className={`${cardClass} w-full max-w-2xl p-4 rounded-2xl border`}>
+        <h3 className="font-semibold mb-4">Segurança da conta</h3>
+
+        {/* Infos */}
+        <div className="flex flex-col justify-between gap-4 mb-4">
+          <div className={`flex items-center justify-between w-full max-w-2xl p-4 rounded-2xl border ${cardClass}`}>
+            <div>
+              <div className="text-sm font-medium">Login seguro</div>
+              <div className="text-xs ">Importante pra gerenciar quem acessar a sua conta. toda vez que alguem acessar voce recebera um email e podera bloquear esse dispositivo.</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs">{loginSeguro === true ? 'Ativado' : 'Desativado'}</span>
+              <Switch checked={loginSeguro} onChange={toggleLoginSeguro} label="Alternar login seguro" tema={loginSeguro} />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-4">Historico de dispositivos</h3>
+            {user?.stats?.deviceHistory?.length > 0 ? (
+              <div className={`p-4 bg-black/10 rounded-2xl`}>{/* Botão Mostrar mais/menos */}
+                {user.stats.deviceHistory.length > INITIAL_DEVICES_SHOWN && (
+                  <div className="flex justify-center mb-4">
+                    <button
+                      onClick={() => setShowAllDevices(!showAllDevices)}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors duration-200 ${tema === 'dark'
+                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                        }`}
+                    >
+                      {showAllDevices
+                        ? `Mostrar menos (${INITIAL_DEVICES_SHOWN} de ${user.stats.deviceHistory.length})`
+                        : `Mostrar mais (${user.stats.deviceHistory.length - INITIAL_DEVICES_SHOWN} restantes)`
+                      }
+                    </button>
+                  </div>
+                )}
+
+                {user.stats.deviceHistory
+                  .slice(0, showAllDevices ? user.stats.deviceHistory.length : INITIAL_DEVICES_SHOWN)
+                  .map((d, i) => {
+                    // Função para formatar data
+                    const formatDeviceDate = (date) => {
+                      if (!date) return 'N/A';
+                      try {
+                        return new Date(date).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                      } catch (error) {
+                        return 'Data inválida';
+                      }
+                    };
+
+                    // Função para formatar localização
+                    const formatLocation = (location) => {
+                      if (!location || (!location.lat && !location.lon)) return 'Localização não disponível';
+                      if (location.lat === null || location.lon === null) return 'Localização não disponível';
+                      return `${location.lat?.toFixed(4)}, ${location.lon?.toFixed(4)}`;
+                    };
+
+                    // Função para truncar systemInfo se muito longo
+                    const formatSystemInfo = (systemInfo) => {
+                      if (!systemInfo) return 'Informações não disponíveis';
+                      return systemInfo.length > 50 ? `${systemInfo.substring(0, 50)}...` : systemInfo;
+                    };
+
+                    return (
+                      <div key={i} className={`w-full max-w-2xl p-4 rounded-2xl border mb-3 ${cardClass} ${d.bloqueado ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : ''}`}>
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <div className="text-sm font-medium flex items-center gap-2">
+                              Dispositivo {i + 1}
+                              {d.bloqueado && (
+                                <span className="px-2 py-1 text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-full">
+                                  Bloqueado
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              ID: {d.deviceId || 'N/A'}
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {d.loginCount || 0} login(s)
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Sistema</div>
+                            <div className="font-medium text-sm" title={d.systemInfo}>
+                              {formatSystemInfo(d.systemInfo)}
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Localização</div>
+                            <div className="font-medium text-sm">
+                              {formatLocation(d.location)}
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Primeiro Login</div>
+                            <div className="font-medium text-sm">
+                              {formatDeviceDate(d.firstLoginDate)}
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Último Acesso</div>
+                            <div className="font-medium text-sm">
+                              {formatDeviceDate(d.lastActivity || d.loginDate)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {d.blockedAt && (
+                          <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-800">
+                            <div className="text-xs text-red-600 dark:text-red-400">
+                              Bloqueado em: {formatDeviceDate(d.blockedAt)}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+
+              </div>
+            ) : (
+              <div className={`w-full max-w-2xl p-6 rounded-2xl border text-center ${cardClass}`}>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Nenhum dispositivo registrado ainda
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Plan Info */}

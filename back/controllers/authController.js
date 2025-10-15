@@ -168,25 +168,69 @@ export const login = async (req, res) => {
 
     // Logica de analise de device aqui abaixo..
     // Só executa se o usuário permitiu a localização (location.lat e location.lon não são null)
-    if (location && location.lat !== null && location.lon !== null) {
+    if (user && user.stats && user.stats.loginSeguro) {
+      console.log("Login seguro inicializando...")
+
       // Inicializar histórico de dispositivos se não existir
       if (!user.stats) user.stats = {};
       if (!user.stats.deviceHistory) user.stats.deviceHistory = [];
 
       // Verificar se estamos em ambiente de desenvolvimento ou se a localização é inválida
       const isDevelopment = process.env.NODE_ENV === 'development';
-      if (isDevelopment && location) {
-        location.lat = -11.1993055;
-        location.lon = -50.068226;
+      if (location && (location.lat == null || location.lon == null)) {
+        location.lat = -14.1993055;
+        location.lon = -57.068226;
       }
       const hasValidLocation = location && typeof location.lat === 'number' && typeof location.lon === 'number';
 
-      // 1) Buscar dispositivo por identificador (deviceId) - verificação principal
-      let existingDevice = user.stats.deviceHistory.find(device => device.deviceId === identificador);
+      // 1) PRIMEIRO: Filtrar todos os devices relacionados (por deviceId OU systemInfo)
+      const relatedDevices = user.stats.deviceHistory.filter(device => {
+        // Buscar por deviceId exato
+        if (device.deviceId === identificador) {
+          return true;
+        }
+        // Buscar por systemInfo similar (mesmo sistema/browser)
+        if (systemInfo && device.systemInfo === systemInfo) {
+          return true;
+        }
+        return false;
+      });
 
-      // 2) Se não encontrou por deviceId, buscar por systemInfo para evitar duplicatas
+      console.log(`Encontrados ${relatedDevices.length} devices relacionados para análise`);
+
+      // 2) SEGUNDO: Verificar se ALGUM dos devices relacionados está bloqueado E próximo (2km)
+      const blockedRelatedDevices = relatedDevices.filter(device => device.bloqueado === true);
+
+      if (blockedRelatedDevices.length > 0 && hasValidLocation) {
+        console.log(`Encontrados ${blockedRelatedDevices.length} devices bloqueados relacionados`);
+
+        // Verificar se algum dispositivo bloqueado está dentro do raio de 2km
+        const blockedDevicesInRadius = blockedRelatedDevices.filter(blockedDevice => {
+          if (!blockedDevice.location || !blockedDevice.location.lat || !blockedDevice.location.lon) {
+            return false; // Ignorar dispositivos sem localização
+          }
+          return isWithinRadius(location.lat, location.lon, blockedDevice.location.lat, blockedDevice.location.lon, 2);
+        });
+
+        if (blockedDevicesInRadius.length > 0) {
+          console.log(`Encontrados ${blockedDevicesInRadius.length} devices bloqueados próximos (2km)`);
+          // Incrementar tentativas de login falhadas
+          user.stats.failedLoginAttempts = (user.stats.failedLoginAttempts || 0) + 1;
+          await user.save();
+          return res.status(403).json({
+            msg: "Acesso negado. Dispositivo bloqueado detectado na sua região.",
+            bloqueado: true,
+            detalhes: `${blockedDevicesInRadius.length} dispositivo(s) bloqueado(s) encontrado(s) próximo(s)`
+          });
+        }
+      }
+
+      // 3) TERCEIRO: Buscar dispositivo específico por identificador para atualização
+      let existingDevice = relatedDevices.find(device => device.deviceId === identificador);
+
+      // Se não encontrou por deviceId exato, buscar por systemInfo para evitar duplicatas
       if (!existingDevice && systemInfo) {
-        existingDevice = user.stats.deviceHistory.find(device =>
+        existingDevice = relatedDevices.find(device =>
           device.systemInfo === systemInfo &&
           (!device.deviceId || device.deviceId === identificador)
         );
@@ -197,50 +241,31 @@ export const login = async (req, res) => {
         }
       }
 
-      // 2) Buscar por systemInfo se não encontrou por deviceId
-      let similarDevices = [];
-      if (systemInfo) {
-        similarDevices = user.stats.deviceHistory.filter(device =>
-          device.systemInfo === systemInfo && device.deviceId !== identificador
-        );
-      }
+      // 4) QUARTO: Checar bloqueio por proximidade geográfica (raio = 2 km)
+      const blockedDevicesInRadius = user.stats.deviceHistory.filter(device => {
+        if (!device.bloqueado || !device.location || !device.location.lat || !device.location.lon) {
+          return false;
+        }
+        // Não verificar o próprio dispositivo
+        if (device.deviceId === identificador) {
+          return false;
+        }
+        return hasValidLocation && isWithinRadius(location.lat, location.lon, device.location.lat, device.location.lon, 2);
+      });
 
-      // 3) Checar bloqueio por proximidade (raio = 2 km) - apenas em produção com localização válida
-      if (!isDevelopment && hasValidLocation && location.lat !== null && location.lon !== null) {
-        const blockedDevicesInRadius = user.stats.deviceHistory.filter(device => {
-          if (!device.bloqueado || !device.location || !device.location.lat || !device.location.lon) {
-            return false;
-          }
-          // Não verificar o próprio dispositivo
-          if (device.deviceId === identificador) {
-            return false;
-          }
-          return isWithinRadius(location.lat, location.lon, device.location.lat, device.location.lon, 2);
+      if (blockedDevicesInRadius.length > 0) {
+        // Incrementar tentativas de login falhadas
+        user.stats.failedLoginAttempts = (user.stats.failedLoginAttempts || 0) + 1;
+        await user.save();
+        return res.status(403).json({
+          msg: "Acesso negado. Dispositivo bloqueado detectado na região.",
+          bloqueado: true
         });
-
-        if (blockedDevicesInRadius.length > 0) {
-          // Incrementar tentativas de login falhadas
-          user.stats.failedLoginAttempts = (user.stats.failedLoginAttempts || 0) + 1;
-          await user.save();
-          return res.status(403).json({
-            msg: "Acesso negado. Dispositivo bloqueado detectado na região.",
-            bloqueado: true
-          });
-        }
       }
 
-      // 4) Atualizar ou criar registro de device
+      // 5) QUINTO: Atualizar ou criar registro de device
       if (existingDevice) {
-        // Verificar se o dispositivo está bloqueado
-        if (existingDevice.bloqueado) {
-          user.stats.failedLoginAttempts = (user.stats.failedLoginAttempts || 0) + 1;
-          await user.save();
-          return res.status(403).json({
-            msg: "Dispositivo bloqueado. Acesso negado.",
-            blocked: true
-          });
-        }
-
+        // NOTA: Verificação de bloqueio já foi feita anteriormente no passo 2
         // Atualizar dispositivo existente
         existingDevice.loginDate = getBrazilDate();
         existingDevice.lastActivity = getBrazilDate();
@@ -259,44 +284,22 @@ export const login = async (req, res) => {
           existingDevice.systemInfo = systemInfo;
         }
       } else {
-        // Verificar se já existe um dispositivo com o mesmo deviceId antes de criar
-        const duplicateDevice = user.stats.deviceHistory.find(device => device.deviceId === identificador);
-        if (duplicateDevice) {
-          // Se já existe, atualizar o existente em vez de criar novo
-          duplicateDevice.loginDate = getBrazilDate();
-          duplicateDevice.lastActivity = getBrazilDate();
-          duplicateDevice.loginCount = (duplicateDevice.loginCount || 0) + 1;
+        // Criar novo dispositivo (já verificamos que não há duplicatas nos relatedDevices)
+        const newDevice = {
+          deviceId: identificador,
+          bloqueado: false,
+          systemInfo: systemInfo || null,
+          location: hasValidLocation ? { lat: location.lat, lon: location.lon } : { lat: null, lon: null },
+          firstLoginDate: getBrazilDate(),
+          loginDate: getBrazilDate(),
+          lastActivity: getBrazilDate(),
+          loginCount: 1,
+        };
 
-          // Atualizar localização se válida
-          if (hasValidLocation) {
-            duplicateDevice.location = {
-              lat: location.lat,
-              lon: location.lon
-            };
-          }
-
-          // Atualizar systemInfo se fornecido
-          if (systemInfo) {
-            duplicateDevice.systemInfo = systemInfo;
-          }
-        } else {
-          // Criar novo dispositivo apenas se não existir
-          const newDevice = {
-            deviceId: identificador,
-            bloqueado: false,
-            systemInfo: systemInfo || null,
-            location: hasValidLocation ? { lat: location.lat, lon: location.lon } : { lat: null, lon: null },
-            firstLoginDate: getBrazilDate(),
-            loginDate: getBrazilDate(),
-            lastActivity: getBrazilDate(),
-            loginCount: 1,
-          };
-
-          user.stats.deviceHistory.push(newDevice);
-        }
+        user.stats.deviceHistory.push(newDevice);
       }
 
-      // 5) Enviar alerta de segurança
+      // 6) SEXTO: Enviar alerta de segurança
       try {
         // Gerar dados do ticket de segurança
         const ticketData = createSecurityTicketData(user._id, identificador, {
@@ -321,19 +324,99 @@ export const login = async (req, res) => {
         // Criar link para bloqueio do dispositivo
         const blockLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login-nao-autorizado?ticket=${ticketData.ticket}`;
 
-        // Enviar e-mail de notificação
-        await sendNotificationEmail(
-          user.email,
-          'Novo acesso detectado em sua conta',
+        try {
+          // Enviar e-mail de notificação
+          sendNotificationEmail(
+            user.email,
+            '🔐 TreinAI - Novo acesso detectado em sua conta',
+            `
+          <!DOCTYPE html>
+          <html lang="pt-BR">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Novo Acesso Detectado - TreinAI</title>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 20px; }
+              .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+              .header { background: linear-gradient(135deg, #667eea, #764ba2); padding: 30px 20px; text-align: center; color: white; }
+              .logo { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.9); padding: 10px 20px; border-radius: 25px; color: #333; margin-bottom: 15px; }
+              .logo-icon { width: 28px; height: 28px; background: #667eea; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+              .badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(239,68,68,0.1); color: #dc2626; padding: 6px 12px; border-radius: 15px; font-size: 14px; font-weight: 600; border: 1px solid rgba(239,68,68,0.2); }
+              .content { padding: 30px 20px; }
+              .title { font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 15px; text-align: center; }
+              .description { font-size: 16px; color: #6b7280; text-align: center; margin-bottom: 25px; }
+              .device-card { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0; position: relative; }
+              .device-card::before { content: '🖥️'; position: absolute; top: -8px; left: 15px; background: #fff; padding: 5px; border-radius: 50%; font-size: 16px; }
+              .device-title { font-size: 16px; font-weight: 600; color: #1f2937; margin: 5px 0 10px 0; }
+              .action { text-align: center; margin: 25px 0; }
+              .warning { font-size: 15px; color: #dc2626; font-weight: 500; margin-bottom: 20px; padding: 15px; background: #fef2f2; border-left: 3px solid #dc2626; border-radius: 5px; }
+              .btn { display: inline-block; background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; }
+              .btn:hover { background: #b91c1c; }
+              .safe { font-size: 14px; color: #6b7280; margin-top: 20px; padding: 15px; background: #f0fdf4; border-left: 3px solid #22c55e; border-radius: 5px; }
+              .footer { background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+              .trust { display: flex; justify-content: center; gap: 15px; margin-top: 10px; flex-wrap: wrap; }
+              .trust span { display: flex; align-items: center; gap: 3px; }
+              @media (max-width: 600px) { .container { margin: 0; border-radius: 0; } .header, .content, .footer { padding: 20px 15px; } .trust { flex-direction: column; gap: 5px; } }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <div class="logo">
+                  <div class="logo-icon">T</div>
+                  <div>TreinAI</div>
+                </div>
+                <div class="badge">
+                  <span>🛡️</span>
+                  Alerta de Segurança
+                </div>
+              </div>
+              
+              <div class="content">
+                <h1 class="title">Novo acesso detectado</h1>
+                <p class="description">
+                  Detectamos um novo acesso em sua conta TreinAI. Por segurança, estamos notificando você sobre esta atividade.
+                </p>
+                
+                <div class="device-card">
+                  <h3 class="device-title">Detalhes do Acesso</h3>
+                  ${deviceInfo}
+                </div>
+                
+                <div class="action">
+                  <div class="warning">
+                    ⚠️ <strong>Ação necessária:</strong> Se este acesso não foi autorizado por você, clique no botão abaixo imediatamente para bloquear este dispositivo.
+                  </div>
+                  
+                  <a href="${blockLink}" class="btn">
+                    🔒 Bloquear Dispositivo Agora
+                  </a>
+                  
+                  <div class="safe">
+                    ✅ <strong>Acesso reconhecido?</strong> Se você reconhece este acesso, pode ignorar este e-mail com segurança. Sua conta permanece protegida.
+                  </div>
+                </div>
+              </div>
+              
+              <div class="footer">
+                <p>Este é um e-mail automático de segurança da TreinAI. Não responda a este e-mail.</p>
+                <p><strong>TreinAI</strong> - Sua plataforma de treinos com IA</p>
+                
+                <div class="trust">
+                  <span>🔐 Criptografia SSL</span>
+                  <span>🛡️ Monitoramento 24/7</span>
+                  <span>✅ LGPD Compliance</span>
+                </div>
+              </div>
+            </div>
+          </body>
+          </html>
           `
-          <h2>Novo acesso detectado</h2>
-          <p>Detectamos um novo acesso em sua conta:</p>
-          ${deviceInfo}
-          <p>Se este acesso não foi autorizado por você, clique no link abaixo para bloquear este dispositivo:</p>
-          <a href="${blockLink}" style="background-color: #dc3545; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Bloquear Dispositivo</a>
-          <p>Se você reconhece este acesso, pode ignorar este e-mail.</p>
-          `
-        );
+          );
+        } catch (error) {
+          console.log(error)
+        }
       } catch (emailError) {
         console.error('Erro ao enviar e-mail de alerta de segurança:', emailError);
         // Não interromper o fluxo de login por falha no e-mail
@@ -457,7 +540,7 @@ export const signup = async (req, res) => {
     });
 
     // Gera token
-    const token = jwt.sign({ email, userId: newUser._id }, SECRET_JWT, { expiresIn: "7d" });
+    const token = jwt.sign({ email, userId: newUser._id }, SECRET_JWT, { expiresIn: "10s" });
 
     // Define cookie httpOnly seguro baseado no ambiente
     res.cookie('auth_token', token, {
@@ -467,8 +550,12 @@ export const signup = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
     });
 
-    sendNotificationEmail(email, 'Boas-vindas', 'Seja bem-vindo ao TreinAI!');
-    sendNotificationEmail(process.env.EMAIL_USER, 'Novo usuário registrado', `Um novo usuário, ${userName}, foi registrado. especificações: email: ${email}, username: ${userName}, _id: ${newUser?._id}`);
+    try {
+      sendNotificationEmail(email, 'Boas-vindas', 'Seja bem-vindo ao TreinAI!');
+      sendNotificationEmail(process.env.EMAIL_USER, 'Novo usuário registrado', `Um novo usuário, ${userName}, foi registrado. especificações: email: ${email}, username: ${userName}, _id: ${newUser?._id}`);
+    } catch (error) {
+      console.log(error);
+    }
 
     return res.status(201).json({
       msg: 'Usurio criado com scesso!',
@@ -500,62 +587,85 @@ export const dashboard = async (req, res) => {
 
     let bloqueado = false;
     let currentDeviceInfo = null;
-    
+
     // Coletar dados do acesso atual
     const ip = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'] || 'Dispositivo desconhecido';
 
     // Só executa lógica de dispositivos se o usuário permitiu a localização (location.lat e location.lon não são null)
-    if (location && location.lat !== null && location.lon !== null) {
+    if (user && user.stats && user.stats.loginSeguro) {
+      console.log("Login seguro inicializando...")
       // Inicializar histórico de dispositivos se não existir
       if (!user.stats) user.stats = {};
       if (!user.stats.deviceHistory) user.stats.deviceHistory = [];
 
       // Verificar se estamos em ambiente de desenvolvimento ou se a localização é inválida
       const isDevelopment = process.env.NODE_ENV === 'development';
-      if (isDevelopment && location) {
-        location.lat = -11.1993055;
-        location.lon = -50.068226;
+      if (location && (location.lat == null || location.lon == null)) {
+        location.lat = -14.1993055;
+        location.lon = -57.068226;
       }
+      console.log(location)
       const hasValidLocation = location && typeof location.lat === 'number' && typeof location.lon === 'number';
 
-      // Verificar se o dispositivo atual está bloqueado
+      // 1) PRIMEIRO: Filtrar todos os devices relacionados (por deviceId OU systemInfo)
+      const relatedDevices = user.stats.deviceHistory.filter(device => {
+        // Buscar por deviceId exato
+        if (device.deviceId === identificador) {
+          return true;
+        }
+        // Buscar por systemInfo similar (mesmo sistema/browser)
+        if (systemInfo && device.systemInfo === systemInfo) {
+          return true;
+        }
+        return false;
+      });
 
-      // 1) Buscar dispositivo por identificador (deviceId)
-      let existingDevice = user.stats.deviceHistory.find(device => device.deviceId === identificador);
+      console.log(`Dashboard - Encontrados ${relatedDevices.length} devices relacionados para análise`);
 
-      // 3) Checar bloqueio por proximidade (raio = 2 km) - apenas em produção com localização válida
-      if (!isDevelopment && hasValidLocation && location.lat !== null && location.lon !== null) {
-        console.log(systemInfo, location)
-        const blockedDevicesInRadius = user.stats.deviceHistory.filter(device => {
-          if (!device.bloqueado || !device.location || !device.location.lat || !device.location.lon) {
-            return false;
+      // 2) SEGUNDO: Verificar se ALGUM dos devices relacionados está bloqueado E próximo (2km)
+      const blockedRelatedDevices = relatedDevices.filter(device => device.bloqueado === true);
+
+      if (blockedRelatedDevices.length > 0 && hasValidLocation) {
+        console.log(`Dashboard - Encontrados ${blockedRelatedDevices.length} devices bloqueados relacionados`);
+
+        // Verificar se algum dispositivo bloqueado está dentro do raio de 2km
+        const blockedDevicesInRadius = blockedRelatedDevices.filter(blockedDevice => {
+          if (!blockedDevice.location || !blockedDevice.location.lat || !blockedDevice.location.lon) {
+            return false; // Ignorar dispositivos sem localização
           }
-          // Não verificar o próprio dispositivo
-          if (device.deviceId === identificador) {
-            return false;
-          }
-          return isWithinRadius(location.lat, location.lon, device.location.lat, device.location.lon, 2);
+          return isWithinRadius(location.lat, location.lon, blockedDevice.location.lat, blockedDevice.location.lon, 2);
         });
 
         if (blockedDevicesInRadius.length > 0) {
+          console.log(`Dashboard - Encontrados ${blockedDevicesInRadius.length} devices bloqueados próximos (2km)`);
           return res.status(403).json({
             msg: "Acesso negado. Dispositivo bloqueado detectado na sua região.",
-            bloqueado: true
+            bloqueado: true,
+            detalhes: `${blockedDevicesInRadius.length} dispositivo(s) bloqueado(s) encontrado(s) próximo(s)`
           });
         }
       }
 
-      // 4) Verificar se o dispositivo está bloqueado
-      if (existingDevice && existingDevice.bloqueado) {
-        return res.status(403).json({
-          msg: "Dispositivo bloqueado. Acesso negado.",
-          bloqueado: true
-        });
+      // 3) TERCEIRO: Buscar dispositivo específico por identificador para atualização
+      let existingDevice = relatedDevices.find(device => device.deviceId === identificador);
+
+      // Se não encontrou por deviceId exato, buscar por systemInfo para evitar duplicatas
+      if (!existingDevice && systemInfo) {
+        existingDevice = relatedDevices.find(device =>
+          device.systemInfo === systemInfo &&
+          (!device.deviceId || device.deviceId === identificador)
+        );
+
+        // Se encontrou um dispositivo com mesmo systemInfo, atualizar o deviceId
+        if (existingDevice && !existingDevice.deviceId) {
+          existingDevice.deviceId = identificador;
+        }
       }
 
-      // 5) Atualizar ou criar registro de device
+      // 4) QUARTO: Atualizar ou criar registro de device
       if (existingDevice) {
+        // NOTA: Verificação de bloqueio já foi feita anteriormente no passo 2
         // Atualizar dispositivo existente
         existingDevice.loginDate = getBrazilDate();
         existingDevice.lastActivity = getBrazilDate();
@@ -576,44 +686,20 @@ export const dashboard = async (req, res) => {
 
         currentDeviceInfo = existingDevice;
       } else {
-        // Verificar se já existe um dispositivo com o mesmo deviceId antes de criar
-        const duplicateDevice = user.stats.deviceHistory.find(device => device.deviceId === identificador);
-        if (duplicateDevice) {
-          // Se já existe, atualizar o existente em vez de criar novo
-          duplicateDevice.loginDate = getBrazilDate();
-          duplicateDevice.lastActivity = getBrazilDate();
-          duplicateDevice.loginCount = (duplicateDevice.loginCount || 0) + 1;
+        // Criar novo dispositivo (já verificamos que não há duplicatas nos relatedDevices)
+        const newDevice = {
+          deviceId: identificador,
+          bloqueado: false,
+          systemInfo: systemInfo || null,
+          location: hasValidLocation ? { lat: location.lat, lon: location.lon } : { lat: null, lon: null },
+          firstLoginDate: getBrazilDate(),
+          loginDate: getBrazilDate(),
+          lastActivity: getBrazilDate(),
+          loginCount: 1,
+        };
 
-          // Atualizar localização se válida
-          if (hasValidLocation) {
-            duplicateDevice.location = {
-              lat: location.lat,
-              lon: location.lon
-            };
-          }
-
-          // Atualizar systemInfo se fornecido
-          if (systemInfo) {
-            duplicateDevice.systemInfo = systemInfo;
-          }
-
-          currentDeviceInfo = duplicateDevice;
-        } else {
-          // Criar novo dispositivo apenas se não existir
-          const newDevice = {
-            deviceId: identificador,
-            bloqueado: false,
-            systemInfo: systemInfo || null,
-            location: hasValidLocation ? { lat: location.lat, lon: location.lon } : { lat: null, lon: null },
-            firstLoginDate: getBrazilDate(),
-            loginDate: getBrazilDate(),
-            lastActivity: getBrazilDate(),
-            loginCount: 1,
-          };
-
-          user.stats.deviceHistory.push(newDevice);
-          currentDeviceInfo = newDevice;
-        }
+        user.stats.deviceHistory.push(newDevice);
+        currentDeviceInfo = newDevice;
       }
 
       // Atualizar estatísticas (apenas se não estiver bloqueado)
@@ -644,7 +730,6 @@ export const dashboard = async (req, res) => {
         deviceId: currentDeviceInfo.deviceId,
         systemInfo: currentDeviceInfo.systemInfo,
         location: currentDeviceInfo.location,
-        isNewDevice: !existingDevice,
         lastAccess: currentDeviceInfo.lastActivity,
         loginCount: currentDeviceInfo.loginCount
       };
@@ -687,6 +772,68 @@ export const changeTheme = async (req, res) => {
     console.error('changeTheme error:', err);
     return res.status(500).json({
       msg: 'Erro interno do servidor ao alterar tema',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// =======================
+// changeLoginSeguro
+// =======================
+export const changeLoginSeguro = async (req, res) => {
+  try {
+    const { email, novoLoginSeguro } = req.body;
+
+    // Validação de entrada mais rigorosa
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({
+        success: false,
+        msg: 'Email é obrigatório e deve ser uma string válida.'
+      });
+    }
+
+    if (typeof novoLoginSeguro !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        msg: 'novoLoginSeguro deve ser um valor booleano (true ou false).'
+      });
+    }
+
+    // Buscar usuário
+    const usr = await User.findOne({ email });
+
+    if (!usr) {
+      return res.status(404).json({
+        success: false,
+        msg: 'Usuário não encontrado.'
+      });
+    }
+
+    // Verificar se o valor já é o mesmo
+    const currentLoginSeguro = usr.stats?.loginSeguro || false;
+    if (currentLoginSeguro === novoLoginSeguro) {
+      return res.status(400).json({
+        success: false,
+        msg: 'O valor do login seguro já está configurado para este estado.'
+      });
+    }
+
+    // Atualizar configuração
+    usr.stats = usr.stats || {};
+    usr.stats.loginSeguro = novoLoginSeguro;
+
+    await usr.save();
+
+    return res.json({
+      success: true,
+      msg: 'Configuração de login seguro alterada com sucesso.',
+      loginSeguro: novoLoginSeguro
+    });
+  } catch (err) {
+    console.error('changeLoginSeguro error:', err);
+    return res.status(500).json({
+      success: false,
+      msg: 'Erro interno do servidor ao alterar a configuração de login seguro',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
@@ -924,6 +1071,8 @@ export const atualizarPerfil = async (req, res) => {
   }
 };
 
+
+
 const criarTreinos = async (objetivo, userEmail = null) => {
   // Verificar se OpenAI está configurado
   if (!openai) {
@@ -1113,9 +1262,6 @@ export const carregarTreinos = async (req, res) => {
       },
       { new: true }
     );
-
-    // Envia email de confirmação
-    sendNotificationEmail(email, 'Treinos Criados', 'Seus treinos foram criados com sucesso!');
 
     return res.json({
       msg: 'Treinos criados com sucesso!',

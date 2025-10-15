@@ -96,8 +96,8 @@ const UserSchema = new Schema({
       ]
     }
   ],
-
   stats: {
+    loginSeguro: { type: Boolean, default: false},
     ipHistory: [{ type: String }],
     tokens: [
       {

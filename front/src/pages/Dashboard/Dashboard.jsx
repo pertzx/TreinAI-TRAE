@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../Api.js';
 import { Link, Route, Routes, useNavigate } from 'react-router-dom';
@@ -51,6 +51,9 @@ const Dashboard = ({ needToPay, plano }) => {
   const [dispositivoBloqueado, setDispositivoBloqueado] = useState(false);
   const navigate = useNavigate();
   const { showError, showInfo, showWarning, showSuccess } = useToast();
+  
+  // Ref para controlar execução única do useEffect principal
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
     if (user?.planInfos?.planType === 'free') {
@@ -112,6 +115,13 @@ const Dashboard = ({ needToPay, plano }) => {
   }
 
   useEffect(() => {
+    // Previne execução dupla em StrictMode
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    // AbortController para cancelar requisições se o componente for desmontado
+    const abortController = new AbortController();
+
     const fetchUser = async () => {
       try {
         // Buscar dados do usuário usando apenas cookies httpOnly
@@ -121,7 +131,10 @@ const Dashboard = ({ needToPay, plano }) => {
           identificador,
           systemInfo,
           location
+        }, {
+          signal: abortController.signal // Adiciona suporte para cancelamento
         });
+        
         if (res?.data?.user) {
           setUser(res.data.user);
 
@@ -136,7 +149,8 @@ const Dashboard = ({ needToPay, plano }) => {
               params: {
                 userId: res.data.user._id
               },
-              timeout: 10000 // 10 segundos de timeout
+              timeout: 10000, // 10 segundos de timeout
+              signal: abortController.signal // Adiciona suporte para cancelamento
             });
 
             console.log(gamificationResponse)
@@ -145,16 +159,21 @@ const Dashboard = ({ needToPay, plano }) => {
               setUserGamification(gamificationResponse.data.data);
             }
           } catch (gamificationError) {
+            // Ignora erros de cancelamento
+            if (gamificationError.name === 'AbortError') return;
             console.warn('Erro ao buscar dados de gamificação:', gamificationError);
             // Não mostra erro para o usuário, apenas log
           }
         }
       } catch (error) {
+        // Ignora erros de cancelamento
+        if (error.name === 'AbortError') return;
+        
         const errorMessage = handleError(error);
         showError(errorMessage);
         console.error('Dashboard fetch user error:', error);
 
-        if (error.response.data.msg == "Usuário não encontrado no dashboard.") {
+        if (error.response?.data?.msg == "Usuário não encontrado no dashboard.") {
 
           // deletar todos os cookies e dados do site 
           // Limpar todos os dados locais independentemente do resultado da requisição
@@ -183,6 +202,11 @@ const Dashboard = ({ needToPay, plano }) => {
     // Carregar tema do localStorage
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) setTema(savedTheme);
+
+    // Cleanup function para cancelar requisições pendentes
+    return () => {
+      abortController.abort();
+    };
   }, [navigate]);
 
   // Atualiza o tema com base nas preferências do usuário (quando user muda)
@@ -665,7 +689,32 @@ const Dashboard = ({ needToPay, plano }) => {
 
           {/* Botão para voltar ao login */}
           <motion.button
-            onClick={() => navigate('/login')}
+            onClick={() => {
+              // deletar todos os cookies e dados do site 
+              // Limpar todos os dados locais independentemente do resultado da requisição
+              let limpo = false
+
+              try {
+                localStorage.clear();
+                sessionStorage.clear();
+                document.cookie.split(";").forEach((c) => {
+                  const eqPos = c.indexOf("=");
+                  const name = eqPos > -1 ? c.substr(0, eqPos) : c;
+                  document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+                });
+                limpo = true
+              } catch (error) {
+                console.error("Erro ao limpar dados locais:", error);
+                limpo = false
+              }
+
+              while (true) {
+                if (limpo) {
+                  navigate('/login')
+                }
+              }
+
+            }}
             className={`w-full py-4 px-6 rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 ${tema === 'dark'
               ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white focus:ring-blue-500/50'
               : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white focus:ring-blue-500/50'

@@ -100,12 +100,6 @@ export const checkTokenLimit = async (req, res, next) => {
 
     // Verificar se excedeu o limite
     if (tokensUsedToday >= dailyLimit) {
-      sendNotificationEmail(
-        targetUser.email,
-        'Limite diário de tokens excedido',
-        `Seu plano ${planType.toUpperCase()} atingiu o limite diário de ${dailyLimit} tokens. Tokens usados hoje: ${tokensUsedToday}`
-      );
-
       return res.status(429).json({
         success: false,
         msg: `Limite diário de tokens excedido. Plano ${planType.toUpperCase()}: ${dailyLimit} tokens/dia`,

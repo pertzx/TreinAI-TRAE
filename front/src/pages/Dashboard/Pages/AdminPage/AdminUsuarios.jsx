@@ -1,11 +1,32 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import api from '../../../../Api'
 import { getBrazilDate } from '../../../../../helpers/getBrazilDate.js'
+import { Line } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js'
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+)
 
 export default function AdminUsuarios({ tema, user }) {
   // Validação de segurança - apenas admins podem acessar
   const isAdmin = !!(user && user.role === 'admin')
-  
+
   const [usuarios, setUsuarios] = useState([])
   const [erro, setErro] = useState('')
   const [msg, setMsg] = useState('')
@@ -22,6 +43,11 @@ export default function AdminUsuarios({ tema, user }) {
 
   // Ordenação
   const [sortBy, setSortBy] = useState('none') // none, tokens_desc, tokens_asc
+
+  // Estados para gráficos
+  const [selectedUser, setSelectedUser] = useState(null)
+  const [showMainChart, setShowMainChart] = useState(false)
+  const [showIndividualCharts, setShowIndividualCharts] = useState(false)
 
   const fetchUsuarios = async () => {
     try {
@@ -45,47 +71,237 @@ export default function AdminUsuarios({ tema, user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Enriquecer com tokens calculados
+  // Função para enriquecer dados dos usuários com cálculos de tokens e dispositivos
   const enrichedUsers = useMemo(() => {
-    // Função para gerar chave do dia no fuso horário do Brasil
+    if (!usuarios || !Array.isArray(usuarios)) return [];
+
+    // Função para formatar data no padrão brasileiro
     const brazilDayKey = (date) => {
-      try {
-        const dt = date ? new Date(date) : new Date();
-        return dt.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-      } catch (err) {
-        const dt = date ? new Date(date) : new Date();
-        return dt.toISOString().slice(0, 10);
-      }
+      if (!date) return null;
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return null;
+      return d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     };
 
-    const todayKey = brazilDayKey(new Date());
+    const today = brazilDayKey(new Date());
 
-    return usuarios.map(u => {
-      const tokensArr = Array.isArray(u?.stats?.tokens) ? u.stats.tokens : [];
-      
-      // Calcular tokens total
-      const tokensTotal = tokensArr.reduce((acc, entry) => {
-        const valor = Number(entry?.valor ?? entry?.value ?? 0);
-        return acc + (Number.isFinite(valor) ? valor : 0);
-      }, 0);
+    return usuarios.map(user => {
+      // Cálculo de tokens
+      const tokenEntries = user.stats?.tokens || [];
+      const tokensTotal = Array.isArray(tokenEntries)
+        ? tokenEntries.reduce((sum, entry) => {
+          if (!entry || typeof entry !== 'object') return sum;
+          const valor = entry.valor || entry.value || 0;
+          return sum + (typeof valor === 'number' ? valor : 0);
+        }, 0)
+        : 0;
 
-      // Calcular tokens do dia atual
-      const tokensToday = tokensArr.reduce((acc, entry) => {
-        const dateField = entry?.data ?? entry?.date ?? entry?.createdAt ?? entry?.publishedAt ?? null;
-        const entryDayKey = dateField ? brazilDayKey(dateField) : null;
-        
-        if (entryDayKey === todayKey) {
-          const valor = Number(entry?.valor ?? entry?.value ?? 0);
-          return acc + (Number.isFinite(valor) ? valor : 0);
-        }
-        return acc;
-      }, 0);
+      const tokensToday = Array.isArray(tokenEntries)
+        ? tokenEntries
+          .filter(entry => {
+            if (!entry || typeof entry !== 'object') return false;
+            const entryDate = entry.data || entry.date || entry.createdAt || entry.publishedAt;
+            return brazilDayKey(entryDate) === today;
+          })
+          .reduce((sum, entry) => {
+            const valor = entry.valor || entry.value || 0;
+            return sum + (typeof valor === 'number' ? valor : 0);
+          }, 0)
+        : 0;
 
-      return { ...u, __tokensTotal: tokensTotal, __tokensToday: tokensToday };
+      // Cálculo de dispositivos
+      const deviceHistory = user.stats?.deviceHistory || [];
+      const totalLoginCount = Array.isArray(deviceHistory)
+        ? deviceHistory.reduce((sum, device) => {
+          return sum + (device.loginCount || 0);
+        }, 0)
+        : 0;
+
+      // Encontrar a lastActivity mais recente
+      const mostRecentActivity = Array.isArray(deviceHistory) && deviceHistory.length > 0
+        ? deviceHistory.reduce((latest, device) => {
+          const deviceActivity = device.lastActivity || device.loginDate;
+          if (!deviceActivity) return latest;
+
+          const deviceDate = new Date(deviceActivity);
+          const latestDate = latest ? new Date(latest) : new Date(0);
+
+          return deviceDate > latestDate ? deviceActivity : latest;
+        }, null)
+        : null;
+
+      return {
+        ...user,
+        tokensTotal,
+        tokensToday,
+        totalLoginCount,
+        mostRecentActivity,
+        deviceCount: Array.isArray(deviceHistory) ? deviceHistory.length : 0
+      };
     });
+
+  }
+    // </div >
+  )
+  // Função para gerar dados do gráfico principal (todos os usuários)
+  const generateMainChartData = useMemo(() => {
+    if (!usuarios || usuarios.length === 0) return null
+
+    // Agregar tokens de todos os usuários por data
+    const aggregatedData = {}
+    
+    usuarios.forEach(user => {
+      if (user.tokens && Array.isArray(user.tokens)) {
+        user.tokens.forEach(token => {
+          // Tentar diferentes formatos de data
+          const dateValue = token.date || token.createdAt || token.timestamp || token.data
+          const tokenValue = token.value || token.amount || token.tokens || token.quantidade || 0
+          
+          if (dateValue && tokenValue) {
+            const date = new Date(dateValue).toISOString().split('T')[0] // YYYY-MM-DD
+            aggregatedData[date] = (aggregatedData[date] || 0) + tokenValue
+          }
+        })
+      }
+    })
+
+    // Converter para array e ordenar por data
+    const sortedData = Object.entries(aggregatedData)
+      .sort(([a], [b]) => new Date(a) - new Date(b))
+      .slice(-30) // Últimos 30 dias
+
+    if (sortedData.length === 0) return null
+
+    return {
+      labels: sortedData.map(([date]) => {
+        const d = new Date(date)
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+      }),
+      datasets: [{
+        label: 'Tokens Gastos (Todos os Usuários)',
+        data: sortedData.map(([, value]) => value),
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        tension: 0.4,
+        fill: true,
+        pointBackgroundColor: 'rgb(59, 130, 246)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }]
+    }
   }, [usuarios])
 
-  // Lista filtrada e ordenada
+  // Função para gerar dados do gráfico individual de um usuário (memoizada para performance)
+  const generateUserChartData = useCallback((user) => {
+    if (!user || !user.stats ||!user.stats.tokens || !Array.isArray(user.stats.tokens)) return null
+
+    // Agregar tokens por data para este usuário específico
+    const aggregatedData = {}
+    
+    user.stats.tokens.forEach(token => {
+      const dateValue = token.date || token.createdAt || token.timestamp || token.data
+      const tokenValue = token.valor || token.amount || token.tokens || token.quantidade || 0
+      
+      if (dateValue && tokenValue) {
+        const date = new Date(dateValue).toISOString()
+        aggregatedData[date] = (aggregatedData[date] || 0) + tokenValue
+      }
+    })
+
+    const sortedData = Object.entries(aggregatedData)
+      .sort(([a], [b]) => new Date(a) - new Date(b))
+      .slice(-15) // Últimos 15 dias para gráficos individuais
+
+    if (sortedData.length === 0) return null
+
+    return {
+      labels: sortedData.map(([date]) => {
+        const d = new Date(date)
+        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+      }),
+      datasets: [{
+        label: `Tokens - ${user.name || user.username}`,
+        data: sortedData.map(([, value]) => value),
+        borderColor: 'rgb(16, 185, 129)',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        tension: 0.4,
+        fill: true,
+        pointBackgroundColor: 'rgb(16, 185, 129)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1,
+        pointRadius: 2,
+        pointHoverRadius: 4,
+      }]
+    }
+  }, [])
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          color: tema === 'dark' ? '#E5E7EB' : '#374151',
+          font: { size: 12 }
+        }
+      },
+      title: {
+        display: false
+      }
+    },
+    scales: {
+      x: {
+        grid: {
+          color: tema === 'dark' ? '#374151' : '#E5E7EB',
+          borderColor: tema === 'dark' ? '#4B5563' : '#D1D5DB'
+        },
+        ticks: {
+          color: tema === 'dark' ? '#9CA3AF' : '#6B7280',
+          font: { size: 11 }
+        }
+      },
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: tema === 'dark' ? '#374151' : '#E5E7EB',
+          borderColor: tema === 'dark' ? '#4B5563' : '#D1D5DB'
+        },
+        ticks: {
+          color: tema === 'dark' ? '#9CA3AF' : '#6B7280',
+          font: { size: 11 }
+        }
+      }
+    },
+    interaction: {
+      intersect: false,
+      mode: 'index'
+    }
+  }
+
+  // Opções específicas para gráficos individuais (menores)
+  const individualChartOptions = {
+    ...chartOptions,
+    plugins: {
+      ...chartOptions.plugins,
+      legend: {
+        display: false
+      }
+    },
+    scales: {
+      ...chartOptions.scales,
+      x: {
+        ...chartOptions.scales.x,
+        ticks: {
+          ...chartOptions.scales.x.ticks,
+          maxTicksLimit: 5
+        }
+      }
+    }
+  }
+  
   const filteredUsers = useMemo(() => {
     const term = q.trim().toLowerCase()
     let list = enrichedUsers.filter(u => {
@@ -102,9 +318,9 @@ export default function AdminUsuarios({ tema, user }) {
     })
 
     if (sortBy === 'tokens_desc') {
-      list.sort((a, b) => (b.__tokensTotal || 0) - (a.__tokensTotal || 0))
+      list.sort((a, b) => (b.tokensTotal || 0) - (a.tokensTotal || 0))
     } else if (sortBy === 'tokens_asc') {
-      list.sort((a, b) => (a.__tokensTotal || 0) - (b.__tokensTotal || 0))
+      list.sort((a, b) => (a.tokensTotal || 0) - (b.tokensTotal || 0))
     }
 
     return list
@@ -123,6 +339,11 @@ export default function AdminUsuarios({ tema, user }) {
     const start = (currentPage - 1) * perPage
     return filteredUsers.slice(start, start + perPage)
   }, [filteredUsers, currentPage, perPage])
+
+  // Memoizar usuários com dados de gráfico para otimizar performance
+  const usersWithChartData = useMemo(() => {
+    return pagedUsuarios.filter(user => generateUserChartData(user) !== null)
+  }, [pagedUsuarios, generateUserChartData])
 
   const gotoPage = (n) => {
     const page = Math.min(Math.max(1, n), totalPages)
@@ -146,138 +367,407 @@ export default function AdminUsuarios({ tema, user }) {
   }
 
   return (
-    <div>
-      {erro !== '' && <p className='text-white bg-red-800 p-3 rounded-2xl fixed right-2 top-2'>{erro}</p>}
-      {msg !== '' && <p className='text-white bg-green-500 p-3 rounded-2xl fixed right-2 top-2'>{msg}</p>}
+    <div className={`p-6 ${tema === 'dark' ? ' text-white' : ' text-gray-900'}`}>
+      {erro !== '' && <p className='text-white bg-red-800 p-3 rounded-2xl fixed right-2 top-2 z-50'>{erro}</p>}
+      {msg !== '' && <p className='text-white bg-green-500 p-3 rounded-2xl fixed right-2 top-2 z-50'>{msg}</p>}
 
-      <div className='flex items-center gap-2 mb-4'>
-        <button
-          onClick={() => setMostrar(!mostrar)}
-          className={`px-4 py-2 rounded-md ${tema === 'dark' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'} transition`}
-        >
-          {mostrar ? 'Ocultar Usuários' : 'Mostrar Usuários'}
-        </button>
+      {/* Header com título e botões */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+          <h1 className={`text-3xl font-bold ${tema === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+            Administração de Usuários
+          </h1>
+          <p className={`text-sm ${tema === 'dark' ? 'text-gray-400' : 'text-gray-600'} mt-1`}>
+            Gerencie usuários, visualize estatísticas e monitore atividades
+          </p>
+        </div>
 
-        <div className='ml-auto flex items-center gap-2'>
-          <label className='text-sm'>Por página:</label>
-          <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} className='rounded-md p-1'>
-            <option className={`text-black`} value={5}>5</option>
-            <option className={`text-black`} value={10}>10</option>
-            <option className={`text-black`} value={20}>20</option>
-            <option className={`text-black`} value={50}>50</option>
-          </select>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setMostrar(!mostrar)}
+            className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${tema === 'dark' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+          >
+            {mostrar ? 'Ocultar Usuários' : 'Mostrar Usuários'}
+          </button>
         </div>
       </div>
 
       {mostrar && (
-        <div>
-          <div className='mb-3 flex-wrap gap-3 items-center'>
-            <div className='flex items-center gap-2 flex-wrap'>
-              <label className='text-sm'>Plano:</label>
-              <select value={filterPlan} onChange={e => setFilterPlan(e.target.value)} className='rounded-md p-1'>
-                <option className={`text-black`} value='all'>Todos</option>
-                <option className={`text-black`} value='free'>Free</option>
-                <option className={`text-black`} value='pro'>Pro</option>
-                <option className={`text-black`} value='max'>Max</option>
-                <option className={`text-black`} value='coach'>Coach</option>
+        <div className={`p-4 rounded-lg shadow-sm ${tema === 'dark' ? 'bg-gray-800' : 'bg-gray-50'}`}>
+          {/* Controles de filtro melhorados */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${tema === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                Plano:
+              </label>
+              <select
+                value={filterPlan}
+                onChange={e => setFilterPlan(e.target.value)}
+                className={`w-full px-3 py-2 rounded-lg border transition-colors duration-200 ${tema === 'dark'
+                  ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500'
+                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
+                  } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+              >
+                <option value='all'>Todos</option>
+                <option value='free'>Free</option>
+                <option value='pro'>Pro</option>
+                <option value='max'>Max</option>
+                <option value='coach'>Coach</option>
               </select>
             </div>
 
-            <div className='flex items-center gap-2'>
-              <label className='text-sm'>Status:</label>
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className='rounded-md p-1'>
-                <option className={`text-black`} value='all'>Todos</option>
-                <option className={`text-black`} value='ativo'>Ativo</option>
-                <option className={`text-black`} value='inativo'>Inativo</option>
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${tema === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                Status:
+              </label>
+              <select
+                value={filterStatus}
+                onChange={e => setFilterStatus(e.target.value)}
+                className={`w-full px-3 py-2 rounded-lg border transition-colors duration-200 ${tema === 'dark'
+                  ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500'
+                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
+                  } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+              >
+                <option value='all'>Todos</option>
+                <option value='ativo'>Ativo</option>
+                <option value='inativo'>Inativo</option>
               </select>
             </div>
 
-            <div className='flex items-center gap-2 flex-wrap'>
-              <input type='text' placeholder='Pesquisar nome, username, email, plano...' value={q}
-                onChange={e => setQ(e.target.value)} className='p-1 rounded-md border w-full md:w-2/3' />
-              <button onClick={clearFilters} className='px-3 py-1 rounded-md border'>Limpar</button>
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${tema === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                Ordenar por:
+              </label>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                className={`w-full px-3 py-2 rounded-lg border transition-colors duration-200 ${tema === 'dark'
+                  ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500'
+                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
+                  } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+              >
+                <option value='none'>Nenhuma</option>
+                <option value='tokens_desc'>Mais tokens</option>
+                <option value='tokens_asc'>Menos tokens</option>
+              </select>
             </div>
 
-            <div className='flex items-center gap-2'>
-              <label className='text-sm'>Ordenar:</label>
-              <select value={sortBy} onChange={e => setSortBy(e.target.value)} className='rounded-md p-1'>
-                <option className={`text-black`} value='none'>Nenhuma</option>
-                <option className={`text-black`} value='tokens_desc'>Mais tokens</option>
-                <option className={`text-black`} value='tokens_asc'>Menos tokens</option>
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${tema === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                Por página:
+              </label>
+              <select
+                value={perPage}
+                onChange={e => setPerPage(Number(e.target.value))}
+                className={`w-full px-3 py-2 rounded-lg border transition-colors duration-200 ${tema === 'dark'
+                  ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500'
+                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
+                  } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
               </select>
             </div>
           </div>
 
-          <div className='mb-2 text-sm'>Total de usuários: {filteredUsers.length} (de {usuarios.length}) | Página {currentPage} de {totalPages}</div>
+          {/* Barra de pesquisa e botão limpar */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="flex-1">
+              <input
+                type='text'
+                placeholder='Pesquisar nome, username, email, plano...'
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                className={`w-full px-4 py-2 rounded-lg border transition-colors duration-200 ${tema === 'dark'
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+                  } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+              />
+            </div>
+            <button
+              onClick={clearFilters}
+              className={`px-4 py-2 rounded-lg border transition-colors duration-200 ${tema === 'dark'
+                ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+            >
+              Limpar Filtros
+            </button>
+          </div>
+
+          {/* Estatísticas */}
+          <div className={`mb-4 p-3 rounded-lg ${tema === 'dark' ? 'bg-gray-700' : 'bg-blue-50'}`}>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <span className={`${tema === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                <strong>Total de usuários:</strong> {filteredUsers.length} (de {usuarios.length})
+              </span>
+              <span className={`${tema === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                <strong>Página:</strong> {currentPage} de {totalPages}
+              </span>
+            </div>
+          </div>
 
           {filteredUsers.length === 0 ? (
-            <p>Nenhum usuário encontrado.</p>
+            <div className={`text-center py-8 ${tema === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+              <div className="text-4xl mb-2">👥</div>
+              <p className="text-lg font-medium mb-1">Nenhum usuário encontrado</p>
+              <p className="text-sm">Tente ajustar os filtros ou a pesquisa</p>
+            </div>
           ) : (
-            <div>
-              {pagedUsuarios.map((u) => (
-                <div key={u._id} className={`${tema === 'dark' ? 'bg-gray-800 text-gray-100' : 'bg-gray-100 text-gray-900'} p-4 mb-2 rounded-lg border`}>
-                  <div className='flex justify-between flex-wrap items-start'>
-                    <div>
-                      <p>Nome: {u.name}</p>
-                      <p>Username: {u.username}</p>
-                      <p>Email: {u.email}</p>
-                      <p>Role: {u.role}</p>
-                    </div>
+            <div className="overflow-x-auto">
+              <table className={`min-w-full ${tema === 'dark' ? 'bg-gray-800' : 'bg-white'} shadow-md rounded-lg overflow-hidden`}>
+                <thead className={`${tema === 'dark' ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <tr>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${tema === 'dark' ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                      Usuário
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${tema === 'dark' ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                      Plano
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${tema === 'dark' ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                      Tokens
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${tema === 'dark' ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                      Dispositivos
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${tema === 'dark' ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                      Última Atividade
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${tema === 'dark' ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className={`${tema === 'dark' ? 'bg-gray-800' : 'bg-white'} divide-y ${tema === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                  {pagedUsuarios.map((u) => (
+                    <tr key={u._id} className={`hover:${tema === 'dark' ? 'bg-gray-700' : 'bg-gray-50'} transition-colors duration-200`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className={`h-10 w-10 rounded-full ${u.planInfos?.status === 'ativo' ? 'bg-green-500' : 'bg-gray-500'} flex items-center justify-center`}>
+                            <span className="text-sm font-medium text-white">
+                              {u.username?.charAt(0)?.toUpperCase() || 'U'}
+                            </span>
+                          </div>
+                          <div className="ml-4">
+                            <div className={`text-sm font-medium ${tema === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                              {u.name || u.username}
+                            </div>
+                            <div className={`text-sm ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                              {u.email}
+                            </div>
+                            <div className={`text-xs ${tema === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                              @{u.username}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${u.planInfos?.status === 'ativo'
+                          ? u.planInfos?.planType === 'free'
+                            ? 'bg-gray-100 text-gray-800'
+                            : u.planInfos?.planType === 'pro'
+                              ? 'bg-blue-100 text-blue-800'
+                              : u.planInfos?.planType === 'max'
+                                ? 'bg-purple-100 text-purple-800'
+                                : u.planInfos?.planType === 'coach'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}>
+                          {u.planInfos?.status === 'ativo' ? (u.planInfos?.planType || 'free').toUpperCase() : 'INATIVO'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className={`text-sm ${tema === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                          <div className="font-medium">Total: {u.tokensTotal?.toLocaleString() || 0}</div>
+                          <div className={`text-xs ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Hoje: {u.tokensToday?.toLocaleString() || 0}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className={`text-sm ${tema === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                          <div className="font-medium">{u.deviceCount || 0} dispositivos</div>
+                          <div className={`text-xs ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {u.totalLoginCount || 0} logins totais
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className={`text-sm ${tema === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                          {u.mostRecentActivity
+                            ? new Date(u.mostRecentActivity).toLocaleString('pt-BR', {
+                              timeZone: 'America/Sao_Paulo',
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })
+                            : 'Nunca'
+                          }
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-2">
+                          {/* Botão para ver gráfico detalhado */}
+                          <button
+                            onClick={() => setSelectedUser(u)}
+                            className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-medium transition-colors duration-200 ${tema === 'dark'
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                              }`}
+                          >
+                            📊 Detalhes
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {/* Controles de paginação melhorados */}
+          <div className={`flex items-center justify-between flex-wrap gap-4 mt-6 p-4 rounded-lg ${tema === 'dark' ? 'bg-gray-700' : 'bg-gray-50'}`}>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => gotoPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 rounded-lg border transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${tema === 'dark'
+                  ? 'border-gray-600 text-gray-300 hover:bg-gray-600 disabled:hover:bg-transparent'
+                  : 'border-gray-300 text-gray-700 hover:bg-gray-100 disabled:hover:bg-transparent'
+                  }`}
+              >
+                ← Anterior
+              </button>
 
-                    <div className=' text-sm'>
-                      <div className='mb-1'>Tokens hoje: <b>{u.__tokensToday}</b></div>
-                      <div>Tokens totais: <b>{u.__tokensTotal}</b></div>
+              <div className='flex items-center gap-1'>
+                {(() => {
+                  const range = []
+                  const maxButtons = 5
+                  let start = Math.max(1, currentPage - Math.floor(maxButtons / 2))
+                  let end = start + maxButtons - 1
+                  if (end > totalPages) {
+                    end = totalPages
+                    start = Math.max(1, end - maxButtons + 1)
+                  }
+                  for (let i = start; i <= end; i++) range.push(i)
+                  return range.map(p => (
+                    <button
+                      key={p}
+                      onClick={() => gotoPage(p)}
+                      className={`px-3 py-2 rounded-lg border transition-colors duration-200 ${p === currentPage
+                        ? tema === 'dark'
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'bg-blue-500 border-blue-500 text-white'
+                        : tema === 'dark'
+                          ? 'border-gray-600 text-gray-300 hover:bg-gray-600'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                        }`}
+                    >
+                      {p}
+                    </button>
+                  ))
+                })()}
+              </div>
+
+              <button
+                onClick={() => gotoPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`px-4 py-2 rounded-lg border transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${tema === 'dark'
+                  ? 'border-gray-600 text-gray-300 hover:bg-gray-600 disabled:hover:bg-transparent'
+                  : 'border-gray-300 text-gray-700 hover:bg-gray-100 disabled:hover:bg-transparent'
+                  }`}
+              >
+                Próxima →
+              </button>
+            </div>
+
+            <div className='flex items-center gap-2 text-sm'>
+              <span className={`${tema === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                Ir para página:
+              </span>
+              <input
+                type='number'
+                min={1}
+                max={totalPages}
+                value={currentPage}
+                onChange={e => gotoPage(Number(e.target.value || 1))}
+                className={`w-16 px-2 py-1 rounded-lg border transition-colors duration-200 ${tema === 'dark'
+                  ? 'bg-gray-600 border-gray-500 text-white focus:border-blue-500'
+                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
+                  } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+              />
+            </div>
+          </div>
+
+          {/* Gráfico de detalhes do usuário selecionado */}
+          {selectedUser && (
+            <div className={`mt-6 p-6 rounded-lg shadow-lg ${tema === 'dark' ? 'bg-gray-700' : 'bg-white'}`}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className={`text-xl font-semibold ${tema === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                  Gráfico de Tokens - {selectedUser.name || selectedUser.username}
+                </h3>
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  className={`p-2 rounded-lg transition-colors duration-200 ${tema === 'dark'
+                    ? 'text-gray-400 hover:text-white hover:bg-gray-600'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                    }`}
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="h-96 mb-4">
+                {generateUserChartData(selectedUser) ? (
+                  <Line data={generateUserChartData(selectedUser)} options={chartOptions} />
+                ) : (
+                  <div className={`flex items-center justify-center h-full ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <div className="text-center">
+                      <div className="text-4xl mb-2">📊</div>
+                      <p>Nenhum dado de tokens disponível para este usuário</p>
                     </div>
                   </div>
-
-                  <div className={`${(u?.planInfos?.status === 'ativo') ? 'bg-green-400/30 border-green-400' : 'bg-red-400/30 border-red-400'} border p-2 my-2 rounded-md`}>
-                    <b>PlanInfos</b>
-                    <p>PlanType: <span className='uppercase'>{u?.planInfos?.planType || 'N/A'}</span></p>
-                    <p>Status: <span className='uppercase'>{u?.planInfos?.status || 'N/A'}</span></p>
+                )}
+              </div>
+              
+              {/* Informações adicionais do usuário */}
+              <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg ${tema === 'dark' ? 'bg-gray-600' : 'bg-gray-50'}`}>
+                <div className="text-center">
+                  <div className={`text-2xl font-bold ${tema === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>
+                    {selectedUser.tokensTotal?.toLocaleString() || 0}
                   </div>
-
+                  <div className={`text-sm ${tema === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Tokens Totais
+                  </div>
                 </div>
-              ))}
-
-              {/* Controles de paginação */}
-              <div className='flex items-center flex-wrap gap-2 mt-4'>
-                <button onClick={() => gotoPage(currentPage - 1)} disabled={currentPage === 1}
-                  className='px-3 py-1 rounded-md border disabled:opacity-50'>Anterior</button>
-
-                <div className='flex items-center gap-1'>
-                  {(() => {
-                    const range = []
-                    const maxButtons = 7
-                    let start = Math.max(1, currentPage - Math.floor(maxButtons / 2))
-                    let end = start + maxButtons - 1
-                    if (end > totalPages) {
-                      end = totalPages
-                      start = Math.max(1, end - maxButtons + 1)
-                    }
-                    for (let i = start; i <= end; i++) range.push(i)
-                    return range.map(p => (
-                      <button key={p} onClick={() => gotoPage(p)}
-                        className={`px-3 py-1 rounded-md border ${p === currentPage ? 'font-bold' : ''}`}>
-                        {p}
-                      </button>
-                    ))
-                  })()}
+                <div className="text-center">
+                  <div className={`text-2xl font-bold ${tema === 'dark' ? 'text-green-400' : 'text-green-600'}`}>
+                    {selectedUser.deviceCount || 0}
+                  </div>
+                  <div className={`text-sm ${tema === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Dispositivos
+                  </div>
                 </div>
-
-                <button onClick={() => gotoPage(currentPage + 1)} disabled={currentPage === totalPages}
-                  className='px-3 py-1 rounded-md border disabled:opacity-50'>Próxima</button>
-
-                <div className='ml-auto text-sm'>
-                  Ir para página:
-                  <input type='number' min={1} max={totalPages} value={currentPage}
-                    onChange={e => gotoPage(Number(e.target.value || 1))}
-                    className='w-16 ml-2 p-1 rounded-md border' />
+                <div className="text-center">
+                  <div className={`text-2xl font-bold ${tema === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>
+                    {selectedUser.totalLoginCount || 0}
+                  </div>
+                  <div className={`text-sm ${tema === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Total de Logins
+                  </div>
                 </div>
               </div>
             </div>
           )}
         </div>
       )}
+
     </div>
   )
 }
