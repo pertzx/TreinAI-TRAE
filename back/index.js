@@ -100,10 +100,30 @@ const MONGO_URI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWOR
 
 async function connectDB() {
   try {
-    await mongoose.connect(MONGO_URI);
+    // Configurações específicas para ambiente serverless
+    const mongooseOptions = {
+      serverSelectionTimeoutMS: 5000, // Timeout de 5 segundos
+      socketTimeoutMS: 45000, // Socket timeout de 45 segundos
+      bufferCommands: false, // Desabilita buffering para serverless
+      bufferMaxEntries: 0, // Não armazena comandos em buffer
+    };
+
+    await mongoose.connect(MONGO_URI, mongooseOptions);
     console.log('✅ Banco de dados conectado com sucesso!');
+    
+    // Log adicional para debug em ambiente serverless
+    if (process.env.VERCEL) {
+      console.log('🔧 Conexão MongoDB estabelecida em ambiente Vercel serverless');
+    }
   } catch (err) {
     console.error('❌ Erro ao conectar ao banco:', err.message);
+    
+    // Em ambiente serverless, não encerrar o processo
+    if (process.env.VERCEL) {
+      console.error('⚠️ Falha na conexão MongoDB em ambiente serverless - continuando execução');
+      return;
+    }
+    
     process.exit(1);
   }
 }
