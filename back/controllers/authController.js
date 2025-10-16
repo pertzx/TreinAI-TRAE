@@ -28,6 +28,17 @@ if (!SECRET_JWT) {
 
 const SALT_ROUNDS = 10;
 
+// Função utilitária para configurações de cookies baseadas no ambiente
+const getCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: false, // Permitir acesso via JavaScript para WebSocket
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+    secure: isProduction, // true em produção (HTTPS), false em desenvolvimento
+    sameSite: isProduction ? 'None' : 'Strict' // 'None' para cross-origin em produção
+  };
+};
+
 /**
  * Calcula a distância entre duas coordenadas geográficas usando a fórmula de Haversine
  * @param {number} lat1 - Latitude do primeiro ponto
@@ -492,12 +503,7 @@ Observações:
     const token = jwt.sign({ email: user.email, userId: user._id }, SECRET_JWT, { expiresIn: "7d" });
 
     // Define cookie acessível via JavaScript para WebSocket
-    res.cookie('auth_token', token, {
-      httpOnly: false, // Permitir acesso via JavaScript para WebSocket
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
-      sameSite: 'Strict', // Menos restritivo para desenvolvimento
-      secure: false // Permitir HTTP em desenvolvimento
-    });
+    res.cookie('auth_token', token, getCookieOptions());
 
     return res.json({
       msg: "Login realizado com sucesso!",
@@ -543,12 +549,7 @@ export const signup = async (req, res) => {
     const token = jwt.sign({ email, userId: newUser._id }, SECRET_JWT, { expiresIn: "10s" });
 
     // Define cookie httpOnly seguro baseado no ambiente
-    res.cookie('auth_token', token, {
-      httpOnly: false,
-      secure: false,
-      sameSite: 'Strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
-    });
+    res.cookie('auth_token', token, getCookieOptions());
 
     try {
       sendNotificationEmail(email, 'Boas-vindas', 'Seja bem-vindo ao TreinAI!');

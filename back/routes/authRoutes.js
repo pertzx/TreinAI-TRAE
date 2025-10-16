@@ -31,6 +31,16 @@ import { criarAnuncio, editarAnuncio, getAnuncios, deletarAnuncio, marcarClique,
 import { checkTokenLimit } from '../middlewares/tokenLimitMiddleware.js';
 import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
 
+// Função utilitária para configurações de limpeza de cookies baseadas no ambiente
+const getClearCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    secure: isProduction, // true em produção (HTTPS), false em desenvolvimento
+    sameSite: isProduction ? 'None' : 'Strict', // 'None' para cross-origin em produção
+    path: '/'
+  };
+};
+
 const router = Router();
 
 // Rota para obter token CSRF
@@ -227,7 +237,7 @@ router.post('/lgpd/excluir-conta', verificarToken, async (req, res) => {
   try {
     const userId = req.user.id;
     await User.findByIdAndDelete(userId);
-    res.clearCookie('authToken');
+    res.clearCookie('auth_token', getClearCookieOptions());
     res.json({ success: true, message: 'Conta excluída com sucesso' });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao excluir conta' });
@@ -236,7 +246,7 @@ router.post('/lgpd/excluir-conta', verificarToken, async (req, res) => {
 
 // Rota de logout para limpar cookies
 router.post('/logout', (req, res) => {
-  res.clearCookie('authToken');
+  res.clearCookie('auth_token', getClearCookieOptions());
   res.json({ msg: 'Logout realizado com sucesso!' });
 });
 

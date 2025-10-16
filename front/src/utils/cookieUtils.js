@@ -110,30 +110,40 @@ export const clearAllCookies = () => {
 };
 
 /**
+ * Função para obter configurações de cookies baseadas no ambiente
+ */
+const getCookieConfig = () => {
+  const isProduction = import.meta.env.VITE_NODE_ENV;
+  const isHttps = window.location.protocol === 'https:';
+  
+  return {
+    secure: isProduction === "production" ? true : false,
+    sameSite: isProduction ? 'None' : 'Lax'
+  };
+};
+
+/**
  * Configurações específicas para tokens de autenticação
  */
 export const authCookieConfig = {
-  // Token de autenticação - mais restritivo
+  // Token de autenticação - configuração dinâmica baseada no ambiente
   token: {
     days: 7,
-    secure: false, // Permitir HTTP em desenvolvimento
-    sameSite: 'Lax', // Menos restritivo para desenvolvimento
+    ...getCookieConfig(),
     path: '/'
   },
   
-  // CSRF Token - menos restritivo para permitir acesso via JS
+  // CSRF Token - configuração dinâmica baseada no ambiente
   csrf: {
     days: 1,
-    secure: false, // Permitir HTTP em desenvolvimento
-    sameSite: 'Lax', // Menos restritivo para desenvolvimento
+    ...getCookieConfig(),
     path: '/'
   },
   
   // Preferências do usuário - longa duração
   preferences: {
     days: 365,
-    secure: false, // Pode ser HTTP para preferências
-    sameSite: 'Lax',
+    ...getCookieConfig(),
     path: '/'
   }
 };
