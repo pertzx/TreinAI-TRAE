@@ -63,11 +63,11 @@ const validateFileSignature = (buffer, mimeType) => {
 };
 
 /**
- * Sanitiza o nome do arquivo
- * @param {string} filename - Nome original do arquivo
+ * Sanitiza um nome de arquivo removendo caracteres perigosos
+ * @param {string} filename - Nome do arquivo
  * @returns {string} - Nome sanitizado
  */
-const sanitizeFilename = (filename) => {
+export const sanitizeFilename = (filename) => {
   if (!filename) return 'file';
   
   // Remove caracteres perigosos e mantém apenas alfanuméricos, hífens e underscores
@@ -86,7 +86,13 @@ const sanitizeFilename = (filename) => {
  * @param {string} mimeType - Tipo MIME do arquivo
  * @returns {string} - Nome único gerado
  */
-const generateSecureFilename = (originalName, mimeType) => {
+/**
+ * Gera um nome de arquivo seguro
+ * @param {string} originalName - Nome original do arquivo
+ * @param {string} mimeType - Tipo MIME do arquivo
+ * @returns {string} - Nome seguro gerado
+ */
+export const generateSecureFilename = (originalName, mimeType) => {
   const sanitizedName = sanitizeFilename(path.parse(originalName).name);
   const timestamp = Date.now();
   const randomBytes = crypto.randomBytes(8).toString('hex');
