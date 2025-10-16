@@ -2,7 +2,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs/promises';
 import path from 'path';
 import { createError, asyncHandler } from '../middlewares/errorHandler.js';
-import { optimizeMedia, generateImageVariants } from '../middlewares/uploadOptimizer.js';
+import { optimizeMedia, generateImageVariants as generateImageVariantsOptimizer } from '../middlewares/uploadOptimizer.js';
 import { validateUploadedFile } from '../middlewares/uploadValidation.js';
 
 /**
@@ -363,7 +363,7 @@ class UploadService {
         throw createError('Arquivo deve ser uma imagem', 'NOT_AN_IMAGE', 400);
       }
       
-      const variants = await generateImageVariants(file.buffer, options);
+      const variants = await generateImageVariantsOptimizer(file.buffer, options);
       const uploadedVariants = {};
       
       for (const [variantName, variantData] of Object.entries(variants)) {
