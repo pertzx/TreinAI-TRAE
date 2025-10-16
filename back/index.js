@@ -132,18 +132,29 @@ app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
 app.use('/admin', apiSecurityHeaders, adminRoutes);
 
 // Iniciar servidor
-const PORT = process.env.PORT || 4000;
-const HOST = process.env.HOST || '0.0.0.0'; // Permite conexões de qualquer IP
+// Detectar ambiente serverless
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY;
 
-const server = app.listen(PORT, HOST, () => {
-  console.log(`🚀 Servidor rodando em ${HOST}:${PORT}`);
-  console.log(`📱 Acesso local: http://localhost:${PORT}`);
-  console.log(`🌐 Acesso rede: http://localhost:${PORT}`);
-});
+if (!isServerless) {
+  // Ambiente local - inicializar servidor tradicional
+  const PORT = process.env.PORT || 4000;
+  const HOST = process.env.HOST || '0.0.0.0';
 
-// Inicializar WebSocket Server
-chatWebSocketServer.initialize(server);
-chatWebSocketServer.startHeartbeat();
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`🚀 Servidor rodando em ${HOST}:${PORT}`);
+    console.log(`📱 Acesso local: http://localhost:${PORT}`);
+    console.log(`🌐 Acesso rede: http://localhost:${PORT}`);
+  });
+
+  // Inicializar WebSocket Server apenas em ambiente local
+  chatWebSocketServer.initialize(server);
+  chatWebSocketServer.startHeartbeat();
+} else {
+  console.log('🔧 Ambiente serverless detectado - WebSocket desabilitado');
+}
+
+// Export default para Vercel serverless
+export default app;
 
 // Exportar instância do WebSocket para uso nos controllers
 export { chatWebSocketServer };
