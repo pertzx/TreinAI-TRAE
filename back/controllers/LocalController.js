@@ -17,15 +17,28 @@ const buildImageUrl = (req, filename) => {
   return `/uploads/image-local/${filename}`;
 };
 
-const tryDeleteOldImage = (imageUrl) => {
+const tryDeleteOldImage = async (imageUrl) => {
   try {
     if (!imageUrl || typeof imageUrl !== "string") return;
-    const parsed = imageUrl.split("/").pop();
-    if (!parsed) return;
-    const filename = parsed.split("?")[0].split("#")[0];
-    const candidatePath = path.join(UPLOAD_DIR, filename);
-    if (candidatePath.startsWith(UPLOAD_DIR) && fs.existsSync(candidatePath)) {
-      fs.unlinkSync(candidatePath);
+    
+    // Se é URL do Cloudinary, deletar do Cloudinary
+    if (imageUrl.includes('cloudinary.com')) {
+      try {
+        const { deleteFromCloudinary } = await import('../config/cloudinaryConfig.js');
+        await deleteFromCloudinary(imageUrl);
+        console.log('[LocalController] Imagem antiga removida do Cloudinary');
+      } catch (cloudinaryError) {
+        console.warn('[LocalController] Falha ao remover imagem antiga do Cloudinary:', cloudinaryError);
+      }
+    } else {
+      // Se é URL local, deletar do sistema de arquivos
+      const parsed = imageUrl.split("/").pop();
+      if (!parsed) return;
+      const filename = parsed.split("?")[0].split("#")[0];
+      const candidatePath = path.join(UPLOAD_DIR, filename);
+      if (candidatePath.startsWith(UPLOAD_DIR) && fs.existsSync(candidatePath)) {
+        fs.unlinkSync(candidatePath);
+      }
     }
   } catch (err) {
     console.warn("tryDeleteOldImage error:", err && (err.message || err));
@@ -172,8 +185,9 @@ export const editarLocal = async (req, res) => {
 
     if (req.file && req.file.filename) {
       // apagar antiga se existir
-      if (local.imageUrl) tryDeleteOldImage(local.imageUrl);
-      local.imageUrl = buildImageUrl(req, req.file.filename);
+      if (local.imageUrl) await tryDeleteOldImage(local.imageUrl);
+      // Usar URL do Cloudinary em produção ou URL local em desenvolvimento
+      local.imageUrl = req.file.url || buildImageUrl(req, req.file.filename);
     }
 
     local.atualizadoEm = new Date(getBrazilDate());

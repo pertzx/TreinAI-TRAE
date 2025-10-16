@@ -1033,19 +1033,32 @@ export const atualizarPerfil = async (req, res) => {
 
     // === avatar (req.file) ===
     if (req.file) {
-      const avatarUrl = `/uploads/image-perfil/${req.file.filename}`;
+      // Em produção, usar URL do Cloudinary; em desenvolvimento, usar URL local
+      const avatarUrl = req.file.url || `/uploads/image-perfil/${req.file.filename}`;
 
-      // tenta remover avatar antigo se local em /uploads/ mas se o arquivo antigo for de avatar_base.jpg entao nao remover
+      // tenta remover avatar antigo se for local em /uploads/ ou do Cloudinary
       try {
         if (user.avatar && typeof user.avatar === 'string') {
-          const parsed = new URL(user.avatar, `${req.protocol}://${req.get('host')}`).pathname;
-          if (parsed && parsed.startsWith('/uploads/')) {
-            const oldFilename = path.basename(parsed);
+          // Se é URL do Cloudinary, deletar do Cloudinary
+          if (user.avatar.includes('cloudinary.com')) {
+            try {
+              const { deleteFromCloudinary } = await import('../config/cloudinaryConfig.js');
+              await deleteFromCloudinary(user.avatar);
+              console.log('[authController] Avatar antigo removido do Cloudinary');
+            } catch (cloudinaryError) {
+              console.warn('[authController] Falha ao remover avatar antigo do Cloudinary:', cloudinaryError);
+            }
+          } else {
+            // Se é URL local, deletar do sistema de arquivos
+            const parsed = new URL(user.avatar, `${req.protocol}://${req.get('host')}`).pathname;
+            if (parsed && parsed.startsWith('/uploads/')) {
+              const oldFilename = path.basename(parsed);
 
-            // Não deletar a imagem base avatar_base.jpg
-            if (oldFilename !== 'avatar_base.jpg') {
-              const oldPath = path.join(UPLOAD_DIR, oldFilename);
-              if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+              // Não deletar a imagem base avatar_base.jpg
+              if (oldFilename !== 'avatar_base.jpg') {
+                const oldPath = path.join(UPLOAD_DIR, oldFilename);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+              }
             }
           }
         }

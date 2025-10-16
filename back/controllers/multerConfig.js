@@ -147,20 +147,49 @@ export const upload = (dir, fieldName, opts = {}) => {
         const unique = `${getBrazilDate()}-${Math.random().toString(36).slice(2, 8)}-${uuidv4().slice(0, 6)}`;
         const filename = `${unique}__${baseName}${ext}`;
         
-        // Em ambiente serverless, salvar apenas no /tmp (temporário)
-        // Em desenvolvimento local, salvar no diretório original
-        const filepath = path.join(uploadDir, filename);
-        console.log('[upload] Nome do arquivo final:', filename, 'caminho:', filepath);
+        // Em ambiente serverless (produção), usar Cloudinary
+        // Em desenvolvimento local, salvar no sistema de arquivos
+        if (isServerless) {
+          console.log('[upload] Ambiente serverless - fazendo upload para Cloudinary');
+          
+          // Importar Cloudinary dinamicamente para evitar erro em desenvolvimento
+          const { uploadToCloudinary } = await import('../config/cloudinaryConfig.js');
+          
+          try {
+            // Fazer upload para Cloudinary
+            const cloudinaryResult = await uploadToCloudinary(finalBuffer, dir.replace(/^uploads\//, ''));
+            
+            // Preencher req.file com dados do Cloudinary
+            req.file.filename = filename;
+            req.file.path = cloudinaryResult.secure_url;
+            req.file.cloudinary_public_id = cloudinaryResult.public_id;
+            req.file.size = finalBuffer.length;
+            req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : (finalFormat === 'jpeg' ? 'image/jpeg' : req.file.mimetype);
+            req.file.url = cloudinaryResult.secure_url; // URL pública para acesso
+            
+            console.log('[upload] Upload para Cloudinary concluído:', cloudinaryResult.secure_url);
+          } catch (cloudinaryError) {
+            console.error('[upload] Erro no upload para Cloudinary:', cloudinaryError);
+            const e = new Error('Erro ao fazer upload da imagem para o serviço de armazenamento');
+            e.status = 500;
+            throw e;
+          }
+        } else {
+          // Em desenvolvimento local, salvar no sistema de arquivos
+          const filepath = path.join(uploadDir, filename);
+          console.log('[upload] Ambiente local - salvando arquivo:', filepath);
 
-        // escreve arquivo otimizado no disco
-        await fs.promises.writeFile(filepath, finalBuffer);
-        console.log('[upload] Arquivo salvo com sucesso em:', filepath);
+          // escreve arquivo otimizado no disco
+          await fs.promises.writeFile(filepath, finalBuffer);
+          console.log('[upload] Arquivo salvo com sucesso em:', filepath);
 
-        // preencher req.file com os dados do arquivo gravado
-        req.file.filename = filename;
-        req.file.path = filepath;
-        req.file.size = finalBuffer.length;
-        req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : (finalFormat === 'jpeg' ? 'image/jpeg' : req.file.mimetype);
+          // preencher req.file com os dados do arquivo gravado
+          req.file.filename = filename;
+          req.file.path = filepath;
+          req.file.size = finalBuffer.length;
+          req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : (finalFormat === 'jpeg' ? 'image/jpeg' : req.file.mimetype);
+          req.file.url = `/uploads/${dir.replace(/^uploads\//, '')}/${filename}`; // URL relativa para desenvolvimento
+        }
 
         console.log('[upload] Finalizado com sucesso.');
         return next();
@@ -224,14 +253,42 @@ export const uploadMidiaAnuncio = (dir = 'uploads/midias-anuncio', fieldName = '
         const unique = `${getBrazilDate?.() || new Date().toISOString().slice(0,10)}-${Math.random().toString(36).slice(2,8)}-${uuidv4().slice(0,6)}`;
 
         if (isVideo) {
-          // vídeo: salva diretamente
+          // vídeo: em produção usar Cloudinary, em desenvolvimento salvar localmente
           const ext = originalExt || '.mp4';
           const filename = `${unique}__${baseName}${ext}`;
-          const filepath = path.join(uploadDir, filename);
-
-          await fs.promises.writeFile(filepath, req.file.buffer);
-          req.file.filename = filename;
-          req.file.path = filepath;
+          
+          if (isServerless) {
+            console.log('[uploadMidiaAnuncio] Ambiente serverless - fazendo upload de vídeo para Cloudinary');
+            
+            try {
+              // Importar Cloudinary dinamicamente
+              const { uploadToCloudinary } = await import('../config/cloudinaryConfig.js');
+              
+              // Fazer upload para Cloudinary
+              const cloudinaryResult = await uploadToCloudinary(req.file.buffer, dir.replace(/^uploads\//, ''), 'video');
+              
+              // Preencher req.file com dados do Cloudinary
+              req.file.filename = filename;
+              req.file.path = cloudinaryResult.secure_url;
+              req.file.cloudinary_public_id = cloudinaryResult.public_id;
+              req.file.size = req.file.buffer.length;
+              req.file.url = cloudinaryResult.secure_url; // URL pública para acesso
+              
+              console.log('[uploadMidiaAnuncio] Upload de vídeo para Cloudinary concluído:', cloudinaryResult.secure_url);
+            } catch (cloudinaryError) {
+              console.error('[uploadMidiaAnuncio] Erro no upload de vídeo para Cloudinary:', cloudinaryError);
+              const e = new Error('Erro ao fazer upload do vídeo para o serviço de armazenamento');
+              e.status = 500;
+              throw e;
+            }
+          } else {
+            // Em desenvolvimento local, salvar no sistema de arquivos
+            const filepath = path.join(uploadDir, filename);
+            await fs.promises.writeFile(filepath, req.file.buffer);
+            req.file.filename = filename;
+            req.file.path = filepath;
+            req.file.url = `/uploads/${dir.replace(/^uploads\//, '')}/${filename}`; // URL relativa para desenvolvimento
+          }
           
           return next();
         } else {
@@ -252,15 +309,44 @@ export const uploadMidiaAnuncio = (dir = 'uploads/midias-anuncio', fieldName = '
           const finalBuffer = await image.toFormat(finalFormat, { quality: 80 }).toBuffer();
 
           const filename = `${unique}__${baseName}${ext}`;
-          const filepath = path.join(uploadDir, filename);
+          
+          if (isServerless) {
+            console.log('[uploadMidiaAnuncio] Ambiente serverless - fazendo upload de imagem para Cloudinary');
+            
+            try {
+              // Importar Cloudinary dinamicamente
+              const { uploadToCloudinary } = await import('../config/cloudinaryConfig.js');
+              
+              // Fazer upload para Cloudinary
+              const cloudinaryResult = await uploadToCloudinary(finalBuffer, dir.replace(/^uploads\//, ''));
+              
+              // Preencher req.file com dados do Cloudinary
+              req.file.filename = filename;
+              req.file.path = cloudinaryResult.secure_url;
+              req.file.cloudinary_public_id = cloudinaryResult.public_id;
+              req.file.size = finalBuffer.length;
+              req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : 'image/jpeg';
+              req.file.url = cloudinaryResult.secure_url; // URL pública para acesso
+              
+              console.log('[uploadMidiaAnuncio] Upload de imagem para Cloudinary concluído:', cloudinaryResult.secure_url);
+            } catch (cloudinaryError) {
+              console.error('[uploadMidiaAnuncio] Erro no upload de imagem para Cloudinary:', cloudinaryError);
+              const e = new Error('Erro ao fazer upload da imagem para o serviço de armazenamento');
+              e.status = 500;
+              throw e;
+            }
+          } else {
+            // Em desenvolvimento local, salvar no sistema de arquivos
+            const filepath = path.join(uploadDir, filename);
+            await fs.promises.writeFile(filepath, finalBuffer);
 
-          await fs.promises.writeFile(filepath, finalBuffer);
-
-          // garantir dados úteis para quem vier depois
-          req.file.filename = filename;
-          req.file.path = filepath;
-          req.file.size = finalBuffer.length;
-          req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : 'image/jpeg';
+            // garantir dados úteis para quem vier depois
+            req.file.filename = filename;
+            req.file.path = filepath;
+            req.file.size = finalBuffer.length;
+            req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : 'image/jpeg';
+            req.file.url = `/uploads/${dir.replace(/^uploads\//, '')}/${filename}`; // URL relativa para desenvolvimento
+          }
 
           return next();
         }
@@ -269,5 +355,4 @@ export const uploadMidiaAnuncio = (dir = 'uploads/midias-anuncio', fieldName = '
       }
     });
   };
-}
-;
+};

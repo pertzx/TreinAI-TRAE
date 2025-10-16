@@ -214,8 +214,8 @@ export const publicarProfissional = async (req, res) => {
     let imageUrl = null;
     if (req.file) {
       try {
-        const filename = req.file.filename;
-        imageUrl = `/uploads/image-profissional/${filename}`;
+        // Em produção, usar URL do Cloudinary; em desenvolvimento, usar URL local
+        imageUrl = req.file.url || `/uploads/image-profissional/${req.file.filename}`;
       } catch (err) {
         console.warn("Falha ao montar imageUrl do arquivo enviado:", err);
         imageUrl = null;
@@ -320,23 +320,35 @@ export const editarProfissional = async (req, res) => {
       return `/uploads/image-profissional/${filename}`;
     };
 
-    // helper para deletar arquivo antigo se estiver na pasta de uploads
-    const tryDeleteOldImage = (imageUrl) => {
+    // helper para deletar arquivo antigo se estiver na pasta de uploads ou Cloudinary
+    const tryDeleteOldImage = async (imageUrl) => {
       try {
         if (!imageUrl || typeof imageUrl !== 'string') return;
-        // extrair nome do arquivo (considera urls com /uploads/image-profissional/<file>)
-        const parsed = imageUrl.split('/').pop();
-        if (!parsed) return;
-        const filename = parsed.split('?')[0].split('#')[0];
         
-        // Não deletar a imagem base avatar_base.jpg
-        if (filename === 'avatar_base.jpg') return;
-        
-        const candidatePath = path.join(UPLOAD_DIR, filename);
+        // Se é URL do Cloudinary, deletar do Cloudinary
+        if (imageUrl.includes('cloudinary.com')) {
+          try {
+            const { deleteFromCloudinary } = await import('../config/cloudinaryConfig.js');
+            await deleteFromCloudinary(imageUrl);
+            console.log('[profissionais] Imagem antiga removida do Cloudinary');
+          } catch (cloudinaryError) {
+            console.warn('[profissionais] Falha ao remover imagem antiga do Cloudinary:', cloudinaryError);
+          }
+        } else {
+          // Se é URL local, deletar do sistema de arquivos
+          const parsed = imageUrl.split('/').pop();
+          if (!parsed) return;
+          const filename = parsed.split('?')[0].split('#')[0];
+          
+          // Não deletar a imagem base avatar_base.jpg
+          if (filename === 'avatar_base.jpg') return;
+          
+          const candidatePath = path.join(UPLOAD_DIR, filename);
 
-        // apenas remove se o arquivo estiver dentro do upload dir e existir
-        if (candidatePath.startsWith(UPLOAD_DIR) && fs.existsSync(candidatePath)) {
-          try { fs.unlinkSync(candidatePath); } catch (err) { console.warn('Falha ao remover arquivo antigo:', candidatePath, err); }
+          // apenas remove se o arquivo estiver dentro do upload dir e existir
+          if (candidatePath.startsWith(UPLOAD_DIR) && fs.existsSync(candidatePath)) {
+            try { fs.unlinkSync(candidatePath); } catch (err) { console.warn('Falha ao remover arquivo antigo:', candidatePath, err); }
+          }
         }
       } catch (err) {
         console.warn('Erro ao tentar apagar imagem antiga:', err);
@@ -397,16 +409,15 @@ export const editarProfissional = async (req, res) => {
     if (req.file && req.file.filename) {
       // apagar a antiga (se houver)
       if (profissional.imageUrl) {
-        tryDeleteOldImage(profissional.imageUrl);
+        await tryDeleteOldImage(profissional.imageUrl);
       }
 
-      // montar nova imageUrl
-      const filename = req.file.filename;
-      profissional.imageUrl = buildImageUrl(filename);
+      // montar nova imageUrl - usar URL do Cloudinary em produção ou local em desenvolvimento
+      profissional.imageUrl = req.file.url || buildImageUrl(req.file.filename);
     } else if (wantRemoveImage) {
       // apagar antiga e setar null
       if (profissional.imageUrl) {
-        tryDeleteOldImage(profissional.imageUrl);
+        await tryDeleteOldImage(profissional.imageUrl);
       }
       profissional.imageUrl = null;
     }

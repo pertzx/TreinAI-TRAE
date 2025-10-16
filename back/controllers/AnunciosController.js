@@ -71,7 +71,7 @@ export const criarAnuncio = async (req, res) => {
             }
         }
 
-        const midiaUrl = uploadedFile ? `/uploads/midias-anuncio/${uploadedFile.filename}` : null;
+        const midiaUrl = uploadedFile ? (uploadedFile.url || `/uploads/midias-anuncio/${uploadedFile.filename}`) : null;
 
         // Create object with required fields
         const anuncioData = {
@@ -190,14 +190,27 @@ export const editarAnuncio = async (req, res) => {
             try {
                 // Remove arquivo antigo se houver
                 if (anuncio.midiaUrl) {
-                    const oldFilename = anuncio.midiaUrl.split('/').pop();
-                    deleteFileIfExists(oldFilename);
+                    // Se é URL do Cloudinary, deletar do Cloudinary
+                    if (anuncio.midiaUrl.includes('cloudinary.com')) {
+                        try {
+                            const { deleteFromCloudinary } = await import('../config/cloudinaryConfig.js');
+                            await deleteFromCloudinary(anuncio.midiaUrl);
+                            console.log('[AnunciosController] Mídia antiga removida do Cloudinary');
+                        } catch (cloudinaryError) {
+                            console.warn('[AnunciosController] Falha ao remover mídia antiga do Cloudinary:', cloudinaryError);
+                        }
+                    } else {
+                        // Se é arquivo local, deletar do sistema de arquivos
+                        const oldFilename = anuncio.midiaUrl.split('/').pop();
+                        deleteFileIfExists(oldFilename);
+                    }
                 }
             } catch (err) {
                 console.warn('Erro ao deletar mídia antiga (continua):', err);
             }
 
-            const newMidiaUrl = `${backendUrl}/uploads/midias-anuncio/${uploadedFile.filename}`;
+            // Usar URL do Cloudinary em produção ou URL local em desenvolvimento
+            const newMidiaUrl = uploadedFile.url || `${backendUrl}/uploads/midias-anuncio/${uploadedFile.filename}`;
             anuncioData.midiaUrl = newMidiaUrl;
         }
         // Se NÃO houve upload, não tocamos no campo midiaUrl (preserva existente)
