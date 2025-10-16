@@ -1,4 +1,4 @@
-import Local from "../models/Local.js";
+import Local from "../models/local.js";
 
 /**
  * Buscar todos os locais para administração

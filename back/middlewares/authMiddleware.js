@@ -8,6 +8,9 @@ if (!SECRET_JWT) {
 }
 
 export const verificarToken = (req, res, next) => {
+
+    console.log("Tentando acessar POST /dashboard ")
+
     // Primeiro tenta pegar do cookie httpOnly
     let token = req.cookies?.authToken || req.cookies?.auth_token;
     

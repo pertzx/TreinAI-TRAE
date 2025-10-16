@@ -36,7 +36,7 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor para lidar com erros de CSRF
+// // Interceptor para lidar com erros de CSRF
 api.interceptors.response.use(
   (response) => response,
   async (error) => {

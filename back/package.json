@@ -3,9 +3,6 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
-  "engines": {
-    "node": "20.x"
-  },
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
@@ -17,8 +14,6 @@
   "description": "",
   "dependencies": {
     "@date-fns/tz": "^1.4.1",
-    "@google-analytics/data": "^5.2.1",
-    "@vercel/blob": "^0.27.0",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -29,7 +24,6 @@
     "email-validator": "^2.0.4",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
-    "googleapis": "^162.0.0",
     "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
     "luxon": "^3.7.2",

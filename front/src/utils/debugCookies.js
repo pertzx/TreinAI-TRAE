@@ -19,7 +19,7 @@ export const debugCookies = {
 
   // Verifica especificamente o authToken
   checkAuthToken() {
-    const token = this.checkCookie('authToken');
+    const token = this.checkCookie('auth_token');
     if (token) {
       try {
         // Decodifica o JWT para ver o payload (sem verificar assinatura)

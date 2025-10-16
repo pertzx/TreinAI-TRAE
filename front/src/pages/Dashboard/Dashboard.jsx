@@ -39,10 +39,12 @@ import { TbMoodKid } from 'react-icons/tb';
 import { FaUserTie } from 'react-icons/fa6';
 import { FaUserShield } from 'react-icons/fa6';
 import { LuActivity, LuTarget, LuZap } from 'react-icons/lu';
+import axios from 'axios';
+import { buildImageUrl } from '../../utils/imageUtils.js';
 
 const Dashboard = ({ needToPay, plano }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [tema, setTema] = useState(localStorage.getItem('tema') || 'light');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState('personal'); // 'personal' ou 'fitness'
@@ -119,21 +121,22 @@ const Dashboard = ({ needToPay, plano }) => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
 
-    // AbortController para cancelar requisições se o componente for desmontado
-    const abortController = new AbortController();
-
     const fetchUser = async () => {
       try {
+        setLoading(true);
+        
         // Buscar dados do usuário usando apenas cookies httpOnly
         const { identificador, systemInfo, location } = await buildIdentifier();
+
+        console.log(identificador, systemInfo, location)
 
         const res = await api.post('/dashboard', {
           identificador,
           systemInfo,
           location
-        }, {
-          signal: abortController.signal // Adiciona suporte para cancelamento
         });
+
+        console.log(res)
         
         if (res?.data?.user) {
           setUser(res.data.user);
@@ -149,8 +152,7 @@ const Dashboard = ({ needToPay, plano }) => {
               params: {
                 userId: res.data.user._id
               },
-              timeout: 10000, // 10 segundos de timeout
-              signal: abortController.signal // Adiciona suporte para cancelamento
+              timeout: 10000 // 10 segundos de timeout
             });
 
             console.log(gamificationResponse)
@@ -159,22 +161,27 @@ const Dashboard = ({ needToPay, plano }) => {
               setUserGamification(gamificationResponse.data.data);
             }
           } catch (gamificationError) {
-            // Ignora erros de cancelamento
-            if (gamificationError.name === 'AbortError') return;
             console.warn('Erro ao buscar dados de gamificação:', gamificationError);
             // Não mostra erro para o usuário, apenas log
           }
         }
       } catch (error) {
-        // Ignora erros de cancelamento
-        if (error.name === 'AbortError') return;
-        
         const errorMessage = handleError(error);
-        showError(errorMessage);
+        
+        // Tratamento específico para erros de rede
+        if (error.code === 'NETWORK_ERROR' || error.message === 'Network Error') {
+          showError('Erro de conectividade. Verifique sua conexão com a internet e tente novamente.');
+          console.error('Network error detected:', error);
+        } else if (error.response?.status === 0) {
+          showError('Servidor indisponível. Tente novamente em alguns instantes.');
+          console.error('Server unavailable:', error);
+        } else {
+          showError(errorMessage);
+        }
+        
         console.error('Dashboard fetch user error:', error);
 
         if (error.response?.data?.msg == "Usuário não encontrado no dashboard.") {
-
           // deletar todos os cookies e dados do site 
           // Limpar todos os dados locais independentemente do resultado da requisição
           localStorage.clear();
@@ -190,8 +197,6 @@ const Dashboard = ({ needToPay, plano }) => {
           // Redirecionar para login
           // navigate('/login')
         }
-
-
       } finally {
         setLoading(false);
       }
@@ -202,11 +207,6 @@ const Dashboard = ({ needToPay, plano }) => {
     // Carregar tema do localStorage
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) setTema(savedTheme);
-
-    // Cleanup function para cancelar requisições pendentes
-    return () => {
-      abortController.abort();
-    };
   }, [navigate]);
 
   // Atualiza o tema com base nas preferências do usuário (quando user muda)
@@ -363,8 +363,12 @@ const Dashboard = ({ needToPay, plano }) => {
             transition={{ delay: 0.2 }}
             className="flex items-center gap-3 justify-center lg:justify-start mb-4"
           >
-            <div className={`p-3 rounded-2xl ${tema === 'dark' ? 'bg-blue-500/20' : 'bg-blue-500/10'}`}>
-              <FaUser className="w-6 h-6 text-blue-500" />
+            <div className={`p-3 h-10 aspect-square rounded-2xl ${tema === 'dark' ? 'bg-blue-500/20' : 'bg-blue-500/10'}`} style={{
+              background: `url(${buildImageUrl(user?.avatar)})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat"
+            }}>
             </div>
             <div>
               <h1 className={`text-3xl lg:text-4xl font-bold ${tema === 'dark' ? 'text-white' : 'text-gray-900'}`}>

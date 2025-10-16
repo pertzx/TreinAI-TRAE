@@ -141,11 +141,6 @@ Retorne apenas o JSON.`;
 // =======================
 export const login = async (req, res) => {
   try {
-    console.log('🔐 Iniciando processo de login...');
-    console.log('📧 Email recebido:', req.body.email ? 'presente' : 'ausente');
-    console.log('🔑 Password recebido:', req.body.password ? 'presente' : 'ausente');
-    console.log('📱 Identificador recebido:', req.body.identificador ? 'presente' : 'ausente');
-    
     const {
       email,
       password,
@@ -155,32 +150,21 @@ export const login = async (req, res) => {
     } = req.body;
 
     if (!email || !password) {
-      console.log('❌ Dados obrigatórios ausentes');
       return res.status(400).json({ msg: "Email e senha são obrigatórios!" });
     }
 
-    console.log('🔍 Buscando usuário no banco de dados...');
     const user = await User.findOne({ email });
-    if (!user) {
-      console.log('❌ Usuário não encontrado:', email);
-      return res.status(404).json({ msg: "Usuário não encontrado!" });
-    }
-    
-    console.log('✅ Usuário encontrado:', user._id);
+    if (!user) return res.status(404).json({ msg: "Usuário não encontrado!" });
 
     // Comparar senha
-    console.log('🔐 Verificando senha...');
     const senhaCorreta = await bcrypt.compare(password, user.password);
     if (!senhaCorreta) {
-      console.log('❌ Senha incorreta para usuário:', email);
       // Atualiza falhas de login
       user.stats = user.stats || {};
       user.stats.failedLoginAttempts = (user.stats.failedLoginAttempts || 0) + 1;
       await user.save();
       return res.status(401).json({ msg: "Senha incorreta!" });
     }
-    
-    console.log('✅ Senha verificada com sucesso');
 
     // Logica de analise de device aqui abaixo..
     // Só executa se o usuário permitiu a localização (location.lat e location.lon não são null)
@@ -440,22 +424,74 @@ export const login = async (req, res) => {
     }
 
     // 6) Persistir mudanças
-    console.log('💾 Salvando alterações do usuário...');
     await user.save();
-    console.log('✅ Alterações salvas com sucesso');
+    /*
+
+    Schemma > deviceHistory: [{
+      deviceId: { type: String, unique: true, required: true },
+      bloqueado: { type: Boolean, default: false },
+      
+      // Informações do sistema (substituindo campos individuais de browser/os/device)
+      systemInfo: { type: String, default: null },
+      
+      // Informações de rede e localização
+      location: {
+        lat: { type: Number, default: null },
+        lon: { type: Number, default: null },
+      },
+      
+      // Datas e controle
+      firstLoginDate: { type: Date, required: true, default: getBrazilDate },
+      loginDate: { type: Date, required: true, default: getBrazilDate },
+      lastActivity: { type: Date, default: getBrazilDate },
+      loginCount: { type: Number, default: 1 },  
+    }],
+
+1) Buscar dispositivo por identificador
+   - Procurar em user.stats.deviceHistory um device com deviceId === identificador.
+
+2) Por systemInfo
+   - filtrar deviceHistory por igualdade de systemInfo (serializado).
+   - Usar isso para identificar dispositivos similares.
+
+3) Checar bloqueio por proximidade (raio = 2 km)
+   - Se houver devices bloqueados entre os encontrados:
+     a) Para cada device bloqueado com localização registrada:
+        - Calcular isWithinRadius(location.lat, location.lon, d.location.lat, d.location.lon, 2)
+        - Se true: negar acesso, incrementar user.stats.failedLoginAttempts, salvar e retornar 403.
+     b) Se nenhum bloqueado estiver dentro do raio, seguir.
+
+4) Atualizar ou criar registro de device
+   - Se device encontrado por deviceId:
+     - Se bloqueado: negar acesso (salvar tentativa) e retornar 403.
+     - Se não bloqueado: atualizar loginDate, lastActivity, loginCount, userAgent e location (se válida).
+   - Se não encontrado por deviceId:
+     - Criar novo objeto em deviceHistory com:
+       { deviceId: identificador, bloqueado:false, systemInfo, location?, firstLoginDate, loginDate, lastActivity, loginCount:1 }
+
+5) Enviar alerta de segurança
+   - Gerar ticket com createSecurityTicketData(userId, deviceId, meta).
+   - Montar mensagem com formatDeviceInfoForEmail(...) e link para /login-nao-autorizado?ticket=...
+   - Enviar email ao usuário. Logar falhas no envio sem interromper o fluxo.
+
+6) Persistir mudanças
+   - Executar await user.save() após criar/atualizar device ou registrar tentativa falha.
+
+7) Exceções e ambiente
+   - Se NODE_ENV === 'development' ou location inválida (lat/lon ausentes), pular checagem geográfica e executar apenas atualização/registro básico do device e envio de alerta.
+   - Garantir operações atômicas em produção (findOneAndUpdate/upsert ou transações) para evitar race conditions.
+
+Observações:
+- Não salvar coordenadas em texto claro sem necessidade. Hashear identifier no servidor antes de armazenar se for sensível.
+- Auditar IP e user-agent para investigações.
+- Limitar taxa de emails/alertas para evitar spam.
+*/
+
 
     // Gera token
-    console.log('🎫 Gerando token JWT...');
-    if (!SECRET_JWT) {
-      console.error('❌ SECRET_JWT não configurado!');
-      throw new Error('Configuração de segurança inválida');
-    }
-    
     const token = jwt.sign({ email: user.email, userId: user._id }, SECRET_JWT, { expiresIn: "7d" });
-    console.log('✅ Token JWT gerado com sucesso');
 
     // Define cookie acessível via JavaScript para WebSocket
-    console.log('🍪 Configurando cookie de autenticação...');
     res.cookie('auth_token', token, {
       httpOnly: false, // Permitir acesso via JavaScript para WebSocket
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
@@ -463,48 +499,14 @@ export const login = async (req, res) => {
       secure: false // Permitir HTTP em desenvolvimento
     });
 
-    console.log('🎉 Login realizado com sucesso para usuário:', user._id);
     return res.json({
       msg: "Login realizado com sucesso!",
       userId: user._id,
       token: token // Adicionando o token na resposta para o frontend
     });
   } catch (err) {
-    console.error('💥 Erro crítico no login:', {
-      message: err.message,
-      stack: err.stack,
-      name: err.name,
-      email: req.body?.email || 'não informado',
-      timestamp: new Date().toISOString()
-    });
-    
-    // Verificar se é erro de conexão com banco
-    if (err.name === 'MongooseError' || err.name === 'MongoError' || err.message.includes('buffering timed out')) {
-      console.error('🔌 Erro de conexão com banco de dados detectado');
-      return res.status(503).json({ 
-        msg: "Serviço temporariamente indisponível. Tente novamente em alguns instantes.", 
-        error: "DATABASE_CONNECTION_ERROR",
-        details: process.env.NODE_ENV === 'development' ? err.message : undefined
-      });
-    }
-    
-    // Verificar se é erro de JWT
-    if (err.message.includes('SECRET_JWT') || err.message.includes('jwt')) {
-      console.error('🔐 Erro de configuração JWT detectado');
-      return res.status(500).json({ 
-        msg: "Erro de configuração do servidor", 
-        error: "JWT_CONFIGURATION_ERROR",
-        details: process.env.NODE_ENV === 'development' ? err.message : undefined
-      });
-    }
-    
-    // Erro genérico
-    return res.status(500).json({ 
-      msg: "Erro interno do servidor", 
-      error: "INTERNAL_SERVER_ERROR",
-      details: process.env.NODE_ENV === 'development' ? err.message : undefined,
-      timestamp: new Date().toISOString()
-    });
+    console.error('Login error:', err);
+    return res.status(500).json({ msg: "Erro no login", error: err.message });
   }
 };
 
@@ -1030,29 +1032,25 @@ export const atualizarPerfil = async (req, res) => {
 
     // === avatar (req.file) ===
     if (req.file) {
-      // Para ambiente serverless, usar a URL do blob diretamente
-      const avatarUrl = req.file.blobUrl || req.file.path || `/uploads/image-perfil/${req.file.filename}`;
+      const avatarUrl = `/uploads/image-perfil/${req.file.filename}`;
 
-      // Em ambiente serverless, não precisamos gerenciar arquivos locais
-      // A limpeza de arquivos antigos será feita automaticamente pelo Vercel Blob
-      if (!process.env.VERCEL_ENV && !process.env.NODE_ENV === 'production') {
-        // Apenas em desenvolvimento local, tentar remover avatar antigo
-        try {
-          if (user.avatar && typeof user.avatar === 'string') {
-            const parsed = new URL(user.avatar, `${req.protocol}://${req.get('host')}`).pathname;
-            if (parsed && parsed.startsWith('/uploads/')) {
-              const oldFilename = path.basename(parsed);
+      // tenta remover avatar antigo se local em /uploads/ mas se o arquivo antigo for de avatar_base.jpg entao nao remover
+      try {
+        if (user.avatar && typeof user.avatar === 'string') {
+          const parsed = new URL(user.avatar, `${req.protocol}://${req.get('host')}`).pathname;
+          if (parsed && parsed.startsWith('/uploads/')) {
+            const oldFilename = path.basename(parsed);
 
-              // Não deletar a imagem base avatar_base.jpg
-              if (oldFilename !== 'avatar_base.jpg') {
-                const oldPath = path.join(UPLOAD_DIR, oldFilename);
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-              }
+            // Não deletar a imagem base avatar_base.jpg
+            if (oldFilename !== 'avatar_base.jpg') {
+              const oldPath = path.join(UPLOAD_DIR, oldFilename);
+              if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
             }
           }
-        } catch (error) {
-          console.warn('[atualizarPerfil] Erro ao remover avatar antigo:', error.message);
         }
+      } catch (err) {
+        console.warn('Falha ao remover avatar antigo (não crítico):', err.message || err);
+        // Continuar com a atualização mesmo se falhar ao remover arquivo antigo
       }
 
       user.avatar = avatarUrl;

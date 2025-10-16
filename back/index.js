@@ -26,23 +26,13 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 const app = express();
 
-// Configurar trust proxy para ambiente serverless
-if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-  app.set('trust proxy', 1); // Confia no primeiro proxy (Vercel)
-}
-
 // Stripe Webhook (usa raw body)
 app.post('/webhook', express.raw({ type: 'application/json' }), StripeWebhook);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
   max: 500, // 500 requisições por IP (aumentado para navegação normal)
-  message: "Muitas requisiçoes. Tente novamente mais tarde.",
-  // Configurações específicas para serverless
-  validate: {
-    xForwardedForHeader: false, // Desabilita validação X-Forwarded-For
-    forwardedHeader: false, // Desabilita validação Forwarded header
-  }
+  message: "Muitas requisiçoes. Tente novamente mais tarde."
 })
 
 // Outros middlewares
@@ -54,7 +44,7 @@ app.use(securityHeaders);
 // Configuração CORS baseada no ambiente
 const corsOptions = {
     origin: function (origin, callback) {
-        // Em desenvolvimento local (NODE_ENV !== 'production'), permite QUALQUER origem
+        // Em desenvolvimento, permite QUALQUER origem
         if (process.env.NODE_ENV !== 'production') {
             console.log(`🔧 CORS [DEV]: Permitindo origem: ${origin || 'sem origin'}`);
             return callback(null, true);
@@ -69,30 +59,18 @@ const corsOptions = {
         console.log(`🔒 CORS [PROD]: Verificando origem: ${origin}`);
         console.log(`🔒 CORS [PROD]: Origens permitidas:`, allowedOrigins);
         
-        // Em ambiente serverless, permite requisições sem origin (health checks, etc.)
-        const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
-        if (!origin && isServerless) {
-            console.log('✅ CORS [SERVERLESS]: Permitindo requisição sem origin (health check)');
-            return callback(null, true);
-        }
-        
-        // Se não há origin e não é serverless, rejeita
-        if (!origin && !isServerless) {
+        // Rejeita requisições sem origin em produção
+        if (!origin) {
             console.log('❌ CORS [PROD]: Requisição sem origin rejeitada');
             return callback(new Error('Origem não especificada não permitida em produção'));
         }
         
-        // Verifica se a origem está na lista de permitidas
-        if (origin && allowedOrigins.includes(origin)) {
+        if (allowedOrigins.includes(origin)) {
             console.log(`✅ CORS [PROD]: Origem permitida: ${origin}`);
             callback(null, true);
-        } else if (origin) {
-            console.log(`❌ CORS [PROD]: Origem rejeitada: ${origin}`);
-            console.log(`💡 CORS [PROD]: Para permitir esta origem, adicione '${origin}' na variável FRONTEND_URL ou ALLOWED_ORIGINS`);
-            callback(new Error('Não permitido pelo CORS'));
         } else {
-            // Caso não tenha origin mas seja serverless, já foi tratado acima
-            callback(null, true);
+            console.log(`❌ CORS [PROD]: Origem rejeitada: ${origin}`);
+            callback(new Error('Não permitido pelo CORS'));
         }
     },
     credentials: true, // Permite cookies
@@ -120,62 +98,15 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Conexão com MongoDB
 const MONGO_URI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.vcxrbu2.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
 
-let isMongoConnected = false;
-
 async function connectDB() {
   try {
-    // Configurações específicas para ambiente serverless
-    const mongooseOptions = {
-      serverSelectionTimeoutMS: 5000, // Timeout de 5 segundos
-      socketTimeoutMS: 45000, // Socket timeout de 45 segundos
-      bufferCommands: false, // Desabilita buffering para serverless
-    };
-
-    await mongoose.connect(MONGO_URI, mongooseOptions);
-    isMongoConnected = true;
+    await mongoose.connect(MONGO_URI);
     console.log('✅ Banco de dados conectado com sucesso!');
-    
-    // Log adicional para debug em ambiente serverless
-    if (process.env.VERCEL) {
-      console.log('🔧 Conexão MongoDB estabelecida em ambiente Vercel serverless');
-    }
   } catch (err) {
     console.error('❌ Erro ao conectar ao banco:', err.message);
-    isMongoConnected = false;
-    
-    // Em ambiente serverless, não encerrar o processo
-    if (process.env.VERCEL) {
-      console.error('⚠️ Falha na conexão MongoDB em ambiente serverless - continuando execução');
-      return;
-    }
-    
     process.exit(1);
   }
 }
-
-// Middleware para garantir conexão MongoDB antes de executar rotas
-const ensureMongoConnection = async (req, res, next) => {
-  if (!isMongoConnected) {
-    console.log('🔄 Conexão MongoDB não estabelecida, tentando reconectar...');
-    try {
-      await connectDB();
-      if (isMongoConnected) {
-        console.log('✅ Reconexão MongoDB bem-sucedida');
-        next();
-      } else {
-        throw new Error('Falha na reconexão');
-      }
-    } catch (error) {
-      console.error('❌ Falha na reconexão MongoDB:', error.message);
-      return res.status(503).json({
-        msg: "Serviço temporariamente indisponível. Tente novamente em alguns instantes.",
-        error: "DATABASE_CONNECTION_ERROR"
-      });
-    }
-  } else {
-    next();
-  }
-};
 
 // Inicializar Redis
 async function connectRedis() {
@@ -189,110 +120,30 @@ async function connectRedis() {
 }
 
 // Conectar aos bancos de dados
-async function initializeConnections() {
-  console.log('🚀 Inicializando conexões...');
-  await connectDB();
-  await connectRedis();
-  console.log('✅ Inicialização completa!');
-}
-
-// Inicializar conexões
-initializeConnections();
-
-// Rota de health check para Vercel
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    serverless: !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
-  });
-});
+connectDB();
+connectRedis();
 
 // Rotas da API
-app.get('/', limiter, cors(corsOptions), (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>TreinAI-TRAE</title>
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 100vh;
-          margin: 0;
-          background-color: #f0f0f0;
-        }
-        .container {
-          text-align: center;
-          padding: 20px;
-          background-color: #fff;
-          border-radius: 8px;
-          box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-          color: #333;
-        }
-        p {
-          color: #666;
-          margin-bottom: 20px;
-        }
-        .btn {
-          display: inline-block;
-          padding: 10px 20px;
-          background-color: #007bff;
-          color: #fff;
-          text-decoration: none;
-          border-radius: 5px;
-          transition: background-color 0.3s ease;
-        }
-        .btn:hover {
-          background-color: #0056b3;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>TreinAI-TRAE</h1>
-        <p>Seja bem-vindo ao TreinAI-TRAE! Explore nossa plataforma para gerenciar treinamentos e interações com usuários.</p>
-        <a href="${process.env.FRONTEND_URL}" class="btn">Acessar Aplicação</a>
-      </div>
-    </body>
-    </html>
-  `);
+app.use('/', apiSecurityHeaders, authRoutes);
+app.use('/reports', apiSecurityHeaders, reportRoutes);
+app.use('/', apiSecurityHeaders, userRoutes);
+app.use('/tokens', apiSecurityHeaders, tokenRoutes);
+app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
+app.use('/admin', apiSecurityHeaders, adminRoutes);
+
+// Iniciar servidor
+const PORT = process.env.PORT || 4000;
+const HOST = process.env.HOST || '0.0.0.0'; // Permite conexões de qualquer IP
+
+const server = app.listen(PORT, HOST, () => {
+  console.log(`🚀 Servidor rodando em ${HOST}:${PORT}`);
+  console.log(`📱 Acesso local: http://localhost:${PORT}`);
+  console.log(`🌐 Acesso rede: http://localhost:${PORT}`);
 });
 
-app.use('/', apiSecurityHeaders, ensureMongoConnection, authRoutes);
-app.use('/reports', apiSecurityHeaders, ensureMongoConnection, reportRoutes);
-app.use('/users', apiSecurityHeaders, ensureMongoConnection, userRoutes);
-app.use('/tokens', apiSecurityHeaders, ensureMongoConnection, tokenRoutes);
-app.use('/gamification', apiSecurityHeaders, ensureMongoConnection, gamificationRoutes);
-app.use('/admin', apiSecurityHeaders, ensureMongoConnection, adminRoutes);
+// Inicializar WebSocket Server
+chatWebSocketServer.initialize(server);
+chatWebSocketServer.startHeartbeat();
 
-// Verificar se está em ambiente serverless (Vercel)
-const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
-
-if (!isServerless) {
-  // Modo desenvolvimento local - iniciar servidor
-  const PORT = process.env.PORT || 4000;
-  const HOST = process.env.HOST || '0.0.0.0';
-
-  const server = app.listen(PORT, HOST, () => {
-    console.log(`🚀 Servidor rodando em ${HOST}:${PORT}`);
-    console.log(`📱 Acesso local: http://localhost:${PORT}`);
-    console.log(`🌐 Acesso rede: http://localhost:${PORT}`);
-  });
-
-  // Inicializar WebSocket Server apenas em desenvolvimento
-  chatWebSocketServer.initialize(server);
-  chatWebSocketServer.startHeartbeat();
-}
-
-// Exportar app para ambiente serverless e WebSocket para controllers
-export default app;
+// Exportar instância do WebSocket para uso nos controllers
 export { chatWebSocketServer };
