@@ -2,6 +2,9 @@
   "name": "back",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": "20.x"
+  },
   "type": "module",
   "scripts": {
     "start": "node index.js",
