@@ -495,7 +495,7 @@ Observações:
     res.cookie('auth_token', token, {
       httpOnly: false, // Permitir acesso via JavaScript para WebSocket
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
-      sameSite: 'Lax', // Menos restritivo para desenvolvimento
+      sameSite: 'Strict', // Menos restritivo para desenvolvimento
       secure: false // Permitir HTTP em desenvolvimento
     });
 
@@ -546,7 +546,7 @@ export const signup = async (req, res) => {
     res.cookie('auth_token', token, {
       httpOnly: false,
       secure: false,
-      sameSite: 'Lax',
+      sameSite: 'Strict',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias
     });
 
