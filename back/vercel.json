@@ -1,13 +1,25 @@
 {
-  "version": 2,
-  "builds": [
-    {
-       "src": "index.js", "use": "@vercel/node"
-  }
-  ],
-  "routes": [
-    {
-       "src": "/(.*)", "dest": "index.js" 
-      }
-  ]
+    "version": 2,
+    "builds": [
+        {
+            "src": "index.js",
+            "use": "@vercel/node"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/uploads/(.*)",
+            "dest": "/uploads/$1"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "index.js",
+            "headers": {
+                "X-Content-Type-Options": "nosniff",
+                "X-Frame-Options": "DENY",
+                "X-XSS-Protection": "1; mode=block",
+                "Referrer-Policy": "strict-origin-when-cross-origin"
+            }
+        }
+    ]
 }
