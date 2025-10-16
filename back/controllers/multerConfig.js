@@ -161,13 +161,6 @@ export const upload = (dir, fieldName, opts = {}) => {
         req.file.path = filepath;
         req.file.size = finalBuffer.length;
         req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : (finalFormat === 'jpeg' ? 'image/jpeg' : req.file.mimetype);
-        
-        // Em ambiente serverless, adicionar flag indicando que é temporário
-        if (isServerless) {
-          req.file.isTemporary = true;
-          req.file.needsCloudUpload = true;
-          console.log('[upload] Arquivo salvo temporariamente em /tmp, necessário upload para cloud storage');
-        }
 
         console.log('[upload] Finalizado com sucesso.');
         return next();
@@ -240,13 +233,6 @@ export const uploadMidiaAnuncio = (dir = 'uploads/midias-anuncio', fieldName = '
           req.file.filename = filename;
           req.file.path = filepath;
           
-          // Em ambiente serverless, adicionar flags
-          if (isServerless) {
-            req.file.isTemporary = true;
-            req.file.needsCloudUpload = true;
-            console.log('[uploadMidiaAnuncio] Vídeo salvo temporariamente em /tmp');
-          }
-          
           return next();
         } else {
           // imagem: processa, converte para webp (ou jpeg se preferir) e salva
@@ -275,13 +261,6 @@ export const uploadMidiaAnuncio = (dir = 'uploads/midias-anuncio', fieldName = '
           req.file.path = filepath;
           req.file.size = finalBuffer.length;
           req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : 'image/jpeg';
-
-          // Em ambiente serverless, adicionar flags
-          if (isServerless) {
-            req.file.isTemporary = true;
-            req.file.needsCloudUpload = true;
-            console.log('[uploadMidiaAnuncio] Imagem salva temporariamente em /tmp');
-          }
 
           return next();
         }

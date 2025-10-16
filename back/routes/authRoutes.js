@@ -20,7 +20,6 @@ import User from '../models/User.js';
 import { publicarNoHistorico } from '../controllers/database.js';
 import { adicionarExercicio, adicionarReport, procurarExercicio } from '../controllers/treino.js';
 import { upload, uploadMidiaAnuncio } from '../controllers/multerConfig.js';
-import { autoUploadToCloudinary } from '../utils/cloudinaryConfig.js';
 import { aceitarAluno, editarProfissional, profissionais, publicarProfissional, queroSerAluno, removerAluno } from '../controllers/profissionais.js';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
@@ -46,7 +45,7 @@ router.get('/session-status', SessionStatus); // verificar status
 router.post('/change-theme', changeTheme)
 router.post('/change-loginSeguro', changeLoginSeguro)
 router.post('/complete-onboarding', checkTokenLimit, completeOnboarding)
-router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, upload('uploads/image-perfil', 'avatar'), autoUploadToCloudinary('treinai-perfis'), atualizarPerfil)
+router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, upload('uploads/image-perfil', 'avatar'), atualizarPerfil)
 router.post('/criar-meusTreinos', checkTokenLimit, carregarTreinos);
 // IA routes
 router.post('/gerar-exercicio-ia', criarExercicioIA);
@@ -167,8 +166,8 @@ router.post('/adicionar-report-exercicio', adicionarReport);
 
 // profissional
 router.get('/profissionais', profissionais);
-router.post('/publicar-profissional', uploadRateLimit, uploadSecurityHeaders, upload('uploads/image-profissional', 'image'), autoUploadToCloudinary('treinai-profissionais'), publicarProfissional);
-router.post('/editar-profissional', uploadRateLimit, uploadSecurityHeaders, upload('uploads/image-profissional', 'image'), autoUploadToCloudinary('treinai-profissionais'), editarProfissional);
+router.post('/publicar-profissional', uploadRateLimit, uploadSecurityHeaders, upload('uploads/image-profissional', 'image'), publicarProfissional);
+router.post('/editar-profissional', uploadRateLimit, uploadSecurityHeaders, upload('uploads/image-profissional', 'image'), editarProfissional);
 router.post('/quero-ser-aluno', queroSerAluno);
 router.post('/aceitar-aluno', aceitarAluno);
 router.post('/remover-aluno', removerAluno);
@@ -195,17 +194,17 @@ router.get('/buscar-historico', buscarHistorico);
 router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
 
 // locais
-router.post('/createPayment', uploadSecurityHeaders, upload('uploads/tmp', 'image'), autoUploadToCloudinary('treinai-pagamentos'), CriarAssinaturaProLocal);
-router.post('/editar-local', uploadSecurityHeaders, upload('uploads/image-local', 'image'), autoUploadToCloudinary('treinai-locais'), editarLocal);
+router.post('/createPayment', uploadSecurityHeaders, upload('uploads/tmp', 'image'), CriarAssinaturaProLocal);
+router.post('/editar-local', uploadSecurityHeaders, upload('uploads/image-local', 'image'), editarLocal);
 router.get('/locais', getLocais);
 router.post('/deletar-local', deletarLocal);
 
 // anuncios
 router.post('/adicionar-saldo', SessionPaymentSaldoDeImpressoes);
-router.post('/criar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), autoUploadToCloudinary('treinai-anuncios'), criarAnuncio);
+router.post('/criar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), criarAnuncio);
 router.post('/anuncios', getAnuncios); // query profissionalId (opcional). se nao passar, retorna todos os anuncios disponiveis.
 router.post('/deletar-anuncio', deletarAnuncio); // corpo => profissionalId e anuncioId.
-router.post('/editar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), autoUploadToCloudinary('treinai-anuncios'), editarAnuncio); // corpo => profissionalId e anuncioId.
+router.post('/editar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), editarAnuncio); // corpo => profissionalId e anuncioId.
 router.post('/marcar-impressao', marcarImpressao); // corpo => userId e anuncioId.
 router.post('/marcar-clique', marcarClique); // corpo => userId e anuncioId.
 
