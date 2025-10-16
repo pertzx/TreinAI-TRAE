@@ -30,14 +30,25 @@ export const upload = (dir, fieldName, opts = {}) => {
   const incomingLimit = typeof opts.incomingLimit === 'number' ? opts.incomingLimit : (10 * 1024 * 1024); // allow bigger input to compress
   const maxWidth = typeof opts.maxWidth === 'number' ? opts.maxWidth : 2000;
 
-  // caminho absoluto do diretório de upload
-  const uploadDir = path.isAbsolute(dir) ? dir : path.join(process.cwd(), dir);
-  console.log('[upload] uploadDir absoluto:', uploadDir);
-
-  // garante que a pasta exista
-  if (!fs.existsSync(uploadDir)) {
-    console.log('[upload] Criando diretório:', uploadDir);
-    fs.mkdirSync(uploadDir, { recursive: true });
+  // Detectar ambiente serverless (Vercel)
+  const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT;
+  
+  // Em ambiente serverless, usar /tmp; em desenvolvimento, usar diretório original
+  let uploadDir;
+  if (isServerless) {
+    // Em serverless, usar /tmp como diretório temporário
+    uploadDir = '/tmp';
+    console.log('[upload] Ambiente serverless detectado, usando /tmp directory');
+  } else {
+    // Em desenvolvimento local, usar diretório original
+    uploadDir = path.isAbsolute(dir) ? dir : path.join(process.cwd(), dir);
+    console.log('[upload] Ambiente local, uploadDir absoluto:', uploadDir);
+    
+    // garante que a pasta exista apenas em desenvolvimento local
+    if (!fs.existsSync(uploadDir)) {
+      console.log('[upload] Criando diretório:', uploadDir);
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
   }
 
   // usar memoryStorage para processar (compressão) antes de persistir
@@ -135,6 +146,9 @@ export const upload = (dir, fieldName, opts = {}) => {
         const baseName = path.basename(originalName, path.extname(originalName)).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '').slice(0, 40);
         const unique = `${getBrazilDate()}-${Math.random().toString(36).slice(2, 8)}-${uuidv4().slice(0, 6)}`;
         const filename = `${unique}__${baseName}${ext}`;
+        
+        // Em ambiente serverless, salvar apenas no /tmp (temporário)
+        // Em desenvolvimento local, salvar no diretório original
         const filepath = path.join(uploadDir, filename);
         console.log('[upload] Nome do arquivo final:', filename, 'caminho:', filepath);
 
@@ -147,6 +161,13 @@ export const upload = (dir, fieldName, opts = {}) => {
         req.file.path = filepath;
         req.file.size = finalBuffer.length;
         req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : (finalFormat === 'jpeg' ? 'image/jpeg' : req.file.mimetype);
+        
+        // Em ambiente serverless, adicionar flag indicando que é temporário
+        if (isServerless) {
+          req.file.isTemporary = true;
+          req.file.needsCloudUpload = true;
+          console.log('[upload] Arquivo salvo temporariamente em /tmp, necessário upload para cloud storage');
+        }
 
         console.log('[upload] Finalizado com sucesso.');
         return next();
@@ -169,8 +190,19 @@ export const uploadMidiaAnuncio = (dir = 'uploads/midias-anuncio', fieldName = '
   const incomingLimit = 50 * 1024 * 1024; // 50 MB para permitir vídeos
   const maxWidth = 2000;
 
-  const uploadDir = path.isAbsolute(dir) ? dir : path.join(process.cwd(), dir);
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+  // Detectar ambiente serverless (Vercel)
+  const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT;
+  
+  // Em ambiente serverless, usar /tmp; em desenvolvimento, usar diretório original
+  let uploadDir;
+  if (isServerless) {
+    uploadDir = '/tmp';
+    console.log('[uploadMidiaAnuncio] Ambiente serverless detectado, usando /tmp directory');
+  } else {
+    uploadDir = path.isAbsolute(dir) ? dir : path.join(process.cwd(), dir);
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    console.log('[uploadMidiaAnuncio] Ambiente local, uploadDir:', uploadDir);
+  }
 
   const storage = multer.memoryStorage();
 
@@ -207,6 +239,14 @@ export const uploadMidiaAnuncio = (dir = 'uploads/midias-anuncio', fieldName = '
           await fs.promises.writeFile(filepath, req.file.buffer);
           req.file.filename = filename;
           req.file.path = filepath;
+          
+          // Em ambiente serverless, adicionar flags
+          if (isServerless) {
+            req.file.isTemporary = true;
+            req.file.needsCloudUpload = true;
+            console.log('[uploadMidiaAnuncio] Vídeo salvo temporariamente em /tmp');
+          }
+          
           return next();
         } else {
           // imagem: processa, converte para webp (ou jpeg se preferir) e salva
@@ -235,6 +275,13 @@ export const uploadMidiaAnuncio = (dir = 'uploads/midias-anuncio', fieldName = '
           req.file.path = filepath;
           req.file.size = finalBuffer.length;
           req.file.mimetype = finalFormat === 'webp' ? 'image/webp' : 'image/jpeg';
+
+          // Em ambiente serverless, adicionar flags
+          if (isServerless) {
+            req.file.isTemporary = true;
+            req.file.needsCloudUpload = true;
+            console.log('[uploadMidiaAnuncio] Imagem salva temporariamente em /tmp');
+          }
 
           return next();
         }
