@@ -40,14 +40,6 @@ export const UPLOAD_LIMITS = {
 };
 
 /**
- * Função para sanitizar nome do arquivo
- */
-const sanitizeFilename = (filename) => {
-  // Remove caracteres perigosos e mantém apenas alfanuméricos, pontos, hífens e underscores
-  return filename.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-};
-
-/**
  * Sanitiza nome do arquivo
  */
 export const sanitizeFilename = (filename) => {
