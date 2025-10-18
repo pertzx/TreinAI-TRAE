@@ -3,14 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LuSmartphone, LuPlay, LuPause } from 'react-icons/lu';
 
 // Importações normais das imagens para evitar erros no deploy
-import img1 from '/1.png';
-import img2 from '/2.png';
-import img3 from '/3.png';
-import img4 from '/4.png';
-import img5 from '/5.png';
-import img6 from '/6.png';
-import img7 from '/7.png';
-import img8 from '/8.png';
+import img1 from '/1.jpg';
+import img2 from '/2.jpg';
+import img3 from '/3.jpg';
+import img4 from '/4.jpg';
+import img5 from '/5.jpg';
+import img6 from '/6.jpg';
+import img7 from '/7.jpg';
+import img8 from '/8.jpg';
+import img9 from '/9.jpg';
 
 function SmartphoneAnimation() {
     // Array com as imagens importadas normalmente
