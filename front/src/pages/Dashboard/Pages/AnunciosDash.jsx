@@ -998,7 +998,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                                                     {/* Mídia do anúncio */}
                                                     <div className="relative h-48 bg-slate-100 dark:bg-slate-700 rounded-xl overflow-hidden mb-4">
                                                         {ad.anuncioTipo === 'video' && mediaUrl ? (
-                                                            <video src={buildImageUrl(mediaUrl)} controls className="h-full w-full object-cover" />
+                                                            <video src={buildImageUrl(mediaUrl, 'video')} controls className="h-full w-full object-cover" />
                                                         ) : ad.anuncioTipo === 'imagem' && mediaUrl ? (
                                                             <img src={buildImageUrl(mediaUrl)} alt={ad.titulo} className="h-full w-full object-cover" />
                                                         ) : (
@@ -1261,7 +1261,7 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                                                                 />
                                                             ) : (
                                                                 <video
-                                                                    src={buildImageUrl(editPreviews[id]) || editPreviews[id]}
+                                                                    src={buildImageUrl(editPreviews[id], 'video') || editPreviews[id]}
                                                                     controls
                                                                     className="max-h-48 rounded-lg w-full object-contain"
                                                                 />

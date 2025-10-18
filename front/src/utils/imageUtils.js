@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
  * @param {string} imagePath - Path relativo da imagem (ex: '/uploads/image-perfil/avatar.jpg')
  * @returns {string} - URL completa da imagem
  */
-export const buildImageUrl = (imagePath) => {
+export const buildImageUrl = (imagePath, type = 'image') => {
   if (!imagePath) return null;
   
   // Se já é uma URL completa, retorna como está
@@ -17,7 +17,7 @@ export const buildImageUrl = (imagePath) => {
   // Se não começa com /, adiciona
   const path = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
   
-  return `https://res.cloudinary.com/dglkape35/image/upload/v1760751117${path}`;
+  return `https://res.cloudinary.com/dglkape35/${type}/upload/v1760751117${path}`;
 };
 
 /**

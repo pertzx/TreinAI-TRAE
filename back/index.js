@@ -41,20 +41,80 @@ app.use(limiter)
 // Headers de segurança globais
 app.use(securityHeaders);
 
+// Função para validar e normalizar domínios
+function validateAndNormalizeDomain(domain) {
+    if (!domain || typeof domain !== 'string') return null;
+    
+    // Remove espaços em branco
+    domain = domain.trim();
+    
+    // Valida formato básico de URL
+    try {
+        const url = new URL(domain);
+        // Apenas permite HTTP e HTTPS
+        if (!['http:', 'https:'].includes(url.protocol)) {
+            console.warn(`⚠️ CORS: Protocolo inválido ignorado: ${domain}`);
+            return null;
+        }
+        return url.origin;
+    } catch (error) {
+        console.warn(`⚠️ CORS: Domínio inválido ignorado: ${domain}`);
+        return null;
+    }
+}
+
+// Função para log de segurança CORS
+function logCORSAttempt(origin, allowed, userAgent = 'unknown', ip = 'unknown') {
+    const timestamp = new Date().toISOString();
+    const status = allowed ? 'PERMITIDO' : 'REJEITADO';
+    const logLevel = allowed ? 'info' : 'warn';
+    
+    const logData = {
+        timestamp,
+        type: 'CORS_ATTEMPT',
+        origin,
+        status,
+        userAgent,
+        ip,
+        environment: process.env.NODE_ENV
+    };
+    
+    if (allowed) {
+        console.log(`✅ [${timestamp}] CORS ${status}: ${origin} | IP: ${ip}`);
+    } else {
+        console.warn(`❌ [${timestamp}] CORS ${status}: ${origin} | IP: ${ip} | UA: ${userAgent}`);
+    }
+    
+    // Em produção, você pode enviar para um sistema de monitoramento
+    if (process.env.NODE_ENV === 'production' && !allowed) {
+        // Aqui você pode integrar com serviços como Sentry, LogRocket, etc.
+        // Exemplo: sentry.captureMessage(`CORS rejeitado: ${origin}`, 'warning');
+    }
+}
+
 // Configuração CORS baseada no ambiente
 const corsOptions = {
     origin: function (origin, callback) {
+        const userAgent = this?.req?.get('User-Agent') || 'unknown';
+        const ip = this?.req?.ip || this?.req?.connection?.remoteAddress || 'unknown';
+        
         // Em desenvolvimento, permite QUALQUER origem
         if (process.env.NODE_ENV !== 'production') {
             console.log(`🔧 CORS [DEV]: Permitindo origem: ${origin || 'sem origin'}`);
+            logCORSAttempt(origin || 'localhost', true, userAgent, ip);
             return callback(null, true);
         }
         
         // Em produção, apenas origens específicas do .env
-        const allowedOrigins = [
+        const rawOrigins = [
             process.env.FRONTEND_URL, // URL de produção do frontend
             ...(process.env.ALLOWED_ORIGINS?.split(',') || []), // URLs adicionais do .env
-        ].filter(Boolean); // Remove valores undefined/null
+        ];
+        
+        // Valida e normaliza todas as origens
+        const allowedOrigins = rawOrigins
+            .map(validateAndNormalizeDomain)
+            .filter(Boolean); // Remove valores null/undefined
         
         console.log(`🔒 CORS [PROD]: Verificando origem: ${origin}`);
         console.log(`🔒 CORS [PROD]: Origens permitidas:`, allowedOrigins);
@@ -62,14 +122,20 @@ const corsOptions = {
         // Rejeita requisições sem origin em produção
         if (!origin) {
             console.log('❌ CORS [PROD]: Requisição sem origin rejeitada');
+            logCORSAttempt('sem-origin', false, userAgent, ip);
             return callback(new Error('Origem não especificada não permitida em produção'));
         }
         
-        if (allowedOrigins.includes(origin)) {
+        // Normaliza a origem da requisição para comparação
+        const normalizedOrigin = validateAndNormalizeDomain(origin);
+        
+        if (normalizedOrigin && allowedOrigins.includes(normalizedOrigin)) {
             console.log(`✅ CORS [PROD]: Origem permitida: ${origin}`);
+            logCORSAttempt(origin, true, userAgent, ip);
             callback(null, true);
         } else {
             console.log(`❌ CORS [PROD]: Origem rejeitada: ${origin}`);
+            logCORSAttempt(origin, false, userAgent, ip);
             callback(new Error('Não permitido pelo CORS'));
         }
     },

@@ -276,7 +276,7 @@ const AdTreinAI = ({ logWhenHidden = false, threshold = 0.1, anuncioData, user =
           `}>
             {anuncio.anuncioTipo === 'video' ? (
               <video
-                src={buildImageUrl(anuncio.midiaUrl)}
+                src={buildImageUrl(anuncio.midiaUrl, 'video')}
                 controls
                 className="w-full h-auto max-h-64 block transition-transform duration-300"
                 onError={(e) => {

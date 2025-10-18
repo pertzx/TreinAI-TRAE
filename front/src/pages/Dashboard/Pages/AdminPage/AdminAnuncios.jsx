@@ -309,7 +309,7 @@ export default function AdminAnuncios({ tema, user }) {
                     <div className="mb-3 flex flex-col gap-4">
                       <div className="relative flex items-center justify-center mb-3">
                         {a.anuncioTipo === 'video' && mediaUrl ? (
-                          <video src={buildImageUrl(mediaUrl)} controls className="h-full w-full object-cover" />
+                          <video src={buildImageUrl(mediaUrl, 'video')} controls className="h-full w-full object-cover" />
                         ) : a.anuncioTipo === 'imagem' && mediaUrl ? (
                           <img src={buildImageUrl(mediaUrl)} alt={a.titulo} className="h-full w-full object-cover" />
                         ) : (

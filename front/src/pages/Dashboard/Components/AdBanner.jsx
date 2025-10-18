@@ -344,7 +344,7 @@ const AdBanner = ({ tema = 'light', displayTime = 10000, user }) => {
         {currentAd?.anuncioTipo === 'video' && currentAd?.midiaUrl ? (
           <video
             ref={videoRef}
-            src={buildImageUrl(currentAd.midiaUrl)}
+            src={buildImageUrl(currentAd.midiaUrl, 'video')}
             className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg"
             style={{
               aspectRatio: 'auto',
