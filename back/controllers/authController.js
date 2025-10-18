@@ -1053,8 +1053,8 @@ export const atualizarPerfil = async (req, res) => {
             if (parsed && parsed.startsWith('/uploads/')) {
               const oldFilename = path.basename(parsed);
 
-              // Não deletar a imagem base avatar_base.jpg
-              if (oldFilename !== 'avatar_base.jpg') {
+              // Não deletar a imagem base avatar_base_z5ucwb.jpg
+              if (oldFilename !== 'avatar_base_z5ucwb.jpg') {
                 const oldPath = path.join(UPLOAD_DIR, oldFilename);
                 if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
               }

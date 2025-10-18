@@ -4,7 +4,7 @@ import { LuSmartphone, LuPlay, LuPause } from 'react-icons/lu';
 
 function SmartphoneAnimation() {
     // Corrigindo os caminhos das imagens para funcionar corretamente
-    const images = Array.from({ length: 8 }, (_, i) => `./src/images/${i + 1}.png`);
+    const images = Array.from({ length: 8 }, (_, i) => `./public/${i + 1}.png`);
     const [current, setCurrent] = useState(0);
     const [isPlaying, setIsPlaying] = useState(true);
     const [imageError, setImageError] = useState(false);

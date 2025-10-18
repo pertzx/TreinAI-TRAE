@@ -340,8 +340,8 @@ export const editarProfissional = async (req, res) => {
           if (!parsed) return;
           const filename = parsed.split('?')[0].split('#')[0];
           
-          // Não deletar a imagem base avatar_base.jpg
-          if (filename === 'avatar_base.jpg') return;
+          // Não deletar a imagem base avatar_base_z5ucwb.jpg
+          if (filename === 'avatar_base_z5ucwb.jpg') return;
           
           const candidatePath = path.join(UPLOAD_DIR, filename);
 
