@@ -209,8 +209,8 @@ export const editarAnuncio = async (req, res) => {
                 console.warn('Erro ao deletar mídia antiga (continua):', err);
             }
 
-            // Usar URL do Cloudinary em produção ou URL local em desenvolvimento
-            const newMidiaUrl = uploadedFile.url || `${backendUrl}/uploads/midias-anuncio/${uploadedFile.filename}`;
+            // Usar path do Cloudinary em produção ou URL local em desenvolvimento
+            const newMidiaUrl = uploadedFile.url || `/uploads/midias-anuncio/${uploadedFile.filename}`;
             anuncioData.midiaUrl = newMidiaUrl;
         }
         // Se NÃO houve upload, não tocamos no campo midiaUrl (preserva existente)

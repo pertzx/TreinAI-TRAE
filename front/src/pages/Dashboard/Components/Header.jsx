@@ -5,10 +5,11 @@ import { LuMenu } from 'react-icons/lu';
 import { FaHome, FaSearch, FaDumbbell, FaChartLine, FaGamepad, FaUser, FaCog, FaUserShield, FaQuestionCircle, FaUserTie, FaComments, FaTrophy } from 'react-icons/fa';
 import { buildImageUrl } from '../../../utils/imageUtils';
 import { useUnreadChats } from '../../../hooks/useUnreadChats';
+import AdBanner from './AdBanner';
 
 const Header = ({ user, tema }) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  
+
   // Hook para detectar chats não lidos
   const { hasUnreadChats } = useUnreadChats(user?.userId || user?._id || user?.id);
 
@@ -45,7 +46,7 @@ const Header = ({ user, tema }) => {
     };
 
   return (
-    <header className={`${themeClasses.headerBg} p-3 mb-3`}>
+    <header className={`${themeClasses.headerBg} p-3 flex flex-col gap-4 mb-3`}>
       <div className="flex justify-between flex-col gap-2 sm:flex-row sm:gap-0 items-center">
         {/* Logo e nome */}
         <NavLink to="/dashboard" className="flex items-center gap-2">
@@ -76,15 +77,14 @@ const Header = ({ user, tema }) => {
           <p>Olá, {user.username}</p>
 
           {/* Botão de Chat com notificação */}
-          <NavLink 
-            to="/dashboard/chat" 
+          <NavLink
+            to="/dashboard/chat"
             className={({ isActive }) =>
-              `relative p-2 rounded-full transition-colors ${
-                isActive 
-                  ? 'bg-blue-600 text-white' 
-                  : tema === 'dark' 
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
-                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              `relative p-2 rounded-full transition-colors ${isActive
+                ? 'bg-blue-600 text-white'
+                : tema === 'dark'
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
               }`
             }
             title="Chat"
@@ -116,7 +116,7 @@ const Header = ({ user, tema }) => {
 
       {/* Menu mobile */}
       {menuOpen && (
-        <nav className="flex flex-col gap-3 mt-3 2xl:hidden">
+        <nav className="flex flex-col gap-3 2xl:hidden">
           {navLinks.map((link) => (
             <NavLink
               key={link.href}
@@ -133,6 +133,8 @@ const Header = ({ user, tema }) => {
           ))}
         </nav>
       )}
+
+      {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && <AdBanner tema={tema} user={user} showPlaceholder={true} className="rounded-2xl mt-5 h-1/5" />}
     </header>
   );
 };

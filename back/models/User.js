@@ -8,7 +8,7 @@ const UserSchema = new Schema({
   username: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
-  avatar: { type: String, default: '/uploads/image-perfil/avatar_base.jpg' },
+  avatar: { type: String, default: '/uploads/image-perfil/avatar_base.jpg' }, // Path da imagem (Cloudinary ou local)
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   isCoach: { type: Boolean, default: false },
   saldoDeImpressoes: { type: Number, default: 0 },

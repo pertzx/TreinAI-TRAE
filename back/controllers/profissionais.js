@@ -214,7 +214,7 @@ export const publicarProfissional = async (req, res) => {
     let imageUrl = null;
     if (req.file) {
       try {
-        // Em produção, usar URL do Cloudinary; em desenvolvimento, usar URL local
+        // Em produção, usar path do Cloudinary; em desenvolvimento, usar URL local
         imageUrl = req.file.url || `/uploads/image-profissional/${req.file.filename}`;
       } catch (err) {
         console.warn("Falha ao montar imageUrl do arquivo enviado:", err);
@@ -412,7 +412,7 @@ export const editarProfissional = async (req, res) => {
         await tryDeleteOldImage(profissional.imageUrl);
       }
 
-      // montar nova imageUrl - usar URL do Cloudinary em produção ou local em desenvolvimento
+      // montar nova imageUrl - usar path do Cloudinary em produção ou local em desenvolvimento
       profissional.imageUrl = req.file.url || buildImageUrl(req.file.filename);
     } else if (wantRemoveImage) {
       // apagar antiga e setar null

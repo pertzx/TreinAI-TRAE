@@ -1033,7 +1033,7 @@ export const atualizarPerfil = async (req, res) => {
 
     // === avatar (req.file) ===
     if (req.file) {
-      // Em produção, usar URL do Cloudinary; em desenvolvimento, usar URL local
+      // Em produção, usar path do Cloudinary; em desenvolvimento, usar URL local
       const avatarUrl = req.file.url || `/uploads/image-perfil/${req.file.filename}`;
 
       // tenta remover avatar antigo se for local em /uploads/ ou do Cloudinary

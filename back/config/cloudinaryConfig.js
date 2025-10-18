@@ -11,8 +11,8 @@ cloudinary.config({
  * Faz upload de um arquivo para o Cloudinary
  * @param {Buffer} buffer - Buffer do arquivo
  * @param {string} folder - Pasta no Cloudinary (ex: 'image-perfil', 'image-profissional')
- * @param {string} resourceType - Tipo do recurso ('image' ou 'video')
- * @returns {Promise<Object>} - Resultado do upload do Cloudinary
+ * @param {string} resourceType - Tipo do recurso ('image', 'video', 'raw')
+ * @returns {Promise<Object>} - Resultado do upload com path e URL completa
  */
 export const uploadToCloudinary = async (buffer, folder = 'uploads', resourceType = 'image') => {
   try {
@@ -40,7 +40,18 @@ export const uploadToCloudinary = async (buffer, folder = 'uploads', resourceTyp
             console.error('Erro no upload para Cloudinary:', error);
             reject(error);
           } else {
-            resolve(result);
+            // Extrair apenas o path da URL do Cloudinary
+            const fullUrl = result.secure_url;
+            const pathMatch = fullUrl.match(/\/v\d+\/(.+)$/);
+            const path = pathMatch ? pathMatch[1] : result.public_id;
+            
+            // Retornar objeto com path e URL completa para compatibilidade
+            resolve({
+              ...result,
+              path: path, // Apenas o path para salvar no banco
+              secure_url: fullUrl, // URL completa para compatibilidade temporária
+              cloudinary_path: path // Path específico do Cloudinary
+            });
           }
         }
       );
@@ -75,18 +86,25 @@ export const deleteFromCloudinary = async (imageUrl) => {
 };
 
 /**
- * Extrai o public_id de uma URL do Cloudinary
- * @param {string} url - URL do Cloudinary
+ * Extrai o public_id de uma URL do Cloudinary ou de um path
+ * @param {string} urlOrPath - URL completa do Cloudinary ou apenas o path
  * @returns {string|null} - Public ID ou null se não conseguir extrair
  */
-export const extractPublicIdFromUrl = (url) => {
+export const extractPublicIdFromUrl = (urlOrPath) => {
   try {
-    if (!url || typeof url !== 'string' || !url.includes('cloudinary.com')) {
+    if (!urlOrPath || typeof urlOrPath !== 'string') {
       return null;
     }
 
+    // Se for apenas um path (não contém cloudinary.com)
+    if (!urlOrPath.includes('cloudinary.com')) {
+      // Assumir que é um path direto, remover apenas a extensão
+      return urlOrPath.replace(/\.[^/.]+$/, '');
+    }
+
+    // Se for URL completa do Cloudinary
     // Exemplo de URL: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/treinai/image-perfil/filename.jpg
-    const urlParts = url.split('/');
+    const urlParts = urlOrPath.split('/');
     const uploadIndex = urlParts.findIndex(part => part === 'upload');
     
     if (uploadIndex === -1 || uploadIndex + 2 >= urlParts.length) {
@@ -101,7 +119,7 @@ export const extractPublicIdFromUrl = (url) => {
     
     return publicId;
   } catch (error) {
-    console.error('Erro ao extrair public_id da URL:', error);
+    console.error('Erro ao extrair public_id da URL/path:', error);
     return null;
   }
 };

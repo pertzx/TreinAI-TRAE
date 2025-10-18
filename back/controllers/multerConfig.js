@@ -157,10 +157,11 @@ export const createUpload = (type = 'image', options = {}) => {
                'image'
              );
 
-            // Atualizar informações do arquivo
-            file.cloudinaryUrl = cloudinaryResult.secure_url;
+            // Atualizar informações do arquivo - salvar apenas o path
+            file.cloudinaryUrl = cloudinaryResult.path; // Path para salvar no banco
             file.cloudinaryPublicId = cloudinaryResult.public_id;
-            file.path = cloudinaryResult.secure_url; // Para compatibilidade
+            file.path = cloudinaryResult.path; // Path para compatibilidade
+            file.url = cloudinaryResult.path; // Path para o sistema usar
             
           } else {
             // Em ambiente local, ler arquivo do disco
@@ -194,10 +195,11 @@ export const createUpload = (type = 'image', options = {}) => {
             resourceType
           );
 
-          // Atualizar informações do arquivo
-          file.cloudinaryUrl = cloudinaryResult.secure_url;
+          // Atualizar informações do arquivo - salvar apenas o path
+          file.cloudinaryUrl = cloudinaryResult.path; // Path para salvar no banco
           file.cloudinaryPublicId = cloudinaryResult.public_id;
-          file.path = cloudinaryResult.secure_url; // Para compatibilidade
+          file.path = cloudinaryResult.path; // Path para compatibilidade
+          file.url = cloudinaryResult.path; // Path para o sistema usar
           
         } catch (error) {
           console.error('Erro no upload para Cloudinary:', error);

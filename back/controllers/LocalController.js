@@ -186,7 +186,7 @@ export const editarLocal = async (req, res) => {
     if (req.file && req.file.filename) {
       // apagar antiga se existir
       if (local.imageUrl) await tryDeleteOldImage(local.imageUrl);
-      // Usar URL do Cloudinary em produção ou URL local em desenvolvimento
+      // Usar path do Cloudinary em produção ou URL local em desenvolvimento
       local.imageUrl = req.file.url || buildImageUrl(req, req.file.filename);
     }
 

@@ -17,7 +17,7 @@ const LocalSchema = new Schema({
   localId: { type: String, default: () => uuidv4() },
   userId: { type: String, required: true },
   localDescricao: { type: String, required: true, default: 'Local dedicado.' },
-  imageUrl: { type: String, default: null },
+  imageUrl: { type: String, default: null }, // Path da imagem (Cloudinary ou local)
   criadoEm: { type: Date, default: getBrazilDate },
   atualizadoEm: { type: Date, default: null },
 

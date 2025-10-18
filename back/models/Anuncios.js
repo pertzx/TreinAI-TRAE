@@ -12,7 +12,7 @@ const anuncioSchema = new Schema({
   descricao: { type: String, required: true},
   criadoEm: { type: Date, default: getBrazilDate },
   anuncioTipo: { type: String, enum: ['imagem', 'video'], required: true },
-  midiaUrl: { type: String, required: true },
+  midiaUrl: { type: String, required: true }, // Path da mídia (Cloudinary ou local)
   status: { type: String, enum: ['ativo', 'inativo'], required: true, default: 'inativo' },
   
   estatisticas: {
