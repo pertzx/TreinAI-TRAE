@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { FaTimes, FaDownload, FaShareAlt, FaCamera } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -535,9 +536,13 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
     const primaryBtnClass = isLight ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-95';
     const secondaryBtnClass = isLight ? 'bg-gray-100 text-gray-800 hover:bg-gray-200' : 'bg-gray-800 text-gray-100 hover:bg-gray-700';
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className={`absolute inset-0 ${isLight ? "bg-black/40" : "bg-black/80"} backdrop-blur-sm`} onClick={() => onClose && onClose()} />
+    // Se não estiver aberto, não renderiza nada
+    if (!open) return null;
+
+    // Renderiza o overlay usando portal para garantir que cubra toda a tela
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <div className={`fixed inset-0 ${isLight ? "bg-black/40" : "bg-black/80"} backdrop-blur-sm`} onClick={() => onClose && onClose()} />
 
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -686,7 +691,8 @@ const SummaryOverlay = ({ open, onClose, registro, userHistorico = [], tema = "d
                     </div>
                 </div>
             </motion.div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

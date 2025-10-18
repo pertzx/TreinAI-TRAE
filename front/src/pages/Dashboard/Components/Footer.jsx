@@ -75,13 +75,13 @@ export default function Footer({
           <div className="flex flex-col  items-center xl:items-center justify-between gap-4">
             {/* Left: Branding + copy */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 min-w-0">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center flex-wrap gap-3">
                 <div className={`w-10 h-10 rounded-md flex items-center justify-center ${isDark ? 'bg-indigo-600' : 'bg-indigo-600'}`}>
                   <Logo scale={1} />
                 </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold truncate">TreinAI</div>
-                  <div className={`text-xs ${muted} truncate`}>Muito além do Personal Trainner IA.</div>
+                <div className="min-w-0 text-clip">
+                  <div className="text-[9px] sm:text-sm font-semibold truncate">TreinAI</div>
+                  <div className={`text-[8px] sm:text-xs ${muted} truncate`}>Muito além do Personal Trainner IA.</div>
                 </div>
               </div>
 
@@ -111,7 +111,7 @@ export default function Footer({
               </nav>
 
               {/* Botões de Locais e Anúncios */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <NavLink
                   to="/dashboard/locais"
                   className={({ isActive }) =>
@@ -163,7 +163,7 @@ export default function Footer({
             </div>
 
             {/* Right: user (if any) + social */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center flex-wrap gap-3">
               {user ? (
                 <div className={`sm:flex items-center gap-3 px-3 py-2 rounded-md ${profileBg} border`}>
                   <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">

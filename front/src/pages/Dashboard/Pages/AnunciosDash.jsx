@@ -4,7 +4,7 @@ import api from '../../../Api.js'
 import locations from '../../../data/locations.json'
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaLocationPin, FaChartLine, FaHandPointer, FaPlus, FaUpload, FaBullhorn, FaEye} from 'react-icons/fa6'
-import { FaEdit, FaTrash } from 'react-icons/fa'
+import { FaSave, FaTimes, FaCloudUploadAlt, FaEdit, FaTrash } from 'react-icons/fa'
 import { useToast } from '../../../components/Toast.jsx'
 import { buildImageUrl } from '../../../utils/imageUtils.js'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
@@ -1255,13 +1255,13 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                                                             <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Preview</h4>
                                                             {editDraft.anuncioTipo === 'imagem' ? (
                                                                 <img
-                                                                    src={editPreviews[id]}
+                                                                    src={buildImageUrl(editPreviews[id]) || editPreviews[id]}
                                                                     alt="preview-edit"
                                                                     className="max-h-40 rounded-lg w-full object-contain"
                                                                 />
                                                             ) : (
                                                                 <video
-                                                                    src={editPreviews[id]}
+                                                                    src={buildImageUrl(editPreviews[id]) || editPreviews[id]}
                                                                     controls
                                                                     className="max-h-48 rounded-lg w-full object-contain"
                                                                 />

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import Logo from '../../../components/Logo';
-import { LuMenu } from 'react-icons/lu';
+import { LuMenu, LuX } from 'react-icons/lu';
 import { FaHome, FaSearch, FaDumbbell, FaChartLine, FaGamepad, FaUser, FaCog, FaUserShield, FaQuestionCircle, FaUserTie, FaComments, FaTrophy } from 'react-icons/fa';
 import { buildImageUrl } from '../../../utils/imageUtils';
 import { useUnreadChats } from '../../../hooks/useUnreadChats';
+import { motion, AnimatePresence } from 'framer-motion';
 import AdBanner from './AdBanner';
 
 const Header = ({ user, tema }) => {
@@ -62,7 +63,7 @@ const Header = ({ user, tema }) => {
               to={link.href}
               end={link.href === '/dashboard'} // Aplica end apenas no Home
               className={({ isActive }) =>
-                `${themeClasses.linkHover} transition ${isActive ? 'font-bold' : ''} flex items-center gap-2`
+                `${themeClasses.linkHover} transition ${isActive ? 'font-bold text-blue-600' : ''} flex items-center gap-2`
               }
             >
               <link.icon />
@@ -105,33 +106,45 @@ const Header = ({ user, tema }) => {
           ></NavLink>
 
           {/* Botão mobile para abrir menu */}
-          <button
-            className="2xl:hidden ml-2"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            <LuMenu className="text-2xl" />
-          </button>
+          <AnimatePresence>
+            <motion.button
+              animate={{ rotate: menuOpen ? 90 : 0 }}
+              className="2xl:hidden ml-2 p-2 bg-gray-300/5 rounded-full border border-gray-300"
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              {menuOpen ? <LuX className="text-2xl" /> : <LuMenu className="text-2xl" />}
+            </motion.button>
+          </AnimatePresence>
         </div>
       </div>
 
       {/* Menu mobile */}
       {menuOpen && (
-        <nav className="flex flex-col gap-3 2xl:hidden">
-          {navLinks.map((link) => (
-            <NavLink
-              key={link.href}
-              to={link.href}
-              end={link.href === '/dashboard'} // Aplica end apenas no Home
-              className={({ isActive }) =>
-                `${themeClasses.linkHover} transition ${isActive ? 'font-bold' : ''} flex items-center gap-2`
-              }
-              onClick={() => setMenuOpen(false)} // fecha menu ao clicar
-            >
-              <link.icon />
-              {link.name}
-            </NavLink>
-          ))}
-        </nav>
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-gray-300/5 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-gray-200"
+          >
+            <nav className="flex flex-col gap-3 2xl:hidden">
+              {navLinks.map((link) => (
+                <NavLink
+                  key={link.href}
+                  to={link.href}
+                  end={link.href === '/dashboard'} // Aplica end apenas no Home
+                  className={({ isActive }) =>
+                    `${themeClasses.linkHover} transition ${isActive ? 'font-bold text-blue-600' : ''} flex items-center gap-2`
+                  }
+                  onClick={() => setMenuOpen(false)} // fecha menu ao clicar
+                >
+                  <link.icon />
+                  {link.name}
+                </NavLink>
+              ))}
+            </nav>
+          </motion.div>
+        </AnimatePresence>
       )}
 
       {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && <AdBanner tema={tema} user={user} showPlaceholder={true} className="rounded-2xl mt-5 h-1/5" />}

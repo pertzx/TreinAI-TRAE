@@ -17,7 +17,7 @@ export const buildImageUrl = (imagePath) => {
   // Se não começa com /, adiciona
   const path = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
   
-  return `${API_BASE_URL}${path}`;
+  return `https://res.cloudinary.com/dglkape35/image/upload/v1760751117${path}`;
 };
 
 /**
