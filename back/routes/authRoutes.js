@@ -19,7 +19,7 @@ import { conversar, criarExercicioIA, criarTreinoIA } from '../controllers/Using
 import User from '../models/User.js';
 import { publicarNoHistorico } from '../controllers/database.js';
 import { adicionarExercicio, adicionarReport, procurarExercicio } from '../controllers/treino.js';
-import { upload, uploadMidiaAnuncio } from '../controllers/multerConfig.js';
+import { uploadProfile, uploadImage, uploadMidiaAnuncio } from '../controllers/multerConfig.js';
 import { aceitarAluno, editarProfissional, profissionais, publicarProfissional, queroSerAluno, removerAluno } from '../controllers/profissionais.js';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
@@ -55,7 +55,7 @@ router.get('/session-status', SessionStatus); // verificar status
 router.post('/change-theme', changeTheme)
 router.post('/change-loginSeguro', changeLoginSeguro)
 router.post('/complete-onboarding', checkTokenLimit, completeOnboarding)
-router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, upload('uploads/image-perfil', 'avatar'), atualizarPerfil)
+router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, uploadProfile.single('avatar'), atualizarPerfil)
 router.post('/criar-meusTreinos', checkTokenLimit, carregarTreinos);
 // IA routes
 router.post('/gerar-exercicio-ia', criarExercicioIA);
@@ -176,8 +176,8 @@ router.post('/adicionar-report-exercicio', adicionarReport);
 
 // profissional
 router.get('/profissionais', profissionais);
-router.post('/publicar-profissional', uploadRateLimit, uploadSecurityHeaders, upload('uploads/image-profissional', 'image'), publicarProfissional);
-router.post('/editar-profissional', uploadRateLimit, uploadSecurityHeaders, upload('uploads/image-profissional', 'image'), editarProfissional);
+router.post('/publicar-profissional', uploadRateLimit, uploadSecurityHeaders, uploadImage.single('image'), publicarProfissional);
+router.post('/editar-profissional', uploadRateLimit, uploadSecurityHeaders, uploadImage.single('image'), editarProfissional);
 router.post('/quero-ser-aluno', queroSerAluno);
 router.post('/aceitar-aluno', aceitarAluno);
 router.post('/remover-aluno', removerAluno);
@@ -204,8 +204,8 @@ router.get('/buscar-historico', buscarHistorico);
 router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
 
 // locais
-router.post('/createPayment', uploadSecurityHeaders, upload('uploads/tmp', 'image'), CriarAssinaturaProLocal);
-router.post('/editar-local', uploadSecurityHeaders, upload('uploads/image-local', 'image'), editarLocal);
+router.post('/createPayment', uploadSecurityHeaders, uploadImage.single('image'), CriarAssinaturaProLocal);
+router.post('/editar-local', uploadSecurityHeaders, uploadImage.single('image'), editarLocal);
 router.get('/locais', getLocais);
 router.post('/deletar-local', deletarLocal);
 
