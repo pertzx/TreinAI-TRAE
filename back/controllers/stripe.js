@@ -476,7 +476,6 @@ export const CriarAssinaturaProLocal = async (req, res) => {
       },
       subscription_data: {
         metadata: subscriptionMetadata,
-        trial_period_days: 0 // Sem período de teste
       },
       customer: customerId,
       allow_promotion_codes: true, // Permitir códigos promocionais
@@ -728,7 +727,6 @@ export const CreateCheckoutSession = async (req, res) => {
           app: 'treinai',
           idempotency_key: idempotencyKey
         },
-        trial_period_days: 0 // Sem período de teste
       },
       customer: customerId,
       allow_promotion_codes: true, // Permitir códigos promocionais
