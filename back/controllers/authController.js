@@ -558,7 +558,7 @@ export const signup = async (req, res) => {
     }
 
     return res.status(201).json({
-      msg: 'Usurio criado com scesso!',
+      msg: 'Usuario criado com sucesso!',
       newUser,
       token
     });

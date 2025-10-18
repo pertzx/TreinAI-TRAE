@@ -113,7 +113,7 @@ function Login({ plano }) {
 
       console.log(response)
 
-      if (response.status === 200 || response.data.msg === "Usuário criado com sucesso!") {
+      if (response.status === 200 || response.data.msg === "Usuario criado com sucesso!") {
         // Armazenar token JWT em cookie seguro
         console.log('🔑 Token recebido do servidor:', response.data.token);
         authCookies.setToken(response.data.token);
