@@ -2,9 +2,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LuSmartphone, LuPlay, LuPause } from 'react-icons/lu';
 
+// Importações normais das imagens para evitar erros no deploy
+import img1 from '/1.png';
+import img2 from '/2.png';
+import img3 from '/3.png';
+import img4 from '/4.png';
+import img5 from '/5.png';
+import img6 from '/6.png';
+import img7 from '/7.png';
+import img8 from '/8.png';
+
 function SmartphoneAnimation() {
-    // Corrigindo os caminhos das imagens para funcionar corretamente
-    const images = Array.from({ length: 8 }, (_, i) => `./public/${i + 1}.png`);
+    // Array com as imagens importadas normalmente
+    const images = [img1, img2, img3, img4, img5, img6, img7, img8];
     const [current, setCurrent] = useState(0);
     const [isPlaying, setIsPlaying] = useState(true);
     const [imageError, setImageError] = useState(false);

@@ -545,9 +545,9 @@ export const signup = async (req, res) => {
     });
 
     // Gera token
-    const token = jwt.sign({ email, userId: newUser._id }, SECRET_JWT, { expiresIn: "10s" });
+    const token = jwt.sign({ email: newUser.email, userId: newUser._id }, SECRET_JWT, { expiresIn: "7d" });
 
-    // Define cookie httpOnly seguro baseado no ambiente
+    // Define cookie acessível via JavaScript para WebSocket
     res.cookie('auth_token', token, getCookieOptions());
 
     try {
