@@ -209,7 +209,7 @@ export const SessionPaymentSaldoDeImpressoes = async (req, res) => {
     // Criar sessão de pagamento única com configurações melhoradas
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      payment_method_types: ['card', 'pix'],
+      payment_method_types: ['card'],
       customer: customerId,
       line_items: [{
         price_data: {
@@ -463,7 +463,7 @@ export const CriarAssinaturaProLocal = async (req, res) => {
     // Configuração da sessão melhorada
     const sessionParams = {
       mode: 'subscription',
-      payment_method_types: pm === 'pix' ? ['pix'] : ['card'],
+      payment_method_types: ['card'],
       line_items: [{ price: unitPrice, quantity: 1 }],
       success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&type=local`,
       cancel_url: `${process.env.FRONTEND_URL}/cancel?type=local`,
@@ -709,7 +709,7 @@ export const CreateCheckoutSession = async (req, res) => {
     // Configuração da sessão melhorada
     const sessionParams = {
       mode: 'subscription',
-      payment_method_types: ['card', 'pix'],
+      payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&type=plan`,
       cancel_url: `${process.env.FRONTEND_URL}/cancel?type=plan`,
