@@ -5,7 +5,7 @@ import { FiInstagram, FiMail, FiGithub, FiArrowUp, FiUser, FiLogOut } from 'reac
 import { FaMapMarkerAlt, FaBullhorn, FaQuestionCircle } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 import Logo from '../../../components/Logo';
-import { getBrazilDate } from '../../../../../back/helpers/getBrazilDate';
+import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
 import api from '../../../Api';
 import { buildImageUrl } from '../../../utils/imageUtils';
 
