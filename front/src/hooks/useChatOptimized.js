@@ -231,7 +231,8 @@ const useChatOptimized = (user, selectedChatId) => {
   useEffect(() => {
     if (!userId) return;
 
-    const chatWsUrl = `ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    const chatWsUrl = `${apiUrl.replace('https://', 'wss://').replace('http://', 'ws://')}/ws`;
     
     const chatWsOptions = {
       onMessage: (data) => {
@@ -258,7 +259,8 @@ const useChatOptimized = (user, selectedChatId) => {
   useEffect(() => {
     if (!userId || !selectedChatId) return;
 
-    const messageWsUrl = `ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    const messageWsUrl = `${apiUrl.replace('https://', 'wss://').replace('http://', 'ws://')}/ws`;
     
     const messageWsOptions = {
       onOpen: (ws) => {
@@ -420,6 +422,12 @@ const useChatOptimized = (user, selectedChatId) => {
     }
   }, [selectedChatId, fetchMessages]);
 
+  // Função para gerar URL do WebSocket
+  const getWebSocketUrl = () => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    return `${apiUrl.replace('https://', 'wss://').replace('http://', 'ws://')}/ws`;
+  };
+
   return {
     chats,
     messages,
@@ -431,11 +439,11 @@ const useChatOptimized = (user, selectedChatId) => {
     fetchChats,
     fetchMessages,
     connectionState: {
-      chat: webSocketManager.getConnectionState(`ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`),
-      message: webSocketManager.getConnectionState(`ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`)
+      chat: webSocketManager.getConnectionState(getWebSocketUrl()),
+      message: webSocketManager.getConnectionState(getWebSocketUrl())
     },
-    isConnected: webSocketManager.isConnected(`ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`),
-      isPolling: !webSocketManager.isConnected(`ws://${import.meta.env.VITE_API_URL?.replace('http://', '') || 'localhost:4000'}/ws`)
+    isConnected: webSocketManager.isConnected(getWebSocketUrl()),
+      isPolling: !webSocketManager.isConnected(getWebSocketUrl())
   };
 };
 

@@ -35,8 +35,8 @@ import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
 const getClearCookieOptions = () => {
   const isProduction = process.env.NODE_ENV === 'production';
   return {
-    secure: isProduction, // true em produção (HTTPS), false em desenvolvimento
-    sameSite: isProduction ? 'None' : 'Strict', // 'None' para cross-origin em produção
+    secure: true, // Sempre true para HTTPS obrigatório no Vercel
+    sameSite: 'None', // Necessário para cross-origin HTTPS
     path: '/'
   };
 };

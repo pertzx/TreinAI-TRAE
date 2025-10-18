@@ -34,8 +34,8 @@ const getCookieOptions = () => {
   return {
     httpOnly: false, // Permitir acesso via JavaScript para WebSocket
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
-    secure: isProduction, // true em produção (HTTPS), false em desenvolvimento
-    sameSite: isProduction ? 'None' : 'Strict' // 'None' para cross-origin em produção
+    secure: true, // Sempre true para HTTPS obrigatório no Vercel
+    sameSite: 'None' // Necessário para cross-origin HTTPS
   };
 };
 
