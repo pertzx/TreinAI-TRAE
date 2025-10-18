@@ -766,11 +766,68 @@ export const CreateCheckoutSession = async (req, res) => {
 // =====================================================================================
 export const StripeWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
+  
+  // Verificações de segurança robustas para debugging
+  console.log('🔍 Webhook Debug Info:');
+  console.log('- Content-Type:', req.headers['content-type']);
+  console.log('- Body type:', typeof req.body);
+  console.log('- Body is Buffer:', Buffer.isBuffer(req.body));
+  console.log('- Body length:', req.body?.length || 'undefined');
+  console.log('- Signature present:', !!sig);
+  console.log('- Webhook secret configured:', !!process.env.STRIPE_WEBHOOK_SECRET);
+
+  // Validar se o cabeçalho de assinatura está presente
+  if (!sig) {
+    console.error('❌ Stripe-Signature header ausente');
+    return res.status(400).send('Stripe-Signature header ausente');
+  }
+
+  // Validar se o corpo da requisição está em formato correto
+  if (!req.body) {
+    console.error('❌ Request body está vazio ou undefined');
+    return res.status(400).send('Request body vazio');
+  }
+
+  if (!Buffer.isBuffer(req.body) && typeof req.body !== 'string') {
+    console.error('❌ Request body não é Buffer nem string:', typeof req.body);
+    console.error('❌ Body content preview:', JSON.stringify(req.body).substring(0, 200));
+    return res.status(400).send('Request body deve ser Buffer ou string raw');
+  }
+
+  // Verificar se o webhook secret está configurado
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.error('❌ STRIPE_WEBHOOK_SECRET não configurado no .env');
+    return res.status(500).send('Webhook secret não configurado');
+  }
+
+  // Verificar formato da assinatura
+  if (!sig.includes('t=') || !sig.includes('v1=')) {
+    console.error('❌ Formato de assinatura inválido:', sig.substring(0, 50) + '...');
+    return res.status(400).send('Formato de assinatura Stripe inválido');
+  }
+
   let event;
   try {
+    // Tentar construir o evento com verificação de assinatura
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    console.log('✅ Webhook signature verificada com sucesso');
   } catch (err) {
-    console.error('Webhook constructEvent error:', err.message || err);
+    console.error('❌ Webhook constructEvent error:', err.message || err);
+    console.error('❌ Error details:', {
+      name: err.name,
+      type: err.type,
+      code: err.code,
+      statusCode: err.statusCode
+    });
+    
+    // Log adicional para debugging <mcreference link="https://docs.stripe.com/webhooks/signature" index="2">2</mcreference>
+    if (err.message?.includes('No signatures found')) {
+      console.error('🔍 Debugging signature verification:');
+      console.error('- Raw body preview:', req.body.toString().substring(0, 100));
+      console.error('- Signature header:', sig.substring(0, 100) + '...');
+      console.error('- Secret prefix:', process.env.STRIPE_WEBHOOK_SECRET?.substring(0, 10) + '...');
+    }
+    
     return res.status(400).send(`Webhook error: ${err.message}`);
   }
 

@@ -26,8 +26,11 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 const app = express();
 
-// Stripe Webhook (usa raw body)
-app.post('/webhook', express.raw({ type: 'application/json' }), StripeWebhook);
+// Stripe Webhook (usa raw body) - DEVE vir ANTES de outros middlewares de body parsing
+app.post('/webhook', express.raw({ 
+  type: 'application/json',
+  limit: '1mb' // Limite de segurança para webhooks
+}), StripeWebhook);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
