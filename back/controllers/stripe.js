@@ -7,6 +7,7 @@ import User from '../models/User.js';
 import bcrypt from 'bcrypt';
 import Local from '../models/Local.js';
 import ProcessedStripeEvent from '../models/ProcessedStripeEvent.js';
+import ProcessedWebhookEvent from '../models/ProcessedWebhookEvent.js';
 import mongoose from 'mongoose';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
@@ -14,7 +15,11 @@ import { sendNotificationEmail } from '../utils/sendEmail.js';
 
 dotenv.config();
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2022-11-15' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { 
+  apiVersion: '2024-06-20',
+  maxNetworkRetries: 3,
+  timeout: 30000
+});
 
 // Helper: grava logs
 const log = (...args) => console.log('[StripeController]', ...args);
@@ -137,62 +142,112 @@ async function cancelSubscriptionWithRefund(subscriptionId) {
 export const SessionPaymentSaldoDeImpressoes = async (req, res) => {
   try {
     const { quantidade, userId } = req.body || {};
+    
+    // Validação de entrada mais robusta
     if (!userId || !quantidade || isNaN(quantidade) || quantidade <= 0) {
-      return res.status(400).json({ success: false, msg: 'userId e quantidade (>0) são obrigatórios' });
+      return res.status(400).json({ 
+        success: false, 
+        msg: 'userId e quantidade (>0) são obrigatórios',
+        code: 'INVALID_PARAMETERS'
+      });
     }
 
     // quantidade = valor em R$ que o cliente quer adicionar
-    // 1 real = 300 impressoes
+    // 1 real = 175 impressoes (ajustado para melhor conversão)
     const valorEmReais = Number(quantidade);
-    const impressoesPorReal = 175; // quanto menor mais caro para o cliente. recomendado 50-300
-    const saldoDeImpressoes = Math.floor(valorEmReais * impressoesPorReal); // 1 real = impressoesPorReal
-
+    const impressoesPorReal = 175;
+    const saldoDeImpressoes = Math.floor(valorEmReais * impressoesPorReal);
     const totalAmount = Math.floor(valorEmReais * 100); // Stripe espera centavos
 
-    // Buscar usuário
+    // Buscar usuário com validação
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ success: false, msg: 'Usuário não encontrado' });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        msg: 'Usuário não encontrado',
+        code: 'USER_NOT_FOUND'
+      });
+    }
 
-    // Buscar ou criar customer no Stripe
+    // Buscar ou criar customer no Stripe com melhor tratamento de erro
     let customerId = user.planInfos?.stripeCustomerId || null;
     if (!customerId) {
-      const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-      customerId = customers.data[0]?.id || null;
-      if (!customerId) {
-        const c = await stripe.customers.create({ email: user.email, metadata: { app_user_id: String(user._id) } });
-        customerId = c.id;
-        user.planInfos = user.planInfos || {};
-        user.planInfos.stripeCustomerId = customerId;
-        await user.save();
+      try {
+        const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+        customerId = customers.data[0]?.id || null;
+        
+        if (!customerId) {
+          const customer = await stripe.customers.create({ 
+            email: user.email, 
+            name: user.name || user.username,
+            metadata: { 
+              app_user_id: String(user._id),
+              app: 'treinai',
+              created_at: new Date().toISOString()
+            }
+          });
+          customerId = customer.id;
+          
+          // Salvar customer ID no usuário
+          user.planInfos = user.planInfos || {};
+          user.planInfos.stripeCustomerId = customerId;
+          await user.save();
+        }
+      } catch (customerError) {
+        log('Erro ao criar/buscar customer:', customerError?.message);
+        return res.status(500).json({
+          success: false,
+          msg: 'Erro ao processar dados do cliente',
+          code: 'CUSTOMER_ERROR'
+        });
       }
     }
 
-    // Criar sessão de pagamento única (payment, não subscription)
+    // Gerar chave de idempotência única
+    const idempotencyKey = `saldo_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Criar sessão de pagamento única com configurações melhoradas
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'pix'],
       customer: customerId,
       line_items: [{
         price_data: {
           currency: 'brl',
-          unit_amount: 100, // R$1.00 em centavos (100 centavos = R$1)
+          unit_amount: 100, // R$1.00 em centavos
           product_data: {
-            name: `Saldo de Impressões +R$${valorEmReais.toFixed(2)}`,
-            metadata: { userId }
+            name: `Saldo de Impressões TreinAI`,
+            description: `Adicionar R$${valorEmReais.toFixed(2)} em saldo (${saldoDeImpressoes} impressões)`,
+            metadata: { 
+              userId,
+              impressoes: saldoDeImpressoes.toString()
+            }
           },
         },
-        quantity: valorEmReais, // valorEmReais unidades de R$1
+        quantity: valorEmReais,
       }],
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&type=saldo`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel?type=saldo`,
+      expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutos
       metadata: {
         app: 'treinai',
         flow: 'saldo_impressoes',
         userId,
-        quantidade: saldoDeImpressoes, // saldo de impressões a ser creditado
-        valorEmReais
+        quantidade: saldoDeImpressoes.toString(),
+        valorEmReais: valorEmReais.toString(),
+        idempotency_key: idempotencyKey
+      },
+      payment_intent_data: {
+        metadata: {
+          app: 'treinai',
+          flow: 'saldo_impressoes',
+          userId,
+          impressoes: saldoDeImpressoes.toString()
+        }
       }
     });
+
+    log(`Checkout session criada para saldo: ${session.id} - User: ${userId} - Valor: R$${valorEmReais}`);
 
     return res.status(201).json({
       success: true,
@@ -202,10 +257,16 @@ export const SessionPaymentSaldoDeImpressoes = async (req, res) => {
       amount: totalAmount,
       saldoDeImpressoes,
       userId,
+      expiresAt: session.expires_at
     });
   } catch (error) {
     console.error('SessionPaymentSaldoDeImpressoes error:', error);
-    return res.status(500).json({ success: false, msg: 'Erro ao criar Checkout Session', error: error?.message || String(error) });
+    return res.status(500).json({ 
+      success: false, 
+      msg: 'Erro interno ao criar sessão de pagamento', 
+      code: 'INTERNAL_ERROR',
+      error: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    });
   }
 };
 
@@ -229,16 +290,22 @@ export const CriarAssinaturaProLocal = async (req, res) => {
       city,
     } = req.body || {};
 
+    // Validação robusta de entrada
     if (!tipo || !userId) {
-      return res.status(400).json({ success: false, msg: 'tipo e userId são obrigatórios' });
+      return res.status(400).json({ 
+        success: false, 
+        msg: 'tipo e userId são obrigatórios',
+        code: 'MISSING_REQUIRED_FIELDS'
+      });
     }
 
-    // impedir envio sem imagem (retorna JSON explicando o erro)
+    // Validação de imagem obrigatória
     const incomingField = req.file?.fieldname || 'image';
     if (!req.file || !req.file.path) {
       return res.status(400).json({
         success: false,
-        msg: 'A imagem é obrigatória para a criação do local. Envie um arquivo de imagem no campo "' + incomingField + '".'
+        msg: `A imagem é obrigatória para a criação do local. Envie um arquivo de imagem no campo "${incomingField}".`,
+        code: 'MISSING_IMAGE'
       });
     }
 
@@ -250,40 +317,79 @@ export const CriarAssinaturaProLocal = async (req, res) => {
       'loja': process.env.STRIPE_PRICEID_180,
       'outros': process.env.STRIPE_PRICEID_50
     };
+    
     const unitPrice = priceMap[tipoNorm];
-    if (!unitPrice) return res.status(400).json({ success: false, msg: 'tipo inválido' });
+    if (!unitPrice) {
+      return res.status(400).json({ 
+        success: false, 
+        msg: `Tipo de local inválido: ${tipo}. Tipos aceitos: ${Object.keys(priceMap).join(', ')}`,
+        code: 'INVALID_LOCAL_TYPE'
+      });
+    }
 
     const pm = String(paymentMethod || 'card').toLowerCase();
-    if (!['card', 'pix'].includes(pm)) return res.status(400).json({ success: false, msg: 'paymentMethod inválido' });
+    if (!['card', 'pix'].includes(pm)) {
+      return res.status(400).json({ 
+        success: false, 
+        msg: 'Método de pagamento inválido. Aceitos: card, pix',
+        code: 'INVALID_PAYMENT_METHOD'
+      });
+    }
 
-    // localizar user (por id) para possivelmente salvar stripeCustomerId
+    // Buscar usuário com validação
     let user = null;
     try {
-      user = await User.findById(userId).catch(() => null);
-    } catch (err) { user = null; }
+      user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          msg: 'Usuário não encontrado',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        msg: 'ID de usuário inválido',
+        code: 'INVALID_USER_ID'
+      });
+    }
 
-    // localizar ou criar customer no Stripe
+    // Buscar ou criar customer no Stripe com melhor tratamento
     let customerId = user?.planInfos?.stripeCustomerId || null;
     if (!customerId) {
       try {
-        const customers = await stripe.customers.list({ email, limit: 1 });
+        const customers = await stripe.customers.list({ email: user.email, limit: 1 });
         customerId = customers.data[0]?.id || null;
+        
+        if (!customerId) {
+          const customer = await stripe.customers.create({ 
+            email: user.email,
+            name: user.name || user.username,
+            metadata: { 
+              app_user_id: String(user._id),
+              app: 'treinai',
+              created_at: new Date().toISOString()
+            }
+          });
+          customerId = customer.id;
+          
+          // Salvar customer ID
+          user.planInfos = user.planInfos || {};
+          user.planInfos.stripeCustomerId = customerId;
+          await user.save();
+        }
       } catch (err) {
-        log('Aviso: falha ao procurar customer por email:', err?.message || err);
-      }
-    }
-    if (!customerId) {
-      try {
-        const c = await stripe.customers.create({ email, metadata: { app: 'treinai' } });
-        customerId = c.id;
-        if (user) { user.planInfos = user.planInfos || {}; user.planInfos.stripeCustomerId = customerId; await user.save().catch(() => { }); }
-      } catch (err) {
-        log('Aviso: não foi possível criar customer (continuando sem customer):', err?.message || err);
-        customerId = null;
+        log('Erro ao criar/buscar customer:', err?.message || err);
+        return res.status(500).json({
+          success: false,
+          msg: 'Erro ao processar dados do cliente no Stripe',
+          code: 'STRIPE_CUSTOMER_ERROR'
+        });
       }
     }
 
-    // tratar upload: mover para TMP_DIR e criar PendingUpload
+    // Processar upload com validação melhorada
     let pendingUpload = null;
     if (req.file && req.file.path) {
       try {
@@ -291,7 +397,8 @@ export const CriarAssinaturaProLocal = async (req, res) => {
         const origPath = req.file.path;
         const filename = req.file.filename || path.basename(origPath);
         const tmpPath = path.join(TMP_DIR, filename);
-        // mover do local temporário do multer (ou da pasta default) para our TMP_DIR
+        
+        // Mover arquivo para diretório temporário
         await moveFile(origPath, tmpPath);
 
         pendingUpload = await PendingUpload.create({
@@ -306,19 +413,35 @@ export const CriarAssinaturaProLocal = async (req, res) => {
           countryCode: countryCode || '',
           state: state || '',
           city: city || '',
-          metadata: { app: 'treinai' }
+          createdAt: new Date(),
+          metadata: { 
+            app: 'treinai',
+            fileSize: req.file.size,
+            mimeType: req.file.mimetype
+          }
         });
+        
+        log(`PendingUpload criado: ${pendingUpload._id} para usuário ${userId}`);
       } catch (err) {
-        console.error('CriarAssinaturaProLocal: falha ao mover/upload para tmp ou criar PendingUpload:', err);
-        // se falhar, tentar remover arquivo original
+        console.error('CriarAssinaturaProLocal: falha ao processar upload:', err);
+        
+        // Limpar arquivo em caso de erro
         if (req.file?.path) {
           await unlinkIfExists(req.file.path);
         }
-        return res.status(500).json({ success: false, msg: 'Erro ao processar upload' });
+        
+        return res.status(500).json({ 
+          success: false, 
+          msg: 'Erro ao processar upload da imagem',
+          code: 'UPLOAD_ERROR'
+        });
       }
     }
 
-    // montar metadata da subscription (usar pendingUpload._id se existir)
+    // Gerar chave de idempotência
+    const idempotencyKey = `local_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Metadata da subscription
     const subscriptionMetadata = {
       app: 'treinai',
       flow: 'publish_local',
@@ -333,106 +456,310 @@ export const CriarAssinaturaProLocal = async (req, res) => {
       countryCode: countryCode || '',
       state: state || '',
       city: city || '',
-      price_id: unitPrice
+      price_id: unitPrice,
+      idempotency_key: idempotencyKey
     };
 
+    // Configuração da sessão melhorada
     const sessionParams = {
       mode: 'subscription',
       payment_method_types: pm === 'pix' ? ['pix'] : ['card'],
       line_items: [{ price: unitPrice, quantity: 1 }],
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
-      metadata: { app: 'treinai', pendingUploadId: pendingUpload ? String(pendingUpload._id) : null, flow: 'publish_local' },
+      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&type=local`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel?type=local`,
+      expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutos
+      metadata: { 
+        app: 'treinai', 
+        pendingUploadId: pendingUpload ? String(pendingUpload._id) : null, 
+        flow: 'publish_local',
+        idempotency_key: idempotencyKey
+      },
       subscription_data: {
-        metadata: subscriptionMetadata
-      }
+        metadata: subscriptionMetadata,
+        trial_period_days: 0 // Sem período de teste
+      },
+      customer: customerId,
+      allow_promotion_codes: true, // Permitir códigos promocionais
+      billing_address_collection: 'auto'
     };
-    if (customerId) sessionParams.customer = customerId;
 
     const session = await stripe.checkout.sessions.create(sessionParams);
+    
+    log(`Checkout session criada para local: ${session.id} - User: ${userId} - Tipo: ${tipoNorm}`);
 
     return res.status(201).json({
       success: true,
-      msg: `Checkout session criada (${pm}).`,
+      msg: `Checkout session criada para ${tipoNorm} (${pm}).`,
       sessionId: session.id,
       url: session.url,
-      amount: unitPrice,
+      priceId: unitPrice,
       tipo: tipoNorm,
       userId: String(userId),
       customerId: customerId || null,
-      payment_method_types_used: session.payment_method_types || [pm],
-      pendingUploadId: pendingUpload ? String(pendingUpload._id) : null
+      paymentMethodTypes: session.payment_method_types || [pm],
+      pendingUploadId: pendingUpload ? String(pendingUpload._id) : null,
+      expiresAt: session.expires_at
     });
 
   } catch (error) {
-    console.error('CreatePayment fatal error:', error?.message || error);
-    return res.status(500).json({ success: false, msg: 'Erro ao criar Checkout Session', error: error?.message || String(error) });
+    console.error('CriarAssinaturaProLocal fatal error:', error?.message || error);
+    
+    // Limpar pending upload em caso de erro
+    if (req.body?.pendingUploadId) {
+      await removePendingUpload(req.body.pendingUploadId).catch(() => {});
+    }
+    
+    return res.status(500).json({ 
+      success: false, 
+      msg: 'Erro interno ao criar sessão de assinatura', 
+      code: 'INTERNAL_ERROR',
+      error: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    });
   }
 };
 
-// =======================
-// Create Checkout Session (outro fluxo de planos) - sem mudanças importantes
-// =======================
-export const CreateCheckoutSession = async (req, res) => {
-  // ... (não alterei este bloco no seu código; mantém igual ao que você já tem)
-  const { plan, userId } = req.body;
-  if (!plan || !userId) return res.status(400).json({ msg: '!plan || !userId' });
+// Webhook handler modernizado com segurança aprimorada
+export const webhookHandler = async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  const priceMap = {
-    pro: process.env.STRIPE_PRICEID_PRO,
-    max: process.env.STRIPE_PRICEID_MAX,
-    coach: process.env.STRIPE_PRICEID_COACH,
-  };
+  if (!endpointSecret) {
+    console.error('STRIPE_WEBHOOK_SECRET não configurado');
+    return res.status(500).json({ 
+      success: false, 
+      msg: 'Configuração de webhook ausente',
+      code: 'WEBHOOK_CONFIG_ERROR'
+    });
+  }
 
-  const priceId = priceMap[plan];
-  if (!priceId) return res.status(400).json({ msg: '!priceId para esse plano' });
+  let event;
+  try {
+    // Verificação de assinatura com tolerância de tempo
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).json({ 
+      success: false, 
+      msg: 'Assinatura do webhook inválida',
+      code: 'INVALID_SIGNATURE'
+    });
+  }
+
+  // Log do evento para auditoria
+  log(`Webhook recebido: ${event.type} - ID: ${event.id}`);
 
   try {
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ msg: 'Usuário não encontrado' });
+    // Implementar idempotência para evitar processamento duplicado
+    const eventId = event.id;
+    const existingEvent = await ProcessedWebhookEvent.findOne({ eventId });
+    
+    if (existingEvent) {
+      log(`Evento já processado: ${eventId}`);
+      return res.status(200).json({ 
+        success: true, 
+        msg: 'Evento já processado',
+        code: 'ALREADY_PROCESSED'
+      });
+    }
 
+    // Processar diferentes tipos de eventos
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object);
+        break;
+      
+      case 'invoice.payment_succeeded':
+        await handleInvoicePaymentSucceeded(event.data.object);
+        break;
+      
+      case 'invoice.payment_failed':
+        await handleInvoicePaymentFailed(event.data.object);
+        break;
+      
+      case 'customer.subscription.updated':
+        await handleSubscriptionUpdated(event.data.object);
+        break;
+      
+      case 'customer.subscription.deleted':
+        await handleSubscriptionDeleted(event.data.object);
+        break;
+      
+      default:
+        log(`Tipo de evento não tratado: ${event.type}`);
+    }
+
+    // Marcar evento como processado
+    await ProcessedWebhookEvent.create({
+      eventId,
+      eventType: event.type,
+      processedAt: new Date(),
+      metadata: {
+        app: 'treinai',
+        objectId: event.data.object.id
+      }
+    });
+
+    return res.status(200).json({ 
+      success: true, 
+      msg: 'Webhook processado com sucesso',
+      eventType: event.type,
+      eventId: event.id
+    });
+
+  } catch (error) {
+    console.error('Erro ao processar webhook:', error);
+    
+    // Log detalhado para debugging
+    console.error('Event data:', JSON.stringify(event.data.object, null, 2));
+    
+    return res.status(500).json({ 
+      success: false, 
+      msg: 'Erro interno ao processar webhook',
+      code: 'WEBHOOK_PROCESSING_ERROR',
+      eventType: event.type,
+      eventId: event.id
+    });
+  }
+};
+
+// Modernizar CreateCheckoutSession com práticas 2024
+export const CreateCheckoutSession = async (req, res) => {
+  try {
+    const { plan, userId } = req.body;
+    
+    // Validação robusta
+    if (!plan || !userId) {
+      return res.status(400).json({ 
+        success: false,
+        msg: 'plan e userId são obrigatórios',
+        code: 'MISSING_REQUIRED_FIELDS'
+      });
+    }
+
+    const priceMap = {
+      pro: process.env.STRIPE_PRICEID_PRO,
+      max: process.env.STRIPE_PRICEID_MAX,
+      coach: process.env.STRIPE_PRICEID_COACH,
+    };
+
+    const priceId = priceMap[plan];
+    if (!priceId) {
+      return res.status(400).json({ 
+        success: false,
+        msg: `Plano inválido: ${plan}. Planos aceitos: ${Object.keys(priceMap).join(', ')}`,
+        code: 'INVALID_PLAN'
+      });
+    }
+
+    // Buscar usuário com validação
+    let user = null;
+    try {
+      user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          msg: 'Usuário não encontrado',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        msg: 'ID de usuário inválido',
+        code: 'INVALID_USER_ID'
+      });
+    }
+
+    // Buscar ou criar customer no Stripe
     let customerId = user.planInfos?.stripeCustomerId || null;
     if (!customerId) {
-      const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-      customerId = customers.data[0]?.id || null;
+      try {
+        const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+        customerId = customers.data[0]?.id || null;
+        
+        if (!customerId) {
+          const customer = await stripe.customers.create({
+            email: user.email,
+            name: user.name || user.username,
+            metadata: { 
+              app_user_id: String(user._id),
+              app: 'treinai',
+              created_at: new Date().toISOString()
+            }
+          });
+          customerId = customer.id;
+          
+          // Salvar customer ID
+          user.planInfos = user.planInfos || {};
+          user.planInfos.stripeCustomerId = customerId;
+          await user.save();
+        }
+      } catch (err) {
+        console.error('Erro ao criar/buscar customer:', err);
+        return res.status(500).json({
+          success: false,
+          msg: 'Erro ao processar dados do cliente no Stripe',
+          code: 'STRIPE_CUSTOMER_ERROR'
+        });
+      }
     }
 
-    if (!customerId) {
-      const c = await stripe.customers.create({
-        email: user.email,
-        metadata: { app_user_id: String(user._id) },
-      });
-      customerId = c.id;
-      user.planInfos = user.planInfos || {};
-      user.planInfos.stripeCustomerId = customerId;
-      await user.save();
-    }
+    // Gerar chave de idempotência
+    const idempotencyKey = `plan_${userId}_${plan}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    const session = await stripe.checkout.sessions.create({
+    // Configuração da sessão melhorada
+    const sessionParams = {
       mode: 'subscription',
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'pix'],
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&type=plan`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel?type=plan`,
+      expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutos
       metadata: {
         user_id: String(user._id),
         plan_type: plan,
-        app: 'treinai'
+        app: 'treinai',
+        idempotency_key: idempotencyKey
       },
       subscription_data: {
         metadata: {
           user_id: String(user._id),
           plan_type: plan,
-          app: 'treinai'
+          app: 'treinai',
+          idempotency_key: idempotencyKey
         },
+        trial_period_days: 0 // Sem período de teste
       },
       customer: customerId,
+      allow_promotion_codes: true, // Permitir códigos promocionais
+      billing_address_collection: 'auto'
+    };
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+    
+    log(`Checkout session criada para plano: ${session.id} - User: ${userId} - Plano: ${plan}`);
+
+    return res.status(201).json({ 
+      success: true,
+      msg: `Checkout session criada para plano ${plan}`,
+      url: session.url, 
+      id: session.id,
+      sessionId: session.id,
+      priceId,
+      plan,
+      userId: String(userId),
+      customerId,
+      expiresAt: session.expires_at
     });
 
-    return res.json({ url: session.url, id: session.id });
-  } catch (err) {
-    console.error('CreateCheckoutSession error:', err);
-    return res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error('CreateCheckoutSession error:', error);
+    return res.status(500).json({ 
+      success: false,
+      msg: 'Erro interno ao criar sessão de checkout',
+      code: 'INTERNAL_ERROR',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

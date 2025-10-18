@@ -33,7 +33,7 @@ function Header({ logado }) {
                 width: isMinimized ? "auto" : "auto"
             }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className={`flex w-full max-w-7xl ${isMinimized ? 'min-w-fit px-2 py-2 sm:px-3 sm:py-3' : 'min-w-[90%] sm:min-w-[85%] md:min-w-[75%] lg:min-w-[60%] xl:min-w-[50%] px-3 py-3 sm:px-4 sm:py-4 md:p-5'} fixed top-2 left-1/2 z-100 mt-2 sm:mt-4 transform -translate-x-1/2 items-center justify-between bg-black/10 backdrop-blur-md border border-white/20 rounded-xl sm:rounded-2xl select-none shadow-lg transition-all duration-500`}
+            className={`flex w-full max-w-7xl ${isMinimized ? 'min-w-fit px-3 py-3 sm:px-3 sm:py-3' : 'min-w-[90%] sm:min-w-[85%] md:min-w-[75%] lg:min-w-[60%] xl:min-w-[50%] px-3 py-3 sm:px-4 sm:py-4 md:p-5'} fixed top-2 left-1/2 z-100 mt-2 sm:mt-4 transform -translate-x-1/2 items-center justify-between bg-black/10 backdrop-blur-md border border-white/20 rounded-xl sm:rounded-2xl select-none shadow-lg transition-all duration-500`}
         >
             {/* Logo e título */}
             <motion.div
@@ -49,7 +49,7 @@ function Header({ logado }) {
                     >
                         <Logo scale={0.6} className="sm:scale-75 md:scale-100" />
                     </motion.div>
-                    <h1 className='font-bold text-base sm:text-lg md:text-2xl lg:text-3xl xl:text-4xl bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent group-hover:from-green-400 group-hover:to-blue-400 transition-all duration-300 drop-shadow-lg'>
+                    <h1 className='font-bold text-base sm:text-lg md:text-2xl lg:text-3xl xl:text-4xl text-white transition-all duration-300 drop-shadow-lg'>
                         TreinAI
                     </h1>
                 </Link>
@@ -110,7 +110,7 @@ function Header({ logado }) {
                                     to={item.to}
                                     className={({ isActive }) =>
                                         `flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-300 relative group drop-shadow-md ${isActive
-                                            ? 'text-green-400 bg-green-400/10 border border-green-400 text-shadow-sm'
+                                            ? 'text-blue-400 bg-blue-400/10 border border-blue-400 text-shadow-sm'
                                             : 'text-gray-300 hover:text-white hover:bg-white/10 text-shadow-sm'
                                         }`
                                     }
@@ -118,7 +118,7 @@ function Header({ logado }) {
                                     <IconComponent className="w-3 h-3 sm:w-4 sm:h-4" />
                                     <span className="hidden sm:inline">{item.label}</span>
                                     <motion.div
-                                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-green-400 rounded-full"
+                                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-blue-400 rounded-full"
                                         initial={{ scaleX: 0 }}
                                         whileHover={{ scaleX: 1 }}
                                         transition={{ duration: 0.3 }}
@@ -141,8 +141,8 @@ function Header({ logado }) {
                             to="/dashboard"
                             className={({ isActive }) =>
                                 `flex items-center gap-1 sm:gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm md:text-base font-semibold transition-all duration-300 drop-shadow-lg ${isActive
-                                    ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg shadow-green-500/25 text-shadow-sm'
-                                    : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:shadow-lg hover:shadow-green-500/25 hover:scale-105 text-shadow-sm'
+                                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25 text-shadow-sm'
+                                    : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:shadow-lg hover:shadow-blue-500/25 hover:scale-105 text-shadow-sm'
                                 }`
                             }
                         >
@@ -152,7 +152,7 @@ function Header({ logado }) {
                     ) : (
                         <NavLink
                             to="/login"
-                            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg sm:rounded-xl text-xs sm:text-sm md:text-base font-semibold hover:from-green-600 hover:to-green-700 hover:shadow-lg hover:shadow-green-500/25 hover:scale-105 transition-all duration-300 drop-shadow-lg text-shadow-sm"
+                            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg sm:rounded-xl text-xs sm:text-sm md:text-base font-semibold hover:from-blue-600 hover:to-blue-700 hover:shadow-lg hover:shadow-blue-500/25 hover:scale-105 transition-all duration-300 drop-shadow-lg text-shadow-sm"
                         >
                             <LuLogIn className="w-3 h-3 sm:w-4 sm:h-4" />
                             <span className="hidden sm:inline">Login</span>
@@ -207,7 +207,7 @@ function Header({ logado }) {
                         >
                             <div className="bg-white/95 backdrop-blur-xl border border-white/30 rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden">
                                 {/* Menu Header */}
-                                <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-green-500/10 to-blue-500/10 border-b border-white/20">
+                                <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-blue-500/10 to-blue-500/10 border-b border-white/20">
                                     <h3 className="text-base sm:text-lg font-semibold text-gray-800">Menu</h3>
                                 </div>
                                 
@@ -227,13 +227,13 @@ function Header({ logado }) {
                                                     onClick={() => setMobileMenuOpen(false)}
                                                     className={({ isActive }) =>
                                                         `flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2.5 sm:py-3.5 rounded-lg sm:rounded-xl text-sm sm:text-base font-medium transition-all duration-300 group ${isActive
-                                                            ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm'
-                                                            : 'text-gray-700 hover:text-green-600 hover:bg-gray-50 active:bg-gray-100'
+                                                            ? 'text-blue-600 bg-blue-50 border border-blue-200 shadow-sm'
+                                                            : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50 active:bg-gray-100'
                                                         }`
                                                     }
                                                     role="menuitem"
                                                 >
-                                                    <IconComponent className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:scale-110 ${({ isActive }) => isActive ? 'text-green-600' : 'text-gray-500'}`} />
+                                                    <IconComponent className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:scale-110 ${({ isActive }) => isActive ? 'text-blue-600' : 'text-gray-500'}`} />
                                                     <span className="font-medium">{item.label}</span>
                                                 </NavLink>
                                             </motion.div>
@@ -252,7 +252,7 @@ function Header({ logado }) {
                                         <NavLink
                                             to="/dashboard"
                                             onClick={() => setMobileMenuOpen(false)}
-                                            className="flex items-center justify-center gap-2 sm:gap-3 w-full px-3 sm:px-4 py-3 sm:py-3.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
+                                            className="flex items-center justify-center gap-2 sm:gap-3 w-full px-3 sm:px-4 py-3 sm:py-3.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
                                             role="menuitem"
                                         >
                                             <LuLayoutDashboard className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -262,7 +262,7 @@ function Header({ logado }) {
                                         <NavLink
                                             to="/login"
                                             onClick={() => setMobileMenuOpen(false)}
-                                            className="flex items-center justify-center gap-2 sm:gap-3 w-full px-3 sm:px-4 py-3 sm:py-3.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
+                                            className="flex items-center justify-center gap-2 sm:gap-3 w-full px-3 sm:px-4 py-3 sm:py-3.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
                                             role="menuitem"
                                         >
                                             <LuLogIn className="w-4 h-4 sm:w-5 sm:h-5" />

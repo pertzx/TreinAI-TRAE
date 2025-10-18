@@ -42,7 +42,7 @@ function Home({logado}) {
         }, 1000)
     }, [])
     return (
-        <div className='min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900'>
+        <div className='min-h-screen bg-gradient-to-br from-blue-900 via-[#10151e] to-blue-600'>
             {/* HERO SECTION */}
             <motion.section 
                 className='flex pt-40 gap-y-10 md:gap-y-0 items-center md:gap-10 flex-col md:justify-center md:flex-row min-h-screen px-4 md:px-8'
@@ -61,7 +61,7 @@ function Home({logado}) {
                             variants={fadeInUp}
                             ref={titleRef}
                         >
-                            Seu <span className='text-blue-400'>coach digital</span> pessoal
+                            Seu <span className='text-blue-500 bg-clip-text'>coach digital</span> pessoal
                         </motion.h1>
                         <motion.p 
                             className='text-xl font-medium w-full text-gray-300 max-w-lg leading-relaxed'
@@ -298,7 +298,7 @@ function Home({logado}) {
                             className='relative'
                             variants={scaleIn}
                         >
-                            <div className='aspect-square bg-gradient-to-br from-blue-600 to-purple-600 rounded-3xl p-8 flex items-center justify-center'>
+                            <div className='aspect-square bg-gradient-to-br from-green-500/80 to-blue-600 rounded-3xl p-8 flex items-center justify-center'>
                                 <LuSmartphone className='text-white text-8xl' />
                             </div>
                             <div className='absolute -top-4 -right-4 bg-green-500 text-white px-4 py-2 rounded-full font-bold'>
@@ -431,7 +431,7 @@ function Home({logado}) {
 
             {/* CTA FINAL */}
             <motion.section 
-                className='py-20 px-4 md:px-8 bg-gradient-to-r from-blue-600 to-purple-600'
+                className='py-20 px-4 md:px-8 bg-gradient-to-b from-blue-500/0 to-green-500'
                 initial="initial"
                 whileInView="animate"
                 viewport={{ once: true }}
@@ -461,7 +461,7 @@ function Home({logado}) {
                     >
                         <NavLink to="/planos">
                             <motion.button 
-                                className='bg-white text-blue-600 px-10 py-4 rounded-xl text-xl font-bold hover:bg-gray-100 transition-all duration-300 shadow-lg'
+                                className='bg-white text-green-500 px-10 py-4 rounded-xl text-xl font-bold hover:bg-gray-100 transition-all duration-300 shadow-lg'
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                             >
