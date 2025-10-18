@@ -22,30 +22,6 @@ export const SUPPORTED_FORMATS = {
 };
 
 /**
- * Assinaturas de arquivo (magic numbers) para validação de segurança
- */
-export const FILE_SIGNATURES = {
-  'image/webp': [[0x52, 0x49, 0x46, 0x46]], // RIFF
-  'image/avif': [[0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66]], // ftyp avif
-  'image/jpeg': [[0xFF, 0xD8, 0xFF]], // JPEG
-  'image/png': [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]], // PNG
-  'video/webm': [[0x1A, 0x45, 0xDF, 0xA3]], // WebM
-  // MP4 tem múltiplas assinaturas válidas baseadas no subtipo ftyp
-  'video/mp4': [
-    // Padrão ISO Base Media File Format (ftyp no offset 4)
-    [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70], // 24 bytes + ftyp
-    [0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70], // 28 bytes + ftyp
-    [0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70], // 32 bytes + ftyp
-    [0x00, 0x00, 0x00, 0x14, 0x66, 0x74, 0x79, 0x70], // 20 bytes + ftyp
-    // Variações com diferentes tamanhos de atom
-    [0x66, 0x74, 0x79, 0x70], // ftyp direto (offset 0)
-    // Padrão QuickTime/MOV que também pode ser MP4
-    [0x00, 0x00, 0x00, 0x14, 0x6D, 0x6F, 0x6F, 0x76], // moov atom
-    [0x6D, 0x6F, 0x6F, 0x76] // moov direto
-  ]
-};
-
-/**
  * Limites de upload por tipo de arquivo
  */
 export const UPLOAD_LIMITS = {
@@ -64,39 +40,11 @@ export const UPLOAD_LIMITS = {
 };
 
 /**
- * Valida assinatura do arquivo para segurança
- * Suporta múltiplas assinaturas por tipo de arquivo
+ * Função para sanitizar nome do arquivo
  */
-const validateFileSignature = (buffer, mimeType) => {
-  const signatures = FILE_SIGNATURES[mimeType];
-  if (!signatures) return false;
-
-  // Para MP4, também verifica se contém 'ftyp' em qualquer posição dos primeiros 20 bytes
-  if (mimeType === 'video/mp4') {
-    // Verifica assinaturas padrão
-    const hasValidSignature = signatures.some(signature => {
-      if (buffer.length < signature.length) return false;
-      return signature.every((byte, index) => buffer[index] === byte);
-    });
-    
-    if (hasValidSignature) return true;
-    
-    // Verificação adicional: procura por 'ftyp' nos primeiros 20 bytes
-    const ftypBytes = [0x66, 0x74, 0x79, 0x70]; // 'ftyp'
-    for (let i = 0; i <= Math.min(buffer.length - 4, 16); i++) {
-      if (ftypBytes.every((byte, index) => buffer[i + index] === byte)) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
-
-  // Para outros tipos, usa validação padrão
-  return signatures.some(signature => {
-    if (buffer.length < signature.length) return false;
-    return signature.every((byte, index) => buffer[index] === byte);
-  });
+const sanitizeFilename = (filename) => {
+  // Remove caracteres perigosos e mantém apenas alfanuméricos, pontos, hífens e underscores
+  return filename.replace(/[^a-zA-Z0-9.\-_]/g, '_');
 };
 
 /**
