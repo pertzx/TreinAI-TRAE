@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import { errorHandler, asyncHandler, createError } from '../middlewares/errorHandler.js';
+import { uploadToCloudinary } from '../config/cloudinaryConfig.js';
 import { 
   createFileFilter, 
   validateUploadedFile, 
@@ -17,6 +18,13 @@ import {
 // ESM helpers
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * Detecta se está rodando em ambiente serverless
+ */
+const isServerless = () => {
+  return !!(process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
+};
 
 /**
  * Processamento otimizado de imagens modernas
@@ -73,10 +81,15 @@ const processImage = async (buffer, options = {}) => {
 };
 
 /**
- * Configuração de storage otimizada
+ * Configuração de storage adaptável para serverless e local
  */
 const createStorage = (uploadPath = 'uploads') => {
-  // Garantir que o diretório existe
+  if (isServerless()) {
+    // Em ambiente serverless, usar memoryStorage
+    return multer.memoryStorage();
+  }
+
+  // Em ambiente local, usar diskStorage
   const fullPath = path.join(__dirname, '..', uploadPath);
   if (!fs.existsSync(fullPath)) {
     fs.mkdirSync(fullPath, { recursive: true });
@@ -126,27 +139,69 @@ export const createUpload = (type = 'image', options = {}) => {
       
       if (processImages) {
         try {
-          // Ler arquivo do disco
-          const buffer = fs.readFileSync(file.path);
+          let buffer;
           
-          // Processar imagem
-          const processed = await processImage(buffer, {
-            format: file.mimetype === 'image/avif' ? 'avif' : 'webp'
-          });
+          if (isServerless()) {
+            // Em ambiente serverless, usar buffer diretamente
+            buffer = file.buffer;
+            
+            // Processar imagem
+            const processed = await processImage(buffer, {
+              format: file.mimetype === 'image/avif' ? 'avif' : 'webp'
+            });
 
-          // Salvar versão processada
-          fs.writeFileSync(file.path, processed.buffer);
+            // Upload para Cloudinary
+             const cloudinaryResult = await uploadToCloudinary(
+               processed.buffer, 
+               uploadPath.replace('uploads/', ''),
+               'image'
+             );
+
+            // Atualizar informações do arquivo
+            file.cloudinaryUrl = cloudinaryResult.secure_url;
+            file.cloudinaryPublicId = cloudinaryResult.public_id;
+            file.path = cloudinaryResult.secure_url; // Para compatibilidade
+            
+          } else {
+            // Em ambiente local, ler arquivo do disco
+            buffer = fs.readFileSync(file.path);
+            
+            // Processar imagem
+             const processed = await processImage(buffer, {
+               format: file.mimetype === 'image/avif' ? 'avif' : 'webp'
+             });
+
+             // Salvar versão processada
+             const processedPath = file.path.replace(/\.[^/.]+$/, '.webp');
+             fs.writeFileSync(processedPath, processed.buffer);
+             
+             // Atualizar path do arquivo
+             file.path = processedPath;
+             file.filename = path.basename(processedPath);
+          }
           
-          // Atualizar informações do arquivo
-          file.size = processed.size;
-          file.processedFormat = processed.format;
-          file.dimensions = {
-            width: processed.width,
-            height: processed.height
-          };
         } catch (error) {
-          console.error('Erro no processamento:', error);
-          // Continuar com arquivo original se processamento falhar
+          console.error('Erro no processamento de imagem:', error);
+          // Em caso de erro, manter arquivo original
+        }
+      } else if (isServerless() && file.buffer) {
+        // Para arquivos não processados em ambiente serverless, fazer upload direto
+        try {
+          const resourceType = file.mimetype.startsWith('video/') ? 'video' : 'image';
+          const cloudinaryResult = await uploadToCloudinary(
+            file.buffer, 
+            uploadPath.replace('uploads/', ''),
+            resourceType
+          );
+
+          // Atualizar informações do arquivo
+          file.cloudinaryUrl = cloudinaryResult.secure_url;
+          file.cloudinaryPublicId = cloudinaryResult.public_id;
+          file.path = cloudinaryResult.secure_url; // Para compatibilidade
+          
+        } catch (error) {
+          console.error('Erro no upload para Cloudinary:', error);
+          throw createError(500, 'Erro no upload do arquivo');
         }
       }
     }
