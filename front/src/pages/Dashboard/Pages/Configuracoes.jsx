@@ -689,7 +689,7 @@ const Configuracoes = ({ setTema, tema, user }) => {
                           <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700">
                             <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Localização</div>
                             {d.location && d.location.lat && d.location.lon ? (
-                              <div style="width: 100%">
+                              <div className='w-full'>
                                 <iframe width="100%" height="600" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src={`https://maps.google.com/maps?width=100%25&amp;height=666&amp;hl=en&amp;q=${d.location.lat},%20${d.location.lon}+(DISPOSITIVO)&amp;t=&amp;z=12&amp;ie=UTF8&amp;iwloc=B&amp;output=embed`}>
                                 </iframe>
                               </div>
