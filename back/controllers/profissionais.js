@@ -405,15 +405,25 @@ export const editarProfissional = async (req, res) => {
     // tratar remoção explícita de imagem
     const wantRemoveImage = (removeImage === '1' || removeImage === 'true' || removeImage === 'yes' || removeImage === true);
 
+    // DEBUG: Log para verificar req.file
+    console.log('[DEBUG] req.file:', req.file);
+    console.log('[DEBUG] req.body.removeImage:', removeImage);
+    console.log('[DEBUG] wantRemoveImage:', wantRemoveImage);
+    console.log('[DEBUG] profissional.imageUrl atual:', profissional.imageUrl);
+
     // se veio arquivo novo no multipart -> substituir imagem
-    if (req.file && req.file.filename) {
+    if (req.file) {
+      console.log('[DEBUG] Arquivo detectado, processando...');
+      
       // apagar a antiga (se houver)
       if (profissional.imageUrl) {
         await tryDeleteOldImage(profissional.imageUrl);
       }
 
       // montar nova imageUrl - usar path do Cloudinary em produção ou local em desenvolvimento
-      profissional.imageUrl = req.file.url || buildImageUrl(req.file.filename);
+      // Corrigindo: usar a mesma lógica da função publicarProfissional
+      profissional.imageUrl = req.file.url || `/uploads/image-profissional/${req.file.filename}`;
+      console.log('[DEBUG] Nova imageUrl definida:', profissional.imageUrl);
     } else if (wantRemoveImage) {
       // apagar antiga e setar null
       if (profissional.imageUrl) {
@@ -428,6 +438,7 @@ export const editarProfissional = async (req, res) => {
 
     // salva
     const saved = await profissional.save();
+    console.log('[DEBUG] Profissional salvo com imageUrl:', saved.imageUrl);
 
     return res.status(200).json({
       success: true,
