@@ -15,7 +15,7 @@ import img9 from '/9.jpg';
 
 function SmartphoneAnimation() {
     // Array com as imagens importadas normalmente
-    const images = [img1, img2, img3, img4, img5, img6, img7, img8];
+    const images = [img1, img2, img3, img4, img5, img6, img7, img8, img9];
     const [current, setCurrent] = useState(0);
     const [isPlaying, setIsPlaying] = useState(true);
     const [imageError, setImageError] = useState(false);
@@ -135,7 +135,7 @@ function SmartphoneAnimation() {
                                 onError={handleImageError}
                                 initial={{ opacity: 0, scale: 1.1 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
+                                exit={{ opacity: 0, scale: 1 }}
                                 transition={{ duration: 0.8, ease: "easeInOut" }}
                             />
                         </AnimatePresence>
