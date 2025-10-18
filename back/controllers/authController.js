@@ -350,9 +350,9 @@ export const login = async (req, res) => {
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 20px; }
               .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-              .header { background: linear-gradient(135deg, #667eea, #764ba2); padding: 30px 20px; text-align: center; color: white; }
-              .logo { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.9); padding: 10px 20px; border-radius: 25px; color: #333; margin-bottom: 15px; }
-              .logo-icon { width: 28px; height: 28px; background: #667eea; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+              .header { background: linear-gradient(135deg, rgba(0.55,0.21, 263.02, 0), #764ba2); padding: 30px 20px; text-align: center; color: white; }
+              .logo { display: inline-flex; align-items: center; gap: 10px; background: rgba(0.55,0.21, 263.02, 0); padding: 10px 20px; border-radius: 25px; color: #333; margin-bottom: 15px; }
+              .logo-icon { width: 28px; height: 28px; background: #ffffff; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
               .badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(239,68,68,0.1); color: #dc2626; padding: 6px 12px; border-radius: 15px; font-size: 14px; font-weight: 600; border: 1px solid rgba(239,68,68,0.2); }
               .content { padding: 30px 20px; }
               .title { font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 15px; text-align: center; }
@@ -375,8 +375,7 @@ export const login = async (req, res) => {
             <div class="container">
               <div class="header">
                 <div class="logo">
-                  <div class="logo-icon">T</div>
-                  <div>TreinAI</div>
+                  <div class="logo-icon"></div>
                 </div>
                 <div class="badge">
                   <span>🛡️</span>

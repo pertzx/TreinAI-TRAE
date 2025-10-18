@@ -13,9 +13,6 @@ export function getBrazilDate() {
   return millis; // em prática = new Date(Date.now()) (se relógio OK)
 }
 
-console.log(Date.now())
-console.log(getBrazilDate());
-
 /**
  * 2) Retorna um Date onde os COMPONENTES (ano, mês, dia, hora, minuto, segundo)
  *    correspondem ao relógio de 'America/Sao_Paulo'.
