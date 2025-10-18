@@ -613,8 +613,8 @@ const Configuracoes = ({ setTema, tema, user }) => {
                     <button
                       onClick={() => setShowAllDevices(!showAllDevices)}
                       className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors duration-200 ${tema === 'dark'
-                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white'
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                        ? 'border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                         }`}
                     >
                       {showAllDevices
@@ -689,18 +689,9 @@ const Configuracoes = ({ setTema, tema, user }) => {
                           <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-700">
                             <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Localização</div>
                             {d.location && d.location.lat && d.location.lon ? (
-                              <div className="w-full h-32 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
-                                <iframe
-                                  src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6drf9uyFnm4Ng4o&center=${d.location.lat},${d.location.lon}&zoom=15&maptype=roadmap`}
-                                  width="100%"
-                                  height="100%"
-                                  style={{ border: 0 }}
-                                  allowFullScreen=""
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer-when-downgrade"
-                                  title={`Localização do Dispositivo ${i + 1}`}
-                                  className="transition-all duration-300 hover:scale-105"
-                                />
+                              <div style="width: 100%">
+                                <iframe width="100%" height="600" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src={`https://maps.google.com/maps?width=100%25&amp;height=666&amp;hl=en&amp;q=${d.location.lat},%20${d.location.lon}+(DISPOSITIVO)&amp;t=&amp;z=12&amp;ie=UTF8&amp;iwloc=B&amp;output=embed`}>
+                                </iframe>
                               </div>
                             ) : (
                               <div className="w-full h-32 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 flex flex-col items-center justify-center">
