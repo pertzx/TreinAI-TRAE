@@ -79,8 +79,18 @@ export const validateCSRF = (req, res, next) => {
         return next();
     }
     
-    // Obtém token do header ou body
-    const token = req.headers['x-csrf-token'] || req.body._csrf;
+    // Garante que req.body existe (compatibilidade Express 5.x)
+    if (!req.body) {
+        req.body = {};
+    }
+    
+    // Obtém token do header, body ou cookies
+    const token = req.headers['x-csrf-token'] || 
+                  req.headers['x-xsrf-token'] ||
+                  (req.body && req.body._csrf) ||
+                  (req.query && req.query._csrf) ||
+                  (req.cookies && req.cookies['x-csrf-token']);
+    
     const sessionId = req.userEmail || req.ip;
     
     if (!validateCSRFToken(token, sessionId)) {
@@ -98,13 +108,38 @@ export const validateCSRF = (req, res, next) => {
  * Mais permissivo para login/signup
  */
 export const validateCSRFAuth = (req, res, next) => {
-    // Para login/signup, usa IP como sessionId
-    const sessionId = req.ip;
-    const token = req.headers['x-csrf-token'] || req.body._csrf;
+    // Pula validação para métodos seguros
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return next();
+    }
+    
+    // Garante que req.body existe (compatibilidade Express 5.x)
+    if (!req.body) {
+        req.body = {};
+    }
+    
+    // Para rotas de auth, é mais flexível - permite sem token em algumas situações
+    const isLoginRoute = req.path.includes('/login') || req.path.includes('/signup');
+    
+    if (isLoginRoute) {
+        // Login/signup podem prosseguir sem CSRF em desenvolvimento
+        if (process.env.NODE_ENV !== 'production') {
+            return next();
+        }
+    }
+    
+    // Obtém token do header, body ou cookies
+    const token = req.headers['x-csrf-token'] || 
+                  req.headers['x-xsrf-token'] ||
+                  (req.body && req.body._csrf) ||
+                  (req.query && req.query._csrf) ||
+                  (req.cookies && req.cookies['x-csrf-token']);
+    
+    const sessionId = req.userEmail || req.ip;
     
     if (!validateCSRFToken(token, sessionId)) {
         return res.status(403).json({
-            error: 'Token CSRF inválido. Recarregue a página e tente novamente.',
+            error: 'Token CSRF inválido ou expirado',
             code: 'CSRF_TOKEN_INVALID'
         });
     }
@@ -113,14 +148,11 @@ export const validateCSRFAuth = (req, res, next) => {
 };
 
 /**
- * Rota para obter token CSRF
+ * Endpoint para obter token CSRF
  */
 export const getCSRFToken = (req, res) => {
     const sessionId = req.userEmail || req.ip;
     const token = generateCSRFToken(sessionId);
     
-    res.json({
-        csrfToken: token,
-        expiresIn: 30 * 60 * 1000 // 30 minutos em ms
-    });
+    res.json({ csrfToken: token });
 };
