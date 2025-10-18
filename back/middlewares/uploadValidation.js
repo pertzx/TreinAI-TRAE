@@ -6,7 +6,7 @@ import crypto from 'crypto';
  * Formatos modernos e seguros suportados
  * Baseado nas melhores práticas de 2024 para web
  */
-const SUPPORTED_FORMATS = {
+export const SUPPORTED_FORMATS = {
   image: {
     // Formatos modernos com melhor compressão e segurança
     'image/webp': ['.webp'],     // Amplamente suportado, boa compressão
@@ -24,7 +24,7 @@ const SUPPORTED_FORMATS = {
 /**
  * Assinaturas de arquivo (magic numbers) para validação de segurança
  */
-const FILE_SIGNATURES = {
+export const FILE_SIGNATURES = {
   'image/webp': [[0x52, 0x49, 0x46, 0x46]], // RIFF
   'image/avif': [[0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66]], // ftyp avif
   'image/jpeg': [[0xFF, 0xD8, 0xFF]], // JPEG
@@ -34,7 +34,7 @@ const FILE_SIGNATURES = {
 };
 
 /**
- * Limites otimizados para diferentes tipos de upload
+ * Limites de upload por tipo de arquivo
  */
 export const UPLOAD_LIMITS = {
   image: {
