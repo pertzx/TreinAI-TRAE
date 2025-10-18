@@ -12,7 +12,7 @@ import OnboardingQuestionnaireFitness from './Components/OnboardingQuestionnaire
 import OnboardingPersonalInfo from './Components/OnboardingPersonalInfo.jsx';
 import BuscarImagens from '../../components/BuscarImagens.jsx';
 import ChatTreino from './Components/ChatTreino.jsx';
-import BMIChart from './Components/BMIChart.jsx';
+import BMIChart from './Components/BMIchart.jsx';
 import HistoricoChart from './Components/HistoricoChart.jsx';
 import Encontrar from './Pages/Encontrar.jsx';
 import TokensChart from './Components/TokensChart.jsx';
