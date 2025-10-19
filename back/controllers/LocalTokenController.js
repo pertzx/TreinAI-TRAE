@@ -44,12 +44,21 @@ const criarLocalComToken = async (req, res) => {
   const startTime = Date.now();
   
   try {
+    // DEBUG: Log completo dos dados recebidos
+    console.log('=== DEBUG criarLocalComToken ===');
+    console.log('req.body:', req.body);
+    console.log('req.file:', req.file);
+    console.log('req.files:', req.files);
+    console.log('Content-Type:', req.get('Content-Type'));
+    console.log('================================');
+    
     const { 
       token, 
       localName, 
       localDescricao, 
       link,
       localType,
+      userId,
       country, 
       countryCode, 
       state, 
@@ -97,6 +106,14 @@ const criarLocalComToken = async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: 'Tipo de local é obrigatório e deve ser um dos tipos permitidos' 
+      });
+    }
+
+    // Validar userId se fornecido
+    if (userId && !nativeValidator.isMongoId(userId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'userId inválido' 
       });
     }
 
@@ -226,7 +243,7 @@ const criarLocalComToken = async (req, res) => {
 
     // Criar o local com dados sanitizados
     const localData = {
-      userId: validToken.userId,
+      userId: userId || validToken.userId, // Priorizar userId do frontend
       localName: sanitizedData.localName,
       localDescricao: sanitizedData.localDescricao,
       link: sanitizedData.link,

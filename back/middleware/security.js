@@ -41,7 +41,7 @@ const generalRateLimit = createRateLimit(
 const validateAndSanitize = {
   // Validar dados do local
   localData: (req, res, next) => {
-    const { nome, descricao, endereco, cidade, estado, pais } = req.body;
+    const { nome, descricao, endereco, cidade, estado, pais, localType, userId } = req.body;
     
     // Validações obrigatórias
     if (!nome || !nativeValidator.isLength(nome.trim(), { min: 2, max: 100 })) {
@@ -79,6 +79,21 @@ const validateAndSanitize = {
         error: 'País deve ter entre 2 e 100 caracteres' 
       });
     }
+
+    // Validar localType
+    const allowedLocalTypes = ['clinica-de-fisioterapia', 'academia', 'consultorio-de-nutricionista', 'loja', 'outros'];
+    if (!localType || !allowedLocalTypes.includes(localType)) {
+      return res.status(400).json({ 
+        error: 'Tipo de local inválido. Deve ser um dos tipos permitidos.' 
+      });
+    }
+
+    // Validar userId se fornecido
+    if (userId && !nativeValidator.isMongoId(userId)) {
+      return res.status(400).json({ 
+        error: 'userId inválido' 
+      });
+    }
     
     // Sanitizar dados
     req.body.nome = xss(nome.trim());
@@ -87,6 +102,8 @@ const validateAndSanitize = {
     req.body.cidade = xss(cidade.trim());
     req.body.estado = xss(estado.trim());
     req.body.pais = xss(pais.trim());
+    req.body.localType = xss(localType.trim());
+    if (userId) req.body.userId = xss(userId.trim());
     
     next();
   },

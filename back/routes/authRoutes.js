@@ -225,9 +225,9 @@ router.post('/criar-local-com-token',
   tokenRateLimit, 
   uploadSecurityHeaders, 
   validateImageUpload,
+  uploadImage.single('image'), 
   validateAndSanitize.localData,
   validateAndSanitize.token,
-  uploadImage.single('image'), 
   criarLocalComToken
 ); // NOVA LÓGICA
 router.get('/verificar-tokens/:userId', 

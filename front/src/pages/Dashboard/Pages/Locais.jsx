@@ -166,6 +166,13 @@ const Locais = ({ user = {}, tema = 'light' }) => {
   // NOVO: Função para criar local com token
   const criarLocalComToken = async (formData) => {
     try {
+      // DEBUG: Log do FormData sendo enviado
+      console.log('=== DEBUG Frontend - Enviando FormData ===');
+      for (let pair of formData.entries()) {
+        console.log(`${pair[0]}:`, pair[1]);
+      }
+      console.log('==========================================');
+      
       const controller = createRequestTimeout(15000) // 15s timeout
       const response = await api.post('/criar-local-com-token', formData, {
         signal: controller.signal,
