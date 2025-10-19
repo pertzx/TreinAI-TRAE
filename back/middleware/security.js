@@ -1,5 +1,5 @@
 import rateLimit from 'express-rate-limit';
-import helmet from 'helmet';
+import helmet from '../utils/nativeHelmet.js';
 import nativeValidator from '../utils/nativeValidation.js';
 import xss from 'xss';
 
