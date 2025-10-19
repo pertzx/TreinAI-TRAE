@@ -26,6 +26,16 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 const app = express();
 
+// Configurar trust proxy para ambientes de produção com proxy reverso
+// Isso é necessário para o express-rate-limit funcionar corretamente
+if (process.env.NODE_ENV === 'production') {
+  // Em produção, confiar no primeiro proxy (Vercel, Heroku, etc.)
+  app.set('trust proxy', 1);
+} else {
+  // Em desenvolvimento, pode haver proxies locais (como ngrok)
+  app.set('trust proxy', true);
+}
+
 // Stripe Webhook (usa raw body) - DEVE vir ANTES de outros middlewares de body parsing
 app.post('/webhook', express.raw({ 
   type: 'application/json',
@@ -35,7 +45,13 @@ app.post('/webhook', express.raw({
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
   max: 500, // 500 requisições por IP (aumentado para navegação normal)
-  message: "Muitas requisiçoes. Tente novamente mais tarde."
+  message: "Muitas requisiçoes. Tente novamente mais tarde.",
+  // Configurações para resolver warnings de proxy
+  validate: {
+    xForwardedForHeader: false, // Desabilita warning para X-Forwarded-For
+    forwardedHeader: false, // Desabilita warning para Forwarded header
+    trustProxy: false // Desabilita warning de trust proxy
+  }
 })
 
 // Outros middlewares

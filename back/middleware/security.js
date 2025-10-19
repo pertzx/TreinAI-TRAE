@@ -11,6 +11,12 @@ const createRateLimit = (windowMs, max, message) => {
     message: { error: message },
     standardHeaders: true,
     legacyHeaders: false,
+    // Configurações para resolver warnings de proxy
+    validate: {
+      xForwardedForHeader: false, // Desabilita warning para X-Forwarded-For
+      forwardedHeader: false, // Desabilita warning para Forwarded header
+      trustProxy: false // Desabilita warning de trust proxy
+    },
     handler: (req, res) => {
       console.log(`Rate limit exceeded for IP: ${req.ip}, endpoint: ${req.path}`);
       res.status(429).json({ error: message });
