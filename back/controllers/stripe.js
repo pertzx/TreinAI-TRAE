@@ -6,6 +6,7 @@ import path from 'path';
 import User from '../models/User.js';
 import bcrypt from 'bcrypt';
 import Local from '../models/Local.js';
+import LocalToken from '../models/LocalToken.js';
 import ProcessedStripeEvent from '../models/ProcessedStripeEvent.js';
 import ProcessedWebhookEvent from '../models/ProcessedWebhookEvent.js';
 import mongoose from 'mongoose';
@@ -532,6 +533,170 @@ export const CriarAssinaturaProLocal = async (req, res) => {
   }
 };
 
+// =====================================================================================
+// Novo endpoint: Criar sessão de pagamento para local (sem upload)
+// - Apenas cria a sessão de checkout, o local será criado após confirmação via webhook
+// =====================================================================================
+export const CriarSessaoPagamentoLocal = async (req, res) => {
+  try {
+    const {
+      tipo,
+      userId,
+      description = '',
+      paymentMethod = 'card'
+    } = req.body || {};
+
+    // Validação robusta de entrada
+    if (!tipo || !userId) {
+      return res.status(400).json({ 
+        success: false, 
+        msg: 'tipo e userId são obrigatórios',
+        code: 'MISSING_REQUIRED_FIELDS'
+      });
+    }
+
+    const tipoNorm = String(tipo).trim().toLowerCase();
+    const priceMap = {
+      'clinica-de-fisioterapia': process.env.STRIPE_PRICEID_100,
+      'consultorio-de-nutricionista': process.env.STRIPE_PRICEID_100,
+      'academia': process.env.STRIPE_PRICEID_180,
+      'loja': process.env.STRIPE_PRICEID_180,
+      'outros': process.env.STRIPE_PRICEID_50
+    };
+    
+    const unitPrice = priceMap[tipoNorm];
+    if (!unitPrice) {
+      return res.status(400).json({ 
+        success: false, 
+        msg: `Tipo de local inválido: ${tipo}. Tipos aceitos: ${Object.keys(priceMap).join(', ')}`,
+        code: 'INVALID_LOCAL_TYPE'
+      });
+    }
+
+    const pm = String(paymentMethod || 'card').toLowerCase();
+    if (!['card', 'pix'].includes(pm)) {
+      return res.status(400).json({ 
+        success: false, 
+        msg: 'Método de pagamento inválido. Aceitos: card, pix',
+        code: 'INVALID_PAYMENT_METHOD'
+      });
+    }
+
+    // Buscar usuário com validação
+    let user = null;
+    try {
+      user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          msg: 'Usuário não encontrado',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        msg: 'ID de usuário inválido',
+        code: 'INVALID_USER_ID'
+      });
+    }
+
+    // Buscar ou criar customer no Stripe
+    let customerId = user?.planInfos?.stripeCustomerId || null;
+    if (!customerId) {
+      try {
+        const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+        customerId = customers.data[0]?.id || null;
+        
+        if (!customerId) {
+          const customer = await stripe.customers.create({ 
+            email: user.email,
+            name: user.name || user.username,
+            metadata: { 
+              app_user_id: String(user._id),
+              app: 'treinai',
+              created_at: new Date().toISOString()
+            }
+          });
+          customerId = customer.id;
+          
+          // Salvar customer ID
+          user.planInfos = user.planInfos || {};
+          user.planInfos.stripeCustomerId = customerId;
+          await user.save();
+        }
+      } catch (err) {
+        log('Erro ao criar/buscar customer:', err?.message || err);
+        return res.status(500).json({
+          success: false,
+          msg: 'Erro ao processar dados do cliente no Stripe',
+          code: 'STRIPE_CUSTOMER_ERROR'
+        });
+      }
+    }
+
+    // Gerar chave de idempotência
+    const idempotencyKey = `local_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Metadata da sessão
+    const sessionMetadata = {
+      app: 'treinai',
+      flow: 'create_local_token',
+      userId: String(userId),
+      localType: tipoNorm,
+      idempotency_key: idempotencyKey
+    };
+
+    // Configuração da sessão
+    const sessionParams = {
+      mode: 'subscription',
+      payment_method_types: pm === 'pix' ? ['boleto'] : ['card'],
+      line_items: [{ price: unitPrice, quantity: 1 }],
+      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&type=local_token`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel?type=local_token`,
+      expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutos
+      metadata: sessionMetadata,
+      subscription_data: {
+        metadata: {
+          ...sessionMetadata,
+          description: description || `Assinatura para ${tipoNorm}`
+        },
+      },
+      customer: customerId,
+      allow_promotion_codes: true,
+      billing_address_collection: 'auto'
+    };
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+    
+    log(`Checkout session criada para token de local: ${session.id} - User: ${userId} - Tipo: ${tipoNorm}`);
+
+    return res.status(201).json({
+      success: true,
+      msg: `Sessão de pagamento criada para ${tipoNorm}.`,
+      sessionId: session.id,
+      url: session.url,
+      priceId: unitPrice,
+      tipo: tipoNorm,
+      userId: String(userId),
+      customerId: customerId || null,
+      paymentMethodTypes: session.payment_method_types || [pm],
+      expiresAt: session.expires_at,
+      flow: 'create_local_token'
+    });
+
+  } catch (error) {
+    console.error('CriarSessaoPagamentoLocal fatal error:', error?.message || error);
+    
+    return res.status(500).json({ 
+      success: false, 
+      msg: 'Erro interno ao criar sessão de pagamento', 
+      code: 'INTERNAL_ERROR',
+      error: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    });
+  }
+};
+
 // Webhook handler modernizado com segurança aprimorada
 export const webhookHandler = async (req, res) => {
   const sig = req.headers['stripe-signature'];
@@ -905,7 +1070,7 @@ export const StripeWebhook = async (req, res) => {
 
   try {
     switch (evtType) {
-      // checkout.session.completed: vincular subscriptionId ao PendingUpload (se houver)
+      // checkout.session.completed: vincular subscriptionId ao PendingUpload (se houver) ou gerar token para nova lógica
       case 'checkout.session.completed': {
         log('checkout.session.completed');
         const session = data;
@@ -931,7 +1096,49 @@ export const StripeWebhook = async (req, res) => {
           }
         }
 
-        // se for fluxo publish_local: vincular subscriptionId ao PendingUpload
+        // NOVA LÓGICA: se for fluxo add_local_token, gerar token único
+        if (session.metadata.flow === 'add_local_token' && session.metadata.userId && session.metadata.localType) {
+          try {
+            const userId = session.metadata.userId;
+            const localType = session.metadata.localType;
+            
+            // Verificar se já existe token ativo para este usuário e tipo
+            const existingToken = await LocalToken.findOne({
+              userId: userId,
+              localType: localType,
+              status: 'active'
+            });
+
+            if (existingToken) {
+              log('checkout.session.completed: token ativo já existe para userId/localType:', userId, localType);
+            } else {
+              // Gerar novo token único
+              const tokenData = {
+                userId: userId,
+                subscriptionId: subscriptionId,
+                localType: localType,
+                status: 'active',
+                metadata: {
+                  stripeSessionId: session.id,
+                  stripeCustomerId: customerId,
+                  stripePaymentIntentId: session.payment_intent,
+                  amount: session.amount_total,
+                  currency: session.currency,
+                  idempotencyKey: session.metadata.idempotency_key
+                }
+              };
+
+              const newToken = new LocalToken(tokenData);
+              await newToken.save();
+              
+              log('checkout.session.completed: token gerado com sucesso:', newToken.token, 'para userId:', userId);
+            }
+          } catch (errToken) {
+            console.error('checkout.session.completed: erro ao gerar token:', errToken?.message || errToken);
+          }
+        }
+
+        // LÓGICA LEGADA: se for fluxo publish_local: vincular subscriptionId ao PendingUpload
         try {
           if (session.metadata.flow && session.metadata.flow === 'publish_local' && session.metadata.pendingUploadId) {
             const pendingId = session.metadata.pendingUploadId;

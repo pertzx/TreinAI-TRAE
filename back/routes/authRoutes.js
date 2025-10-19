@@ -7,14 +7,23 @@ import { validateEmailReal, validateEmailBasic } from '../middlewares/emailValid
 import { loginRateLimit, signupRateLimit, uploadRateLimit, passwordResetRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { validateCSRF, validateCSRFAuth, getCSRFToken, provideCSRFToken } from '../middlewares/csrfMiddleware.js';
 import { uploadSecurityHeaders } from '../middlewares/securityHeaders.js';
+import { 
+  tokenRateLimit, 
+  paymentRateLimit, 
+  validateAndSanitize, 
+  validateImageUpload, 
+  securityLogger 
+} from '../middleware/security.js';
 import {
   CreateCheckoutSession,
   SessionStatus,
   atualizarPlano,
   CriarAssinaturaProLocal,
+  CriarSessaoPagamentoLocal,
   deletarLocal,
   SessionPaymentSaldoDeImpressoes,
 } from '../controllers/stripe.js';
+import { criarLocalComToken, verificarTokensDisponiveis, limparTokensExpirados } from '../controllers/LocalTokenController.js';
 import { conversar, criarExercicioIA, criarTreinoIA } from '../controllers/UsingIA.js';
 import User from '../models/User.js';
 import { publicarNoHistorico } from '../controllers/database.js';
@@ -204,7 +213,32 @@ router.get('/buscar-historico', buscarHistorico);
 router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
 
 // locais
-router.post('/createPayment', uploadSecurityHeaders, uploadImage.single('image'), CriarAssinaturaProLocal);
+router.post('/createPayment', uploadSecurityHeaders, uploadImage.single('image'), CriarAssinaturaProLocal); // LEGADO
+router.post('/criar-sessao-pagamento-local', 
+  securityLogger, 
+  paymentRateLimit, 
+  uploadSecurityHeaders, 
+  CriarSessaoPagamentoLocal
+); // NOVA LÓGICA
+router.post('/criar-local-com-token', 
+  securityLogger, 
+  tokenRateLimit, 
+  uploadSecurityHeaders, 
+  validateImageUpload,
+  validateAndSanitize.localData,
+  validateAndSanitize.token,
+  uploadImage.single('image'), 
+  criarLocalComToken
+); // NOVA LÓGICA
+router.get('/verificar-tokens/:userId', 
+  securityLogger,
+  validateAndSanitize.userId,
+  verificarTokensDisponiveis
+); // NOVA LÓGICA
+router.post('/limpar-tokens-expirados', 
+  securityLogger,
+  limparTokensExpirados
+); // UTILITÁRIO ADMIN
 router.post('/editar-local', uploadSecurityHeaders, uploadImage.single('image'), editarLocal);
 router.get('/locais', getLocais);
 router.post('/deletar-local', deletarLocal);

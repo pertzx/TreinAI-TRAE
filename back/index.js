@@ -138,6 +138,8 @@ app.use('/admin', apiSecurityHeaders, adminRoutes);
 // Detectar ambiente serverless
 const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY;
 
+import { startTokenCleanupJob } from './jobs/tokenCleanup.js';
+
 if (!isServerless) {
   // Ambiente local - inicializar servidor tradicional
   const PORT = process.env.PORT || 4000;
@@ -152,6 +154,9 @@ if (!isServerless) {
   // Inicializar WebSocket Server apenas em ambiente local
   chatWebSocketServer.initialize(server);
   chatWebSocketServer.startHeartbeat();
+  
+  // Inicializar job de limpeza de tokens
+  startTokenCleanupJob();
 } else {
   console.log('🔧 Ambiente serverless detectado - WebSocket desabilitado');
 }

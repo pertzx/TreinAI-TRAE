@@ -4,6 +4,16 @@ import locationsRaw from '../../../data/locations.json'
 import { buildImageUrl } from '../../../utils/imageUtils'
 import { getBrazilDate } from '../../../../helpers/getBrazilDate'
 import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  sanitizeLocalData, 
+  validateLocalData, 
+  validateImageFile, 
+  createRequestTimeout,
+  sanitizeForDisplay,
+  validateUserId,
+  tokenRateLimit,
+  paymentRateLimit
+} from '../../../utils/security';
 
 // Componente Locais — exibe 2 colunas:
 //  - Visualizar Meus Locais (com botão cancelar assinatura / deletar local / editar)
@@ -55,6 +65,11 @@ const Locais = ({ user = {}, tema = 'light' }) => {
   const [fieldErrors, setFieldErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
+  // NOVO: Estados para o sistema de tokens
+  const [tokensDisponiveis, setTokensDisponiveis] = useState(0)
+  const [loadingTokens, setLoadingTokens] = useState(false)
+  const [showTokenInfo, setShowTokenInfo] = useState(false)
+
   // lista de países do JSON
   const countries = useMemo(() => (locationsRaw?.countries || []), [])
 
@@ -74,6 +89,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
 
   useEffect(() => {
     fetchMeusLocais()
+    verificarTokensDisponiveis()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -85,6 +101,86 @@ const Locais = ({ user = {}, tema = 'light' }) => {
       }
     }
   }, [imagePreview])
+
+  // NOVO: Função para verificar tokens disponíveis
+  const verificarTokensDisponiveis = async () => {
+    const userId = user?._id || user?.id
+    
+    if (!validateUserId(userId) || useMock) {
+      setTokensDisponiveis(useMock ? 3 : 0) // Mock: 3 tokens disponíveis
+      return
+    }
+
+    setLoadingTokens(true)
+    try {
+      const controller = createRequestTimeout(10000) // 10s timeout
+      const response = await api.get(`/verificar-tokens/${userId}`, {
+        signal: controller.signal
+      })
+      setTokensDisponiveis(response.data.tokensDisponiveis || 0)
+    } catch (err) {
+      console.error('Erro ao verificar tokens:', err)
+      setTokensDisponiveis(0)
+      if (err.name !== 'AbortError') {
+        setError('Erro ao verificar tokens disponíveis')
+      }
+    } finally {
+      setLoadingTokens(false)
+    }
+  }
+
+  // NOVO: Função para criar sessão de pagamento simplificada
+  const criarSessaoPagamento = async (dadosLocal) => {
+    const userId = user?._id || user?.id
+    
+    // Verificar rate limiting para pagamentos
+    if (!paymentRateLimit.isAllowed(userId)) {
+      throw new Error('Muitas tentativas de pagamento. Aguarde alguns minutos.')
+    }
+
+    try {
+      const controller = createRequestTimeout(15000) // 15s timeout
+      const response = await api.post('/criar-sessao-pagamento-local', dadosLocal, {
+        signal: controller.signal
+      })
+      
+      if (response.data && response.data.url) {
+        // Redireciona para o Stripe Checkout
+        window.location.href = response.data.url
+        return true
+      }
+      
+      throw new Error('URL de pagamento não recebida')
+    } catch (err) {
+      console.error('Erro ao criar sessão de pagamento:', err)
+      if (err.name === 'AbortError') {
+        throw new Error('Timeout na criação do pagamento. Tente novamente.')
+      }
+      throw err
+    }
+  }
+
+  // NOVO: Função para criar local com token
+  const criarLocalComToken = async (dadosLocal) => {
+    try {
+      const controller = createRequestTimeout(15000) // 15s timeout
+      const response = await api.post('/criar-local-com-token', dadosLocal, {
+        signal: controller.signal
+      })
+      
+      if (response.data && response.data.success) {
+        return response.data.local
+      }
+      
+      throw new Error(response.data?.message || 'Erro ao criar local com token')
+    } catch (err) {
+      console.error('Erro ao criar local com token:', err)
+      if (err.name === 'AbortError') {
+        throw new Error('Timeout na criação do local. Tente novamente.')
+      }
+      throw err
+    }
+  }
 
   // ------------------ helpers de mock ------------------
   const simulateDelay = (ms = 700) => new Promise(res => setTimeout(res, ms))
@@ -271,23 +367,11 @@ const Locais = ({ user = {}, tema = 'light' }) => {
   }
 
   const getValidationErrors = () => {
-    const errs = {}
-    if (!form.localName || !form.localName.trim()) errs.localName = 'Nome do local é obrigatório.'
-    if (!form.localDescricao || !form.localDescricao.trim()) errs.localDescricao = 'Descrição é obrigatória.'
-    if (!form.link || !form.link.trim()) {
-      errs.link = 'Link é obrigatório.'
-    } else if (!isValidHttpUrl(form.link.trim())) {
-      errs.link = 'Link inválido — deve começar com http:// ou https://.'
-    }
-    if (!form.localType || !form.localType.trim()) errs.localType = 'Tipo do local é obrigatório.'
-    if (!form.country || !form.country.trim()) errs.country = 'País é obrigatório.'
-    if (!form.state || !form.state.trim()) errs.state = 'Estado é obrigatório.'
-    if (!form.city || !form.city.trim()) errs.city = 'Cidade é obrigatória.'
+    // Usar validação de segurança
+    const validationResult = validateLocalData(form)
+    let errs = { ...validationResult.errors }
 
-    // imagem obrigatória + checagem básica de tipo e tamanho
-    // regras:
-    // - se estamos editando e NÃO substituindo (replaceImage === false) e há image (string), ok
-    // - caso contrário, precisamos ter um File como form.image
+    // Validação adicional de imagem com segurança
     if (editing && !replaceImage) {
       // editar sem substituir: aceitável desde que exista imagePreview ou form.image string
       if (!form.image && !imagePreview) {
@@ -297,11 +381,13 @@ const Locais = ({ user = {}, tema = 'light' }) => {
       // criação ou edição com substituição: requer um arquivo ou preview
       if (!form.image && !imagePreview) {
         errs.image = 'Imagem é obrigatória.'
+      } else if (form.image instanceof File) {
+        const imageValidation = validateImageFile(form.image)
+        if (!imageValidation.isValid) {
+          errs.image = imageValidation.error
+        }
       } else if (form.image && !isImageFile(form.image)) {
         errs.image = 'O arquivo selecionado não parece ser uma imagem válida.'
-      } else if (form.image instanceof File) {
-        const maxSize = 5 * 1024 * 1024 // 5 MB
-        if (form.image.size > maxSize) errs.image = 'Imagem muito grande. Máx 5 MB.'
       }
     }
 
@@ -310,6 +396,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
 
   const isFormValid = useMemo(() => Object.keys(getValidationErrors()).length === 0, [form, imagePreview, replaceImage, editing])
 
+  // NOVO: Função principal de submit com lógica de tokens
   const submitLocal = async (e) => {
     e && e.preventDefault()
     setSubmitting(true)
@@ -322,6 +409,24 @@ const Locais = ({ user = {}, tema = 'light' }) => {
       setSubmitting(false)
       return
     }
+
+    // Validar rate limiting
+    const userId = user?._id || user?.id
+    if (!validateUserId(userId)) {
+      setError('Usuário inválido. Faça login novamente.')
+      setSubmitting(false)
+      return
+    }
+
+    // Verificar rate limiting para tokens
+    if (!tokenRateLimit.isAllowed(userId)) {
+      setError('Muitas tentativas. Aguarde um momento antes de tentar novamente.')
+      setSubmitting(false)
+      return
+    }
+
+    // Sanitizar dados do formulário
+    const sanitizedData = sanitizeLocalData(form)
 
     // Se temos uma imageUrl (string) e precisamos enviar um File (ex: criar novo a partir de existente
     // ou backend exige file), tentamos baixar a imagem e convertê-la para File. Se falhar (CORS), enviamos imageUrl.
@@ -375,15 +480,15 @@ const Locais = ({ user = {}, tema = 'light' }) => {
       const isOverwrite = editing && !saveAsNew && !!editingSourceId
 
       const fd = new FormData()
-      fd.append('localName', form.localName)
-      fd.append('localDescricao', form.localDescricao)
-      fd.append('link', form.link)
-      fd.append('tipo', form.localType)
-      fd.append('country', form.country)
+      fd.append('localName', sanitizedData.localName || form.localName)
+      fd.append('localDescricao', sanitizedData.localDescricao || form.localDescricao)
+      fd.append('link', sanitizedData.link || form.link)
+      fd.append('tipo', sanitizedData.localType || form.localType)
+      fd.append('country', sanitizedData.country || form.country)
       fd.append('countryCode', form.countryCode)
-      fd.append('state', form.state)
-      fd.append('city', form.city)
-      fd.append('userId', user?._id)
+      fd.append('state', sanitizedData.state || form.state)
+      fd.append('city', sanitizedData.city || form.city)
+      fd.append('userId', userId)
 
       // imagem: se temos um File depois da tentativa de download, envia como 'image'
       if (imageToSend instanceof File) {
@@ -424,20 +529,52 @@ const Locais = ({ user = {}, tema = 'light' }) => {
         resetForm()
         fetchMeusLocais()
       } else {
-        // NÃO setamos Content-Type manualmente — o browser colocará multipart/form-data com boundary
-        if (isOverwrite) {
-          await api.post('/editar-local', fd, { headers: { 'Content-Type': undefined } })
-        } else {
-          const res = await api.post('/createPayment', fd, { headers: { 'Content-Type': undefined } })
-
-          if (res && res.data && res.data.url) {
-            window.location.href = res.data.url
-            return
+        // NOVO FLUXO: Verificar se há tokens disponíveis
+        if (!isOverwrite) {
+          // Atualizar tokens disponíveis
+          await verificarTokensDisponiveis()
+          
+          if (tokensDisponiveis > 0) {
+            // Usar token para criar local diretamente
+            try {
+              const novoLocal = await criarLocalComToken(fd)
+              console.log('Local criado com token:', novoLocal)
+              
+              // Atualizar tokens disponíveis após uso
+              await verificarTokensDisponiveis()
+              
+              resetForm()
+              fetchMeusLocais()
+              
+              // Mostrar feedback de sucesso
+              setError(null)
+              // Você pode adicionar uma notificação de sucesso aqui
+              
+            } catch (tokenErr) {
+              console.error('Erro ao criar local com token:', tokenErr)
+              setError(tokenErr.message || 'Erro ao criar local com token. Tentando pagamento...')
+              
+              // Fallback para pagamento se falhar com token
+              try {
+                await criarSessaoPagamento(fd)
+              } catch (paymentErr) {
+                setError('Erro ao processar pagamento. Tente novamente.')
+              }
+            }
+          } else {
+            // Sem tokens: criar sessão de pagamento
+            try {
+              await criarSessaoPagamento(fd)
+            } catch (paymentErr) {
+              setError('Erro ao processar pagamento. Tente novamente.')
+            }
           }
+        } else {
+          // Edição: usar endpoint antigo
+          await api.post('/editar-local', fd, { headers: { 'Content-Type': undefined } })
+          resetForm()
+          fetchMeusLocais()
         }
-
-        resetForm()
-        fetchMeusLocais()
       }
     } catch (err) {
       console.error('submitLocal erro', err)
@@ -448,666 +585,1113 @@ const Locais = ({ user = {}, tema = 'light' }) => {
     }
   }
 
-  // ------------------ render ------------------
   return (
-    <div className={`w-full p-4 ${tema === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* ADD / EDIT FORM */}
-        <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`rounded-2xl p-6 shadow ${form.localId ? tema === 'dark' ? 'bg-green-800 text-white' : 'bg-green-400 text-slate-900' : tema === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
-          <h2 className="text-xl font-semibold mb-3">{editing ? (saveAsNew ? 'Adicionar (a partir do local)' : 'Editar Local (sobrescrever)') : 'Adicionar Local'}</h2>
-          {error && <div className="mb-2 text-sm text-red-500">{error}</div>}
-
-          <form onSubmit={submitLocal}>
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.25, duration: 0.3 }}
-            >
-              <label className="block text-sm font-medium mb-2">
-                Nome do Local <span className="text-red-500">*</span>
-              </label>
-              <input className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 resize-none ${
-                  fieldErrors.localName 
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
-                    : tema === 'dark' 
-                      ? 'border-slate-600 bg-slate-700/50 text-white placeholder-slate-400' 
-                      : 'border-slate-300 bg-white text-slate-900 placeholder-slate-500'
-                }`} 
-                rows="3"
-                value={form.localName} 
-                onChange={e => handleChange('localName', e.target.value)}
-                placeholder="Descreva seu local"
-              />
-              <AnimatePresence>
-                {fieldErrors.localName && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="text-red-500 text-xs mt-1"
-                  >
-                    {fieldErrors.localName}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.25, duration: 0.3 }}
-            >
-              <label className="block text-sm font-medium mb-2">
-                Descrição <span className="text-red-500">*</span>
-              </label>
-              <textarea 
-                className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 resize-none ${
-                  fieldErrors.localDescricao 
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
-                    : tema === 'dark' 
-                      ? 'border-slate-600 bg-slate-700/50 text-white placeholder-slate-400' 
-                      : 'border-slate-300 bg-white text-slate-900 placeholder-slate-500'
-                }`} 
-                rows="3"
-                value={form.localDescricao} 
-                onChange={e => handleChange('localDescricao', e.target.value)}
-                placeholder="Descreva seu local"
-              />
-              <AnimatePresence>
-                {fieldErrors.localDescricao && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="text-red-500 text-xs mt-1"
-                  >
-                    {fieldErrors.localDescricao}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3, duration: 0.3 }}
-            >
-              <label className="block text-sm font-medium mb-2">
-                Link <span className="text-red-500">*</span>
-              </label>
-              <input 
-                className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 ${
-                  fieldErrors.link 
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
-                    : tema === 'dark' 
-                      ? 'border-slate-600 bg-slate-700/50 text-white placeholder-slate-400' 
-                      : 'border-slate-300 bg-white text-slate-900 placeholder-slate-500'
-                }`} 
-                value={form.link} 
-                onChange={e => handleChange('link', e.target.value)}
-                placeholder="https://exemplo.com"
-              />
-              <AnimatePresence>
-                {fieldErrors.link && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="text-red-500 text-xs mt-1"
-                  >
-                    {fieldErrors.link}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.35, duration: 0.3 }}
-            >
-              <label className="block text-sm font-medium mb-2">
-                Tipo de Local <span className="text-red-500">*</span>
-              </label>
-              <select 
-                disabled={editing && !saveAsNew} 
-                className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 ${
-                  fieldErrors.localType 
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
-                    : tema === 'dark' 
-                      ? 'border-slate-600 bg-slate-700/50 text-white' 
-                      : 'border-slate-300 bg-white text-slate-900'
-                } ${editing && !saveAsNew ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`} 
-                value={form.localType} 
-                onChange={e => handleChange('localType', e.target.value)}
-              >
-                {tiposPermitidos.map(t => (
-                  <option className="text-black" key={t} value={t}>{t}</option>
-                ))}
-              </select>
-              <AnimatePresence>
-                {fieldErrors.localType && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="text-red-500 text-xs mt-1"
-                  >
-                    {fieldErrors.localType}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              {editing && !saveAsNew && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-xs mt-1 text-yellow-600 dark:text-yellow-400"
-                >
-                  O tipo não pode ser alterado ao editar — cada tipo tem preço diferente.
-                </motion.div>
-              )}
-            </motion.div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4, duration: 0.3 }}
-              >
-                <label className="block text-sm font-medium mb-2">
-                  País <span className="text-red-500">*</span>
-                </label>
-                <select 
-                  className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 ${
-                    fieldErrors.country 
-                      ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
-                      : tema === 'dark' 
-                        ? 'border-slate-600 bg-slate-700/50 text-white' 
-                        : 'border-slate-300 bg-white text-slate-900'
-                  }`} 
-                  value={form.country} 
-                  onChange={e => handleChange('country', e.target.value)}
-                >
-                  <option className="text-black" value="">Selecione um país</option>
-                  {countries.map(c => (
-                    <option className="text-black" key={c.code} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-                <AnimatePresence>
-                  {fieldErrors.country && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                      className="text-red-500 text-xs mt-1"
-                    >
-                      {fieldErrors.country}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.45, duration: 0.3 }}
-              >
-                <label className="block text-sm font-medium mb-2">
-                  Estado <span className="text-red-500">*</span>
-                </label>
-                <select 
-                  className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 ${
-                    fieldErrors.state 
-                      ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
-                      : tema === 'dark' 
-                        ? 'border-slate-600 bg-slate-700/50 text-white' 
-                        : 'border-slate-300 bg-white text-slate-900'
-                  }`} 
-                  value={form.state} 
-                  onChange={e => handleChange('state', e.target.value)}
-                >
-                  <option className="text-black" value="">Selecione um estado</option>
-                  {states.map(s => (
-                    <option className="text-black" key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <AnimatePresence>
-                  {fieldErrors.state && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                      className="text-red-500 text-xs mt-1"
-                    >
-                      {fieldErrors.state}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5, duration: 0.3 }}
-              >
-                <label className="block text-sm font-medium mb-2">
-                  Cidade <span className="text-red-500">*</span>
-                </label>
-                <select 
-                  className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 ${
-                    fieldErrors.city 
-                      ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
-                      : tema === 'dark' 
-                        ? 'border-slate-600 bg-slate-700/50 text-white' 
-                        : 'border-slate-300 bg-white text-slate-900'
-                  }`} 
-                  value={form.city} 
-                  onChange={e => handleChange('city', e.target.value)}
-                >
-                  <option className="text-black" value="">Selecione uma cidade</option>
-                  {cities.map(c => (
-                    <option className="text-black" key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-                <AnimatePresence>
-                  {fieldErrors.city && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                      className="text-red-500 text-xs mt-1"
-                    >
-                      {fieldErrors.city}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.55, duration: 0.3 }}
-            >
-              <label className="block text-sm font-medium mb-2">
-                Imagem <span className="text-red-500">*</span>
-              </label>
-
-              {editing && imagePreview && !replaceImage ? (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="mt-2"
-                >
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">Imagem atual:</div>
-                  <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <motion.img 
-                      whileHover={{ scale: 1.05 }}
-                      transition={{ duration: 0.2 }}
-                      src={imagePreview} 
-                      alt="imagem atual" 
-                      className="w-32 h-20 object-cover rounded-lg border shadow-sm" 
-                    />
-                    <div className="flex flex-col gap-2">
-                      <motion.button 
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        type="button" 
-                        onClick={() => {
-                          setReplaceImage(true)
-                          setForm(f => ({ ...f, image: null }))
-                          if (imagePreview && imagePreview.startsWith('blob:')) {
-                            try { URL.revokeObjectURL(imagePreview) } catch (e) { /* ignore */ }
-                          }
-                          setImagePreview(null)
-                          if (fileInputRef.current) fileInputRef.current.value = null
-                        }} 
-                        className="px-4 py-2 rounded-lg border border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 text-sm font-medium"
-                      >
-                        Substituir imagem
-                      </motion.button>
-                      <motion.button 
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        type="button" 
-                        onClick={() => {
-                          const ok = window.confirm('Remover imagem atual?')
-                          if (!ok) return
-                          setForm(f => ({ ...f, image: null }))
-                          setImagePreview(null)
-                          setReplaceImage(true)
-                          if (fileInputRef.current) fileInputRef.current.value = null
-                        }} 
-                        className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-all duration-200 text-sm font-medium"
-                      >
-                        Remover imagem
-                      </motion.button>
-                    </div>
-                  </div>
-                </motion.div>
-              ) : (
-                <div className="mt-2">
-                  <motion.div
-                    whileHover={{ scale: 1.01 }}
-                    className="relative"
-                  >
-                    <input 
-                      ref={fileInputRef} 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={e => handleFile(e.target.files?.[0] || null)} 
-                      className={`w-full p-3 rounded-lg border transition-all duration-200 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 hover:border-blue-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/20 dark:file:text-blue-400 ${
-                        fieldErrors.image 
-                          ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
-                          : tema === 'dark' 
-                            ? 'border-slate-600 bg-slate-700/50 text-white' 
-                            : 'border-slate-300 bg-white text-slate-900'
-                      }`} 
-                    />
-                  </motion.div>
-                  {editing && replaceImage && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-2"
-                    >
-                      <motion.button 
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        type="button" 
-                        onClick={() => {
-                          setReplaceImage(false)
-                          setForm(f => ({ ...f, image: form.image }))
-                          setImagePreview(form.image || null)
-                          if (fileInputRef.current) fileInputRef.current.value = null
-                        }} 
-                        className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
-                      >
-                        Manter imagem atual
-                      </motion.button>
-                    </motion.div>
-                  )}
-                </div>
-              )}
-
-              <AnimatePresence>
-                {fieldErrors.image && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="text-red-500 text-xs mt-1"
-                  >
-                    {fieldErrors.image}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-
-            {editing && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.3 }}
-                className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg"
-              >
-                <label className="inline-flex items-center gap-3 cursor-pointer">
-                  <motion.input 
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    type="checkbox" 
-                    checked={saveAsNew} 
-                    onChange={() => {
-                      const next = !saveAsNew
-                      setSaveAsNew(next)
-                      if (!next && editingSourceId) {
-                        setForm(f => ({ ...f, localId: editingSourceId }))
-                      } else {
-                        setForm(f => ({ ...f, localId: null }))
-                      }
-                    }}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                  />
-                  <span className="text-sm font-medium">
-                    Salvar como novo (não sobrescrever o local original)
-                  </span>
-                </label>
-                {!saveAsNew && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="text-xs mt-2 text-yellow-700 dark:text-yellow-400"
-                  >
-                    ⚠️ Atenção: ao desmarcar essa opção, você irá sobrescrever o local original — ação potencialmente irreversível.
-                  </motion.div>
-                )}
-              </motion.div>
-            )}
-
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.65, duration: 0.3 }}
-              className="flex gap-3 pt-4"
-            >
-              <motion.button 
-                whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)" }}
-                whileTap={{ scale: 0.98 }}
-                type="submit" 
-                disabled={submitting || !isFormValid} 
-                className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                  submitting || !isFormValid
-                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-lg'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  {submitting && (
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                    />
-                  )}
-                  {submitting ? 'Enviando...' : (form.localId ? 'Salvar Alterações' : (editing ? 'Adicionar como novo' : 'Adicionar Local'))}
-                </div>
-              </motion.button>
-              <motion.button 
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                type="button" 
-                onClick={resetForm} 
-                className="px-6 py-3 rounded-lg border border-slate-300 dark:border-slate-600 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200"
-              >
-                Limpar
-              </motion.button>
-            </motion.div>
-          </form>
-          
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.7, duration: 0.3 }}
-            className="mt-4 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700"
-          >
-            💡 <strong>Observação:</strong> todos os campos são obrigatórios antes de publicar. Se seu backend exigir criação de pagamento/assinatura antes do cadastro, adapte a chamada para '/createPayment' conforme sua API.
-          </motion.p>
-        </motion.section>
-
-        {/* LISTA DE LOCAIS */}
-        <motion.section 
-          initial={{ opacity: 0, y: 20, scale: 0.95 }} 
-          animate={{ opacity: 1, y: 0, scale: 1 }} 
-          transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
-          className={`rounded-2xl p-6 shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl overflow-hidden ${
-            tema === 'dark' 
-              ? 'bg-slate-800/90 border border-slate-700/50' 
-              : 'bg-white/90 border border-slate-200/50'
-          }`}
+    <div className={`locais-container ${tema === 'dark' ? 'dark-theme' : 'light-theme'}`}>
+      <div className="locais-header">
+        <h1>Gerenciar Locais</h1>
+        
+        {/* NOVO: Painel de informações de tokens */}
+        <motion.div 
+          className="tokens-info-panel"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
         >
-          <motion.h2 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2, duration: 0.3 }}
-            className="text-xl font-semibold mb-4 flex items-center gap-2"
-          >
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="w-2 h-2 bg-green-500 rounded-full"
-            />
-            Meus Locais
-            {meusLocais.length > 0 && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="ml-2 px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full font-medium"
-              >
-                {meusLocais.length}
-              </motion.span>
-            )}
-          </motion.h2>
-          
-          <div className="max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
-            <AnimatePresence>
-              {loading && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="flex items-center justify-center py-8"
-                >
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full"
-                  />
-                  <span className="ml-3 text-slate-600 dark:text-slate-400">Carregando...</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
+          <div className="tokens-display">
+            <div className="tokens-count">
+              <span className="tokens-icon">🎫</span>
+              <span className="tokens-number">
+                {loadingTokens ? '...' : tokensDisponiveis}
+              </span>
+              <span className="tokens-label">Tokens Disponíveis</span>
+            </div>
             
-            <AnimatePresence>
-              {!loading && meusLocais.length === 0 && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="text-center py-12"
-                >
-                  <motion.div
-                    animate={{ y: [0, -10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="text-6xl mb-4"
-                  >
-                    📍
-                  </motion.div>
-                  <p className="text-slate-600 dark:text-slate-400">
-                    Você ainda não tem locais cadastrados.
-                  </p>
-                  <p className="text-sm text-slate-500 dark:text-slate-500 mt-2">
-                    Comece adicionando seu primeiro local!
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <button 
+              className="tokens-info-btn"
+              onClick={() => setShowTokenInfo(!showTokenInfo)}
+              title="Informações sobre tokens"
+            >
+              ℹ️
+            </button>
+          </div>
+          
+          <AnimatePresence>
+            {showTokenInfo && (
+              <motion.div 
+                className="tokens-explanation"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <p>
+                  <strong>Como funcionam os tokens:</strong>
+                </p>
+                <ul>
+                  <li>• Cada token permite criar 1 local gratuitamente</li>
+                  <li>• Tokens são obtidos através de pagamentos bem-sucedidos</li>
+                  <li>• Sem tokens? Você será redirecionado para pagamento</li>
+                  <li>• Tokens expiram automaticamente após 30 dias</li>
+                </ul>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
 
-            <div className="space-y-3">
+      <div className="locais-content">
+        {/* Coluna 1: Meus Locais */}
+        <div className="locais-column meus-locais">
+          <h2>Meus Locais</h2>
+          
+          {loading ? (
+            <div className="loading-state">
+              <div className="spinner"></div>
+              <p>Carregando seus locais...</p>
+            </div>
+          ) : error && !editing ? (
+            <div className="error-state">
+              <p className="error-message">{error}</p>
+              <button onClick={fetchMeusLocais} className="retry-btn">
+                Tentar Novamente
+              </button>
+            </div>
+          ) : meusLocais.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">📍</div>
+              <h3>Nenhum local encontrado</h3>
+              <p>Crie seu primeiro local usando o formulário ao lado</p>
+            </div>
+          ) : (
+            <div className="locais-grid">
               <AnimatePresence>
                 {meusLocais.map((local, index) => (
-                  <motion.div 
-                    key={local.localId || local._id || Math.random()}
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
-                    whileHover={{ y: -2, boxShadow: "0 8px 25px rgba(0,0,0,0.1)" }}
-                    className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-700 transition-all duration-200 hover:border-blue-300 dark:hover:border-blue-600"
+                  <motion.div
+                    key={local.localId}
+                    className="local-card"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    whileHover={{ y: -5, boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center gap-4 flex-1">
-                        <motion.div 
-                          whileHover={{ scale: 1.05 }}
-                          className="w-24 h-16 bg-slate-100 dark:bg-slate-600 rounded-lg overflow-hidden flex-shrink-0 shadow-sm"
-                        >
-                          {local.imageUrl ? (
-                            <img 
-                              src={buildImageUrl(local.imageUrl)} 
-                              alt={local.localName} 
-                              className="w-full h-full object-cover transition-transform duration-200 hover:scale-110" 
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 dark:text-slate-500">
-                              <motion.div
-                                animate={{ rotate: [0, 10, -10, 0] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                              >
-                                🖼️
-                              </motion.div>
-                            </div>
-                          )}
-                        </motion.div>
-
-                        <div className="flex-1 min-w-0">
-                          <motion.h3 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="font-semibold text-slate-900 dark:text-white truncate"
-                          >
-                            {local.localName}
-                          </motion.h3>
-                          <motion.p 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.1 }}
-                            className="text-xs text-slate-500 dark:text-slate-400 mt-1"
-                          >
-                            {local.localType} • {local.city} - {local.state} • {local.country}
-                          </motion.p>
-                          <div className="flex items-center gap-4 mt-2 text-xs">
-                            <motion.div
-                              whileHover={{ scale: 1.05 }}
-                              className={`px-2 py-1 rounded-full font-medium uppercase ${
-                                local.status === 'ativo' 
-                                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
-                                  : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                              }`}
-                            >
-                              {local.status}
-                            </motion.div>
-                            <span className="text-slate-500 dark:text-slate-400">
-                              👁️ {local.estatisticas?.impressoes ?? 0} • 👆 {local.estatisticas?.cliques ?? 0}
-                            </span>
-                          </div>
-                        </div>
+                    <div className="local-image">
+                      {local.imageUrl ? (
+                        <img 
+                          src={buildImageUrl(local.imageUrl)} 
+                          alt={sanitizeForDisplay(local.localName)}
+                          onError={(e) => {
+                            e.target.style.display = 'none'
+                            e.target.nextSibling.style.display = 'flex'
+                          }}
+                        />
+                      ) : null}
+                      <div className="image-placeholder" style={{ display: local.imageUrl ? 'none' : 'flex' }}>
+                        <span>📷</span>
                       </div>
-
-                      <div className="flex flex-col gap-2">
-                        <motion.button 
-                          whileHover={{ scale: 1.05, backgroundColor: "rgb(59 130 246)" }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => openForEdit(local)} 
-                          className="px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium transition-all duration-200 hover:shadow-lg"
+                      
+                      <div className="local-status">
+                        <span className={`status-badge ${local.status}`}>
+                          {local.status === 'active' ? '✅ Ativo' : '⏸️ Inativo'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="local-info">
+                      <h3>{sanitizeForDisplay(local.localName)}</h3>
+                      <p className="local-description">{sanitizeForDisplay(local.localDescricao)}</p>
+                      
+                      <div className="local-details">
+                        <div className="detail-item">
+                          <span className="detail-label">Tipo:</span>
+                          <span className="detail-value">{sanitizeForDisplay(local.localType)}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-label">Local:</span>
+                          <span className="detail-value">
+                            {sanitizeForDisplay(local.city)}, {sanitizeForDisplay(local.state)}, {sanitizeForDisplay(local.country)}
+                          </span>
+                        </div>
+                        {local.estatisticas && (
+                          <div className="local-stats">
+                            <div className="stat">
+                              <span className="stat-number">{local.estatisticas.impressoes || 0}</span>
+                              <span className="stat-label">Visualizações</span>
+                            </div>
+                            <div className="stat">
+                              <span className="stat-number">{local.estatisticas.cliques || 0}</span>
+                              <span className="stat-label">Cliques</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="local-actions">
+                        <button 
+                          className="action-btn edit-btn"
+                          onClick={() => openForEdit(local)}
+                          title="Editar local"
                         >
                           ✏️ Editar
-                        </motion.button>
-                        <motion.button 
-                          whileHover={{ scale: 1.05, backgroundColor: "rgb(239 68 68)" }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleDeletarLocal(local.localId)} 
-                          className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium transition-all duration-200 hover:shadow-lg"
+                        </button>
+                        <button 
+                          className="action-btn delete-btn"
+                          onClick={() => handleDeletarLocal(local.localId)}
+                          title="Deletar local"
                         >
                           🗑️ Deletar
-                        </motion.button>
+                        </button>
+                        {local.link && (
+                          <a 
+                            href={local.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="action-btn link-btn"
+                            title="Visitar site"
+                          >
+                            🔗 Visitar
+                          </a>
+                        )}
                       </div>
                     </div>
                   </motion.div>
                 ))}
               </AnimatePresence>
             </div>
+          )}
+        </div>
+
+        {/* Coluna 2: Formulário */}
+        <div className="locais-column form-column">
+          <div className="form-header">
+            <h2>{editing ? 'Editar Local' : 'Adicionar Novo Local'}</h2>
+            {editing && (
+              <button 
+                className="cancel-edit-btn"
+                onClick={resetForm}
+                title="Cancelar edição"
+              >
+                ✖️ Cancelar
+              </button>
+            )}
           </div>
-        </motion.section>
+
+          {/* NOVO: Indicador de fluxo de pagamento/token */}
+          {!editing && (
+            <motion.div 
+              className="payment-flow-indicator"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              {tokensDisponiveis > 0 ? (
+                <div className="flow-indicator success">
+                  <span className="flow-icon">🎫</span>
+                  <div className="flow-text">
+                    <strong>Criação Gratuita</strong>
+                    <p>Você tem {tokensDisponiveis} token(s) disponível(is)</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flow-indicator payment">
+                  <span className="flow-icon">💳</span>
+                  <div className="flow-text">
+                    <strong>Pagamento Necessário</strong>
+                    <p>Você será redirecionado para o pagamento</p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          <form onSubmit={submitLocal} className="local-form">
+            {error && (
+              <motion.div 
+                className="form-error"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {error}
+              </motion.div>
+            )}
+
+            <div className="form-group">
+              <label htmlFor="localName">Nome do Local *</label>
+              <input
+                id="localName"
+                type="text"
+                value={form.localName}
+                onChange={(e) => handleChange('localName', e.target.value)}
+                placeholder="Ex: Academia Central"
+                className={fieldErrors.localName ? 'error' : ''}
+              />
+              {fieldErrors.localName && (
+                <span className="field-error">{fieldErrors.localName}</span>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="localDescricao">Descrição *</label>
+              <textarea
+                id="localDescricao"
+                value={form.localDescricao}
+                onChange={(e) => handleChange('localDescricao', e.target.value)}
+                placeholder="Descreva seu local..."
+                rows="3"
+                className={fieldErrors.localDescricao ? 'error' : ''}
+              />
+              {fieldErrors.localDescricao && (
+                <span className="field-error">{fieldErrors.localDescricao}</span>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="link">Link do Site *</label>
+              <input
+                id="link"
+                type="url"
+                value={form.link}
+                onChange={(e) => handleChange('link', e.target.value)}
+                placeholder="https://seusite.com"
+                className={fieldErrors.link ? 'error' : ''}
+              />
+              {fieldErrors.link && (
+                <span className="field-error">{fieldErrors.link}</span>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="localType">Tipo do Local *</label>
+              <select
+                id="localType"
+                value={form.localType}
+                onChange={(e) => handleChange('localType', e.target.value)}
+                className={fieldErrors.localType ? 'error' : ''}
+              >
+                <option value="academia">Academia</option>
+                <option value="clinica-de-fisioterapia">Clínica de Fisioterapia</option>
+                <option value="consultorio-de-nutricionista">Consultório de Nutricionista</option>
+                <option value="loja">Loja</option>
+                <option value="outros">Outros</option>
+              </select>
+              {fieldErrors.localType && (
+                <span className="field-error">{fieldErrors.localType}</span>
+              )}
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="country">País *</label>
+                <select
+                  id="country"
+                  value={form.country}
+                  onChange={(e) => handleChange('country', e.target.value)}
+                  className={fieldErrors.country ? 'error' : ''}
+                >
+                  <option value="">Selecione o país</option>
+                  {countries.map(country => (
+                    <option key={country.code} value={country.name}>
+                      {country.name}
+                    </option>
+                  ))}
+                </select>
+                {fieldErrors.country && (
+                  <span className="field-error">{fieldErrors.country}</span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="state">Estado *</label>
+                <select
+                  id="state"
+                  value={form.state}
+                  onChange={(e) => handleChange('state', e.target.value)}
+                  disabled={!form.country}
+                  className={fieldErrors.state ? 'error' : ''}
+                >
+                  <option value="">Selecione o estado</option>
+                  {states.map(state => (
+                    <option key={state} value={state}>{state}</option>
+                  ))}
+                </select>
+                {fieldErrors.state && (
+                  <span className="field-error">{fieldErrors.state}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="city">Cidade *</label>
+              <select
+                id="city"
+                value={form.city}
+                onChange={(e) => handleChange('city', e.target.value)}
+                disabled={!form.state}
+                className={fieldErrors.city ? 'error' : ''}
+              >
+                <option value="">Selecione a cidade</option>
+                {cities.map(city => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
+              {fieldErrors.city && (
+                <span className="field-error">{fieldErrors.city}</span>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="image">Imagem *</label>
+              
+              {editing && form.image && typeof form.image === 'string' && (
+                <div className="current-image-section">
+                  <p>Imagem atual:</p>
+                  <div className="current-image-preview">
+                    <img src={buildImageUrl(form.image)} alt="Imagem atual" />
+                  </div>
+                  <label className="replace-image-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={replaceImage}
+                      onChange={(e) => setReplaceImage(e.target.checked)}
+                    />
+                    Substituir imagem
+                  </label>
+                </div>
+              )}
+
+              {(!editing || replaceImage || !form.image) && (
+                <div className="image-upload-section">
+                  <input
+                    ref={fileInputRef}
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFile(e.target.files[0])}
+                    className={fieldErrors.image ? 'error' : ''}
+                  />
+                  
+                  {imagePreview && (
+                    <div className="image-preview">
+                      <img src={imagePreview} alt="Preview" />
+                      <button
+                        type="button"
+                        className="remove-image-btn"
+                        onClick={() => {
+                          handleFile(null)
+                          if (fileInputRef.current) fileInputRef.current.value = ''
+                        }}
+                      >
+                        ✖️
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {fieldErrors.image && (
+                <span className="field-error">{fieldErrors.image}</span>
+              )}
+            </div>
+
+            {editing && (
+              <div className="form-group">
+                <label className="save-as-new-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={saveAsNew}
+                    onChange={(e) => setSaveAsNew(e.target.checked)}
+                  />
+                  Salvar como novo local (não sobrescrever o original)
+                </label>
+              </div>
+            )}
+
+            <div className="form-actions">
+              <button
+                type="submit"
+                disabled={!isFormValid || submitting}
+                className={`submit-btn ${!isFormValid ? 'disabled' : ''} ${submitting ? 'loading' : ''}`}
+              >
+                {submitting ? (
+                  <>
+                    <div className="btn-spinner"></div>
+                    Processando...
+                  </>
+                ) : editing ? (
+                  saveAsNew ? 'Criar Novo Local' : 'Atualizar Local'
+                ) : tokensDisponiveis > 0 ? (
+                  '🎫 Criar com Token'
+                ) : (
+                  '💳 Pagar e Criar'
+                )}
+              </button>
+              
+              {editing && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="cancel-btn"
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
       </div>
+
+      <style jsx>{`
+        .locais-container {
+          padding: 20px;
+          max-width: 1400px;
+          margin: 0 auto;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .locais-header {
+          margin-bottom: 30px;
+        }
+
+        .locais-header h1 {
+          font-size: 2.5rem;
+          font-weight: 700;
+          margin-bottom: 20px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .tokens-info-panel {
+          background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+          border-radius: 16px;
+          padding: 20px;
+          color: white;
+          box-shadow: 0 8px 32px rgba(240, 147, 251, 0.3);
+        }
+
+        .tokens-display {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .tokens-count {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .tokens-icon {
+          font-size: 2rem;
+        }
+
+        .tokens-number {
+          font-size: 2.5rem;
+          font-weight: 700;
+        }
+
+        .tokens-label {
+          font-size: 1.1rem;
+          opacity: 0.9;
+        }
+
+        .tokens-info-btn {
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          border-radius: 50%;
+          width: 40px;
+          height: 40px;
+          cursor: pointer;
+          font-size: 1.2rem;
+          transition: all 0.2s ease;
+        }
+
+        .tokens-info-btn:hover {
+          background: rgba(255, 255, 255, 0.3);
+          transform: scale(1.1);
+        }
+
+        .tokens-explanation {
+          margin-top: 15px;
+          padding-top: 15px;
+          border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .tokens-explanation ul {
+          margin: 10px 0 0 0;
+          padding: 0;
+          list-style: none;
+        }
+
+        .tokens-explanation li {
+          margin: 5px 0;
+          opacity: 0.9;
+        }
+
+        .locais-content {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 40px;
+        }
+
+        .locais-column h2 {
+          font-size: 1.8rem;
+          font-weight: 600;
+          margin-bottom: 20px;
+          color: #333;
+        }
+
+        .dark-theme .locais-column h2 {
+          color: #fff;
+        }
+
+        .loading-state, .error-state, .empty-state {
+          text-align: center;
+          padding: 60px 20px;
+          border-radius: 12px;
+          background: #f8f9fa;
+        }
+
+        .dark-theme .loading-state,
+        .dark-theme .error-state,
+        .dark-theme .empty-state {
+          background: #2d3748;
+          color: #fff;
+        }
+
+        .spinner {
+          width: 40px;
+          height: 40px;
+          border: 4px solid #e2e8f0;
+          border-top: 4px solid #667eea;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        .empty-icon {
+          font-size: 4rem;
+          margin-bottom: 20px;
+        }
+
+        .locais-grid {
+          display: grid;
+          gap: 20px;
+        }
+
+        .local-card {
+          background: white;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          transition: all 0.3s ease;
+          border: 1px solid #e2e8f0;
+        }
+
+        .dark-theme .local-card {
+          background: #2d3748;
+          border-color: #4a5568;
+        }
+
+        .local-image {
+          position: relative;
+          height: 200px;
+          overflow: hidden;
+        }
+
+        .local-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .image-placeholder {
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e0 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 3rem;
+          color: #a0aec0;
+        }
+
+        .local-status {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+        }
+
+        .status-badge {
+          background: rgba(0, 0, 0, 0.7);
+          color: white;
+          padding: 6px 12px;
+          border-radius: 20px;
+          font-size: 0.85rem;
+          font-weight: 500;
+        }
+
+        .status-badge.active {
+          background: rgba(34, 197, 94, 0.9);
+        }
+
+        .local-info {
+          padding: 20px;
+        }
+
+        .local-info h3 {
+          font-size: 1.3rem;
+          font-weight: 600;
+          margin-bottom: 8px;
+          color: #1a202c;
+        }
+
+        .dark-theme .local-info h3 {
+          color: #fff;
+        }
+
+        .local-description {
+          color: #718096;
+          margin-bottom: 15px;
+          line-height: 1.5;
+        }
+
+        .local-details {
+          margin-bottom: 20px;
+        }
+
+        .detail-item {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 8px;
+          font-size: 0.9rem;
+        }
+
+        .detail-label {
+          font-weight: 500;
+          color: #4a5568;
+        }
+
+        .dark-theme .detail-label {
+          color: #a0aec0;
+        }
+
+        .detail-value {
+          color: #2d3748;
+        }
+
+        .dark-theme .detail-value {
+          color: #e2e8f0;
+        }
+
+        .local-stats {
+          display: flex;
+          gap: 20px;
+          margin-top: 15px;
+          padding-top: 15px;
+          border-top: 1px solid #e2e8f0;
+        }
+
+        .dark-theme .local-stats {
+          border-top-color: #4a5568;
+        }
+
+        .stat {
+          text-align: center;
+        }
+
+        .stat-number {
+          display: block;
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: #667eea;
+        }
+
+        .stat-label {
+          font-size: 0.8rem;
+          color: #718096;
+        }
+
+        .local-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .action-btn {
+          padding: 8px 16px;
+          border: none;
+          border-radius: 8px;
+          font-size: 0.85rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .edit-btn {
+          background: #3182ce;
+          color: white;
+        }
+
+        .edit-btn:hover {
+          background: #2c5aa0;
+          transform: translateY(-1px);
+        }
+
+        .delete-btn {
+          background: #e53e3e;
+          color: white;
+        }
+
+        .delete-btn:hover {
+          background: #c53030;
+          transform: translateY(-1px);
+        }
+
+        .link-btn {
+          background: #38a169;
+          color: white;
+        }
+
+        .link-btn:hover {
+          background: #2f855a;
+          transform: translateY(-1px);
+        }
+
+        .form-column {
+          background: white;
+          border-radius: 16px;
+          padding: 30px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          height: fit-content;
+          border: 1px solid #e2e8f0;
+        }
+
+        .dark-theme .form-column {
+          background: #2d3748;
+          border-color: #4a5568;
+        }
+
+        .form-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 25px;
+        }
+
+        .cancel-edit-btn {
+          background: #e2e8f0;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 0.9rem;
+          transition: all 0.2s ease;
+        }
+
+        .cancel-edit-btn:hover {
+          background: #cbd5e0;
+        }
+
+        .payment-flow-indicator {
+          margin-bottom: 25px;
+          padding: 20px;
+          border-radius: 12px;
+          border: 2px solid;
+        }
+
+        .flow-indicator.success {
+          background: #f0fff4;
+          border-color: #38a169;
+        }
+
+        .flow-indicator.payment {
+          background: #fffaf0;
+          border-color: #ed8936;
+        }
+
+        .flow-indicator {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+        }
+
+        .flow-icon {
+          font-size: 2rem;
+        }
+
+        .flow-text strong {
+          display: block;
+          font-size: 1.1rem;
+          margin-bottom: 4px;
+        }
+
+        .flow-text p {
+          margin: 0;
+          color: #718096;
+          font-size: 0.9rem;
+        }
+
+        .local-form {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .form-error {
+          background: #fed7d7;
+          color: #c53030;
+          padding: 12px 16px;
+          border-radius: 8px;
+          border: 1px solid #feb2b2;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 15px;
+        }
+
+        .form-group label {
+          font-weight: 500;
+          color: #2d3748;
+          font-size: 0.95rem;
+        }
+
+        .dark-theme .form-group label {
+          color: #e2e8f0;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+          padding: 12px 16px;
+          border: 2px solid #e2e8f0;
+          border-radius: 8px;
+          font-size: 1rem;
+          transition: all 0.2s ease;
+          background: white;
+        }
+
+        .dark-theme .form-group input,
+        .dark-theme .form-group select,
+        .dark-theme .form-group textarea {
+          background: #4a5568;
+          border-color: #718096;
+          color: #fff;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+          outline: none;
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group input.error,
+        .form-group select.error,
+        .form-group textarea.error {
+          border-color: #e53e3e;
+        }
+
+        .field-error {
+          color: #e53e3e;
+          font-size: 0.85rem;
+          font-weight: 500;
+        }
+
+        .current-image-section {
+          margin-bottom: 15px;
+        }
+
+        .current-image-preview {
+          width: 100px;
+          height: 100px;
+          border-radius: 8px;
+          overflow: hidden;
+          margin: 10px 0;
+        }
+
+        .current-image-preview img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .replace-image-checkbox,
+        .save-as-new-checkbox {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.9rem;
+          cursor: pointer;
+        }
+
+        .image-upload-section input[type="file"] {
+          padding: 8px;
+        }
+
+        .image-preview {
+          position: relative;
+          width: 150px;
+          height: 150px;
+          margin-top: 10px;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .image-preview img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .remove-image-btn {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          background: rgba(0, 0, 0, 0.7);
+          color: white;
+          border: none;
+          border-radius: 50%;
+          width: 30px;
+          height: 30px;
+          cursor: pointer;
+          font-size: 0.8rem;
+        }
+
+        .form-actions {
+          display: flex;
+          gap: 12px;
+          margin-top: 10px;
+        }
+
+        .submit-btn {
+          flex: 1;
+          padding: 14px 24px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 1rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .submit-btn:hover:not(.disabled):not(.loading) {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn.disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .submit-btn.loading {
+          opacity: 0.8;
+          cursor: wait;
+        }
+
+        .btn-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top: 2px solid white;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        .cancel-btn {
+          padding: 14px 24px;
+          background: #e2e8f0;
+          color: #4a5568;
+          border: none;
+          border-radius: 8px;
+          font-size: 1rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .cancel-btn:hover {
+          background: #cbd5e0;
+        }
+
+        .retry-btn {
+          background: #3182ce;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 500;
+          margin-top: 15px;
+        }
+
+        .retry-btn:hover {
+          background: #2c5aa0;
+        }
+
+        /* Responsividade */
+        @media (max-width: 1024px) {
+          .locais-content {
+            grid-template-columns: 1fr;
+            gap: 30px;
+          }
+          
+          .form-row {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .locais-container {
+            padding: 15px;
+          }
+          
+          .locais-header h1 {
+            font-size: 2rem;
+          }
+          
+          .tokens-display {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+          }
+          
+          .form-column {
+            padding: 20px;
+          }
+          
+          .form-actions {
+            flex-direction: column;
+          }
+        }
+      `}</style>
     </div>
   )
 }
