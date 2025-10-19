@@ -48,7 +48,8 @@ const criarLocalComToken = async (req, res) => {
       token, 
       localName, 
       localDescricao, 
-      link, 
+      link,
+      localType,
       country, 
       countryCode, 
       state, 
@@ -87,6 +88,15 @@ const criarLocalComToken = async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: 'Link deve ser uma URL válida' 
+      });
+    }
+
+    // Validar localType
+    const tiposPermitidos = ['clinica-de-fisioterapia', 'academia', 'consultorio-de-nutricionista', 'loja', 'outros'];
+    if (!localType || !tiposPermitidos.includes(localType)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Tipo de local é obrigatório e deve ser um dos tipos permitidos' 
       });
     }
 
@@ -220,7 +230,7 @@ const criarLocalComToken = async (req, res) => {
       localName: sanitizedData.localName,
       localDescricao: sanitizedData.localDescricao,
       link: sanitizedData.link,
-      localType: validToken.localType,
+      localType: localType || validToken.localType,
       imageUrl,
       country: sanitizedData.country || null,
       countryCode: countryCode?.trim() || null,

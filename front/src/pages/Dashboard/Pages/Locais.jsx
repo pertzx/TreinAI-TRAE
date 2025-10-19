@@ -4,10 +4,10 @@ import locationsRaw from '../../../data/locations.json'
 import { buildImageUrl } from '../../../utils/imageUtils'
 import { getBrazilDate } from '../../../../helpers/getBrazilDate'
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  sanitizeLocalData, 
-  validateLocalData, 
-  validateImageFile, 
+import {
+  sanitizeLocalData,
+  validateLocalData,
+  validateImageFile,
   createRequestTimeout,
   sanitizeForDisplay,
   validateUserId,
@@ -105,7 +105,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
   // NOVO: Função para verificar tokens disponíveis
   const verificarTokensDisponiveis = async () => {
     const userId = user?._id || user?.id
-    
+
     if (!validateUserId(userId) || useMock) {
       setTokensDisponiveis(useMock ? 3 : 0) // Mock: 3 tokens disponíveis
       return
@@ -132,7 +132,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
   // NOVO: Função para criar sessão de pagamento simplificada
   const criarSessaoPagamento = async (formData) => {
     const userId = user?._id || user?.id
-    
+
     // Verificar rate limiting para pagamentos
     if (!paymentRateLimit.isAllowed(userId)) {
       throw new Error('Muitas tentativas de pagamento. Aguarde alguns minutos.')
@@ -146,13 +146,13 @@ const Locais = ({ user = {}, tema = 'light' }) => {
           'Content-Type': 'multipart/form-data'
         }
       })
-      
+
       if (response.data && response.data.url) {
         // Redireciona para o Stripe Checkout
         window.location.href = response.data.url
         return true
       }
-      
+
       throw new Error('URL de pagamento não recebida')
     } catch (err) {
       console.error('Erro ao criar sessão de pagamento:', err)
@@ -173,11 +173,11 @@ const Locais = ({ user = {}, tema = 'light' }) => {
           'Content-Type': 'multipart/form-data'
         }
       })
-      
+
       if (response.data && response.data.success) {
         return response.data.local
       }
-      
+
       throw new Error(response.data?.message || 'Erro ao criar local com token')
     } catch (err) {
       console.error('Erro ao criar local com token:', err)
@@ -489,7 +489,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
       fd.append('localName', sanitizedData.localName || form.localName)
       fd.append('localDescricao', sanitizedData.localDescricao || form.localDescricao)
       fd.append('link', sanitizedData.link || form.link)
-      fd.append('tipo', sanitizedData.localType || form.localType)
+      fd.append('localType', sanitizedData.localType || form.localType)
       fd.append('country', sanitizedData.country || form.country)
       fd.append('countryCode', form.countryCode)
       fd.append('state', sanitizedData.state || form.state)
@@ -539,30 +539,33 @@ const Locais = ({ user = {}, tema = 'light' }) => {
         if (!isOverwrite) {
           // Atualizar tokens disponíveis
           await verificarTokensDisponiveis()
-          
+
           if (tokensDisponiveis > 0) {
             // Usar token para criar local diretamente
             try {
               const novoLocal = await criarLocalComToken(fd)
               console.log('Local criado com token:', novoLocal)
-              
+
               // Atualizar tokens disponíveis após uso
               await verificarTokensDisponiveis()
-              
+
               resetForm()
               fetchMeusLocais()
-              
+
               // Mostrar feedback de sucesso
               setError(null)
               // Você pode adicionar uma notificação de sucesso aqui
-              
+
             } catch (tokenErr) {
               console.error('Erro ao criar local com token:', tokenErr)
               setError(tokenErr.message || 'Erro ao criar local com token. Tentando pagamento...')
-              
+
               // Fallback para pagamento se falhar com token
               try {
-                console.log(fd);
+                // Exibe o conteúdo do FormData de forma legível
+                for (let pair of fd.entries()) {
+                  console.log(`${pair[0]}:`, pair[1])
+                }
                 await criarSessaoPagamento(fd)
               } catch (paymentErr) {
                 setError('Erro ao processar pagamento. Tente novamente.')
@@ -571,7 +574,10 @@ const Locais = ({ user = {}, tema = 'light' }) => {
           } else {
             // Sem tokens: criar sessão de pagamento
             try {
-              console.log(fd);
+              // Exibe o conteúdo do FormData de forma legível
+              for (let pair of fd.entries()) {
+                console.log(`${pair[0]}:`, pair[1])
+              }
               await criarSessaoPagamento(fd)
             } catch (paymentErr) {
               setError('Erro ao processar pagamento. Tente novamente.')
@@ -597,9 +603,9 @@ const Locais = ({ user = {}, tema = 'light' }) => {
     <div className={`locais-container ${tema === 'dark' ? 'dark-theme' : 'light-theme'}`}>
       <div className="locais-header">
         <h1>Gerenciar Locais</h1>
-        
+
         {/* NOVO: Painel de informações de tokens */}
-        <motion.div 
+        <motion.div
           className="tokens-info-panel"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -613,8 +619,8 @@ const Locais = ({ user = {}, tema = 'light' }) => {
               </span>
               <span className="tokens-label">Tokens Disponíveis</span>
             </div>
-            
-            <button 
+
+            <button
               className="tokens-info-btn"
               onClick={() => setShowTokenInfo(!showTokenInfo)}
               title="Informações sobre tokens"
@@ -622,10 +628,10 @@ const Locais = ({ user = {}, tema = 'light' }) => {
               ℹ️
             </button>
           </div>
-          
+
           <AnimatePresence>
             {showTokenInfo && (
-              <motion.div 
+              <motion.div
                 className="tokens-explanation"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -651,7 +657,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
         {/* Coluna 1: Meus Locais */}
         <div className="locais-column meus-locais">
           <h2>Meus Locais</h2>
-          
+
           {loading ? (
             <div className="loading-state">
               <div className="spinner"></div>
@@ -685,8 +691,8 @@ const Locais = ({ user = {}, tema = 'light' }) => {
                   >
                     <div className="local-image">
                       {local.imageUrl ? (
-                        <img 
-                          src={buildImageUrl(local.imageUrl)} 
+                        <img
+                          src={buildImageUrl(local.imageUrl)}
                           alt={sanitizeForDisplay(local.localName)}
                           onError={(e) => {
                             e.target.style.display = 'none'
@@ -697,18 +703,18 @@ const Locais = ({ user = {}, tema = 'light' }) => {
                       <div className="image-placeholder" style={{ display: local.imageUrl ? 'none' : 'flex' }}>
                         <span>📷</span>
                       </div>
-                      
+
                       <div className="local-status">
                         <span className={`status-badge ${local.status}`}>
                           {local.status === 'active' ? '✅ Ativo' : '⏸️ Inativo'}
                         </span>
                       </div>
                     </div>
-                    
+
                     <div className="local-info">
                       <h3>{sanitizeForDisplay(local.localName)}</h3>
                       <p className="local-description">{sanitizeForDisplay(local.localDescricao)}</p>
-                      
+
                       <div className="local-details">
                         <div className="detail-item">
                           <span className="detail-label">Tipo:</span>
@@ -733,16 +739,16 @@ const Locais = ({ user = {}, tema = 'light' }) => {
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="local-actions">
-                        <button 
+                        <button
                           className="action-btn edit-btn"
                           onClick={() => openForEdit(local)}
                           title="Editar local"
                         >
                           ✏️ Editar
                         </button>
-                        <button 
+                        <button
                           className="action-btn delete-btn"
                           onClick={() => handleDeletarLocal(local.localId)}
                           title="Deletar local"
@@ -750,9 +756,9 @@ const Locais = ({ user = {}, tema = 'light' }) => {
                           🗑️ Deletar
                         </button>
                         {local.link && (
-                          <a 
-                            href={local.link} 
-                            target="_blank" 
+                          <a
+                            href={local.link}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="action-btn link-btn"
                             title="Visitar site"
@@ -774,7 +780,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
           <div className="form-header">
             <h2>{editing ? 'Editar Local' : 'Adicionar Novo Local'}</h2>
             {editing && (
-              <button 
+              <button
                 className="cancel-edit-btn"
                 onClick={resetForm}
                 title="Cancelar edição"
@@ -786,7 +792,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
 
           {/* NOVO: Indicador de fluxo de pagamento/token */}
           {!editing && (
-            <motion.div 
+            <motion.div
               className="payment-flow-indicator"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -814,7 +820,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
 
           <form onSubmit={submitLocal} className="local-form">
             {error && (
-              <motion.div 
+              <motion.div
                 className="form-error"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -950,7 +956,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
 
             <div className="form-group">
               <label htmlFor="image">Imagem *</label>
-              
+
               {editing && form.image && typeof form.image === 'string' && (
                 <div className="current-image-section">
                   <p>Imagem atual:</p>
@@ -978,7 +984,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
                     onChange={(e) => handleFile(e.target.files[0])}
                     className={fieldErrors.image ? 'error' : ''}
                   />
-                  
+
                   {imagePreview && (
                     <div className="image-preview">
                       <img src={imagePreview} alt="Preview" />
@@ -996,7 +1002,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
                   )}
                 </div>
               )}
-              
+
               {fieldErrors.image && (
                 <span className="field-error">{fieldErrors.image}</span>
               )}
@@ -1034,7 +1040,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
                   '💳 Pagar e Criar'
                 )}
               </button>
-              
+
               {editing && (
                 <button
                   type="button"

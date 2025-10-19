@@ -323,7 +323,7 @@ export const CriarAssinaturaProLocal = async (req, res) => {
     if (!unitPrice) {
       return res.status(400).json({ 
         success: false, 
-        msg: `Tipo de local inválido: ${tipo}. Tipos aceitos: ${Object.keys(priceMap).join(', ')}`,
+        msg: `Tipo de local inválido: ${localType}. Tipos aceitos: ${Object.keys(priceMap).join(', ')}`,
         code: 'INVALID_LOCAL_TYPE'
       });
     }
@@ -540,22 +540,22 @@ export const CriarAssinaturaProLocal = async (req, res) => {
 export const CriarSessaoPagamentoLocal = async (req, res) => {
   try {
     const {
-      tipo,
+      localType,
       userId,
       description = '',
       paymentMethod = 'card'
     } = req.body || {};
 
     // Validação robusta de entrada
-    if (!tipo || !userId) {
+    if (!localType || !userId) {
       return res.status(400).json({ 
         success: false, 
-        msg: 'tipo e userId são obrigatórios',
+        msg: 'localType e userId são obrigatórios',
         code: 'MISSING_REQUIRED_FIELDS'
       });
     }
 
-    const tipoNorm = String(tipo).trim().toLowerCase();
+    const tipoNorm = String(localType).trim().toLowerCase();
     const priceMap = {
       'clinica-de-fisioterapia': process.env.STRIPE_PRICEID_100,
       'consultorio-de-nutricionista': process.env.STRIPE_PRICEID_100,
