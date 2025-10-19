@@ -391,15 +391,29 @@ export const CriarAssinaturaProLocal = async (req, res) => {
 
     // Processar upload com validação melhorada
     let pendingUpload = null;
-    if (req.file && req.file.path) {
+    if (req.file) {
       try {
-        await ensureDir(TMP_DIR);
-        const origPath = req.file.path;
-        const filename = req.file.filename || path.basename(origPath);
-        const tmpPath = path.join(TMP_DIR, filename);
+        // Em ambiente serverless, o arquivo já está no Cloudinary
+        // req.file.path contém o path do Cloudinary (ex: 'treinai/images/filename.jpg')
+        const isServerless = !!(process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
         
-        // Mover arquivo para diretório temporário
-        await moveFile(origPath, tmpPath);
+        let filename, tmpPath;
+        
+        if (isServerless) {
+          // Em ambiente serverless, usar o path do Cloudinary diretamente
+          filename = req.file.filename || path.basename(req.file.path || req.file.originalname);
+          // Não precisamos mover arquivo em ambiente serverless
+          tmpPath = req.file.path; // Path do Cloudinary
+        } else {
+          // Em ambiente local, mover arquivo para diretório temporário
+          await ensureDir(TMP_DIR);
+          const origPath = req.file.path;
+          filename = req.file.filename || path.basename(origPath);
+          tmpPath = path.join(TMP_DIR, filename);
+          
+          // Mover arquivo para diretório temporário
+          await moveFile(origPath, tmpPath);
+        }
 
         pendingUpload = await PendingUpload.create({
           filename,
@@ -425,8 +439,9 @@ export const CriarAssinaturaProLocal = async (req, res) => {
       } catch (err) {
         console.error('CriarAssinaturaProLocal: falha ao processar upload:', err);
         
-        // Limpar arquivo em caso de erro
-        if (req.file?.path) {
+        // Limpar arquivo em caso de erro apenas em ambiente local
+        const isServerless = !!(process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
+        if (!isServerless && req.file?.path) {
           await unlinkIfExists(req.file.path);
         }
         
@@ -1030,19 +1045,29 @@ export const StripeWebhook = async (req, res) => {
             if (!pending) {
               log('invoice.paid: pendingUploadId informado, mas não encontrado:', pendingUploadId);
             } else {
-              // mover arquivo tmp -> final
-              const src = path.join(TMP_DIR, pending.filename);
-              const dest = path.join(FINAL_DIR, pending.filename);
-              try {
-                await ensureDir(FINAL_DIR);
-                await moveFile(src, dest);
-              } catch (e) {
-                console.error('invoice.paid: falha ao mover arquivo tmp->final:', e?.message || e);
-                // mesmo se mover falhar, podemos tentar criar local com imageUrl null ou registrar para revisão
+              // Detectar ambiente serverless
+              const isServerless = !!(process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
+              
+              let imageUrl;
+              
+              if (isServerless) {
+                // Em ambiente serverless, usar o path do Cloudinary diretamente
+                imageUrl = pending.filename ? pending.filename : null;
+              } else {
+                // Em ambiente local, mover arquivo tmp -> final
+                const src = path.join(TMP_DIR, pending.filename);
+                const dest = path.join(FINAL_DIR, pending.filename);
+                try {
+                  await ensureDir(FINAL_DIR);
+                  await moveFile(src, dest);
+                } catch (e) {
+                  console.error('invoice.paid: falha ao mover arquivo tmp->final:', e?.message || e);
+                  // mesmo se mover falhar, podemos tentar criar local com imageUrl null ou registrar para revisão
+                }
+                
+                // montar imageUrl apenas com path relativo
+                imageUrl = pending.filename ? `/uploads/image-local/${pending.filename}` : null;
               }
-
-              // montar imageUrl apenas com path relativo
-              const imageUrl = pending.filename ? `/uploads/image-local/${pending.filename}` : null;
 
               // checar duplicidade (por userId+localName+localType)
               let exists = null;
