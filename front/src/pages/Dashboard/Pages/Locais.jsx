@@ -130,7 +130,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
   }
 
   // NOVO: Função para criar sessão de pagamento simplificada
-  const criarSessaoPagamento = async (dadosLocal) => {
+  const criarSessaoPagamento = async (formData) => {
     const userId = user?._id || user?.id
     
     // Verificar rate limiting para pagamentos
@@ -140,8 +140,11 @@ const Locais = ({ user = {}, tema = 'light' }) => {
 
     try {
       const controller = createRequestTimeout(15000) // 15s timeout
-      const response = await api.post('/criar-sessao-pagamento-local', dadosLocal, {
-        signal: controller.signal
+      const response = await api.post('/criar-sessao-pagamento-local', formData, {
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       })
       
       if (response.data && response.data.url) {
@@ -161,11 +164,14 @@ const Locais = ({ user = {}, tema = 'light' }) => {
   }
 
   // NOVO: Função para criar local com token
-  const criarLocalComToken = async (dadosLocal) => {
+  const criarLocalComToken = async (formData) => {
     try {
       const controller = createRequestTimeout(15000) // 15s timeout
-      const response = await api.post('/criar-local-com-token', dadosLocal, {
-        signal: controller.signal
+      const response = await api.post('/criar-local-com-token', formData, {
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       })
       
       if (response.data && response.data.success) {
@@ -556,6 +562,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
               
               // Fallback para pagamento se falhar com token
               try {
+                console.log(fd);
                 await criarSessaoPagamento(fd)
               } catch (paymentErr) {
                 setError('Erro ao processar pagamento. Tente novamente.')
@@ -564,6 +571,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
           } else {
             // Sem tokens: criar sessão de pagamento
             try {
+              console.log(fd);
               await criarSessaoPagamento(fd)
             } catch (paymentErr) {
               setError('Erro ao processar pagamento. Tente novamente.')
