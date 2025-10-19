@@ -1,6 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import crypto from 'crypto';
+import fs from 'fs';
 
 /**
  * Formatos modernos e seguros suportados
@@ -136,12 +137,12 @@ export const cleanupOnError = (req, res, next) => {
   
   const cleanup = () => {
     if (req.file?.path) {
-      ('fs').unlink(req.file.path, () => {});
+      fs.unlink(req.file.path, () => {});
     }
     if (req.files) {
       Object.values(req.files).flat().forEach(file => {
         if (file.path) {
-          require('fs').unlink(file.path, () => {});
+          fs.unlink(file.path, () => {});
         }
       });
     }
