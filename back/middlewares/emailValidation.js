@@ -1,4 +1,4 @@
-import emailValidator from 'email-validator';
+import nativeEmailValidator from '../utils/nativeEmailValidation.js';
 import dns from 'dns';
 import { promisify } from 'util';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
@@ -98,7 +98,7 @@ export const validateEmailReal = async (req, res, next) => {
     }
 
     // 1. Validação básica de formato
-    if (!emailValidator.validate(email)) {
+    if (!nativeEmailValidator.validate(email)) {
       // Log removido para evitar exposição de emails nos logs
       return res.status(400).json({
         message: 'Formato de email inválido',
@@ -213,7 +213,7 @@ export const validateEmailBasic = (req, res, next) => {
       });
     }
 
-    if (!emailValidator.validate(email)) {
+    if (!nativeEmailValidator.validate(email)) {
       // Log removido para evitar exposição de emails nos logs
       
       return res.status(400).json({

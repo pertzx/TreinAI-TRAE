@@ -4,7 +4,7 @@ import User from '../models/User.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinaryConfig.js';
 import path from 'path';
 import fs from 'fs/promises';
-import validator from 'validator';
+import nativeValidator from '../utils/nativeValidation.js';
 import xss from 'xss';
 import rateLimit from 'express-rate-limit';
 
@@ -61,7 +61,7 @@ const criarLocalComToken = async (req, res) => {
     console.log(`[AUDIT] Token creation attempt - IP: ${req.ip}, User-Agent: ${req.get('User-Agent')}, Token: ${token?.substring(0, 8)}...`);
 
     // Validações de segurança aprimoradas
-    if (!token || !validator.isUUID(token)) {
+    if (!token || !nativeValidator.isUUID(token)) {
       console.log(`[SECURITY] Invalid token format - IP: ${req.ip}`);
       return res.status(400).json({ 
         success: false, 
@@ -69,21 +69,21 @@ const criarLocalComToken = async (req, res) => {
       });
     }
 
-    if (!localName || !validator.isLength(localName.trim(), { min: 2, max: 100 })) {
+    if (!localName || !nativeValidator.isLength(localName.trim(), { min: 2, max: 100 })) {
       return res.status(400).json({ 
         success: false, 
         message: 'Nome do local deve ter entre 2 e 100 caracteres' 
       });
     }
 
-    if (localDescricao && !validator.isLength(localDescricao.trim(), { min: 0, max: 1000 })) {
+    if (localDescricao && !nativeValidator.isLength(localDescricao.trim(), { min: 0, max: 1000 })) {
       return res.status(400).json({ 
         success: false, 
         message: 'Descrição deve ter no máximo 1000 caracteres' 
       });
     }
 
-    if (link && !validator.isURL(link, { require_protocol: true })) {
+    if (link && !nativeValidator.isURL(link, { require_protocol: true })) {
       return res.status(400).json({ 
         success: false, 
         message: 'Link deve ser uma URL válida' 
@@ -94,7 +94,7 @@ const criarLocalComToken = async (req, res) => {
     const sanitizedData = {
       localName: xss(localName.trim()),
       localDescricao: localDescricao ? xss(localDescricao.trim()) : '',
-      link: link ? validator.escape(link.trim()) : '',
+      link: link ? nativeValidator.escape(link.trim()) : '',
       country: country ? xss(country.trim()) : '',
       state: state ? xss(state.trim()) : '',
       city: city ? xss(city.trim()) : ''
@@ -274,7 +274,7 @@ const verificarTokensDisponiveis = async (req, res) => {
     const { userId } = req.params;
 
     // Validação de entrada
-    if (!userId || !validator.isMongoId(userId)) {
+    if (!userId || !nativeValidator.isMongoId(userId)) {
       return res.status(400).json({ 
         success: false, 
         message: 'ID do usuário inválido' 

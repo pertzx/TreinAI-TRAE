@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import validator from 'validator';
+import nativeValidator from './nativeValidation.js';
 
 // Configuração do DOMPurify para sanitização segura
 const purifyConfig = {
@@ -74,7 +74,7 @@ export const validateLocalData = (formData) => {
   // Validação de link
   if (!formData.link || formData.link.trim().length === 0) {
     errors.link = 'Link é obrigatório';
-  } else if (!validator.isURL(formData.link, { 
+  } else if (!nativeValidator.isURL(formData.link, { 
     protocols: ['http', 'https'],
     require_protocol: true 
   })) {
@@ -186,7 +186,7 @@ export const validateUserId = (userId) => {
   if (!userId || typeof userId !== 'string') return false;
   
   // Verifica se é um ObjectId válido do MongoDB
-  return validator.isMongoId(userId);
+  return nativeValidator.isMongoId(userId);
 };
 
 /**

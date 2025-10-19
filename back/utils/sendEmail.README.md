@@ -30,7 +30,7 @@ EMAIL_PASS=sua-app-password-do-gmail
 ### Dependências Necessárias
 
 ```bash
-npm install nodemailer email-validator
+npm install nodemailer
 ```
 
 ## Uso Básico

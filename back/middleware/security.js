@@ -1,7 +1,7 @@
-const rateLimit = require('express-rate-limit');
-const helmet = require('helmet');
-const validator = require('validator');
-const xss = require('xss');
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import nativeValidator from '../utils/nativeValidation.js';
+import xss from 'xss';
 
 // Rate limiting para diferentes endpoints
 const createRateLimit = (windowMs, max, message) => {
@@ -44,37 +44,37 @@ const validateAndSanitize = {
     const { nome, descricao, endereco, cidade, estado, pais } = req.body;
     
     // Validações obrigatórias
-    if (!nome || !validator.isLength(nome.trim(), { min: 2, max: 100 })) {
+    if (!nome || !nativeValidator.isLength(nome.trim(), { min: 2, max: 100 })) {
       return res.status(400).json({ 
         error: 'Nome deve ter entre 2 e 100 caracteres' 
       });
     }
     
-    if (!descricao || !validator.isLength(descricao.trim(), { min: 10, max: 1000 })) {
+    if (!descricao || !nativeValidator.isLength(descricao.trim(), { min: 10, max: 1000 })) {
       return res.status(400).json({ 
         error: 'Descrição deve ter entre 10 e 1000 caracteres' 
       });
     }
     
-    if (!endereco || !validator.isLength(endereco.trim(), { min: 5, max: 200 })) {
+    if (!endereco || !nativeValidator.isLength(endereco.trim(), { min: 5, max: 200 })) {
       return res.status(400).json({ 
         error: 'Endereço deve ter entre 5 e 200 caracteres' 
       });
     }
     
-    if (!cidade || !validator.isLength(cidade.trim(), { min: 2, max: 100 })) {
+    if (!cidade || !nativeValidator.isLength(cidade.trim(), { min: 2, max: 100 })) {
       return res.status(400).json({ 
         error: 'Cidade deve ter entre 2 e 100 caracteres' 
       });
     }
     
-    if (!estado || !validator.isLength(estado.trim(), { min: 2, max: 100 })) {
+    if (!estado || !nativeValidator.isLength(estado.trim(), { min: 2, max: 100 })) {
       return res.status(400).json({ 
         error: 'Estado deve ter entre 2 e 100 caracteres' 
       });
     }
     
-    if (!pais || !validator.isLength(pais.trim(), { min: 2, max: 100 })) {
+    if (!pais || !nativeValidator.isLength(pais.trim(), { min: 2, max: 100 })) {
       return res.status(400).json({ 
         error: 'País deve ter entre 2 e 100 caracteres' 
       });
@@ -95,7 +95,7 @@ const validateAndSanitize = {
   token: (req, res, next) => {
     const { token } = req.body;
     
-    if (!token || !validator.isUUID(token)) {
+    if (!token || !nativeValidator.isUUID(token)) {
       return res.status(400).json({ 
         error: 'Token inválido' 
       });
@@ -108,7 +108,7 @@ const validateAndSanitize = {
   userId: (req, res, next) => {
     const userId = req.params.userId || req.body.userId;
     
-    if (!userId || !validator.isMongoId(userId)) {
+    if (!userId || !nativeValidator.isMongoId(userId)) {
       return res.status(400).json({ 
         error: 'ID de usuário inválido' 
       });
@@ -194,7 +194,7 @@ const helmetConfig = helmet({
   crossOriginEmbedderPolicy: false
 });
 
-module.exports = {
+export {
   tokenRateLimit,
   paymentRateLimit,
   generalRateLimit,

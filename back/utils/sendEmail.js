@@ -1,4 +1,4 @@
-import emailValidator from 'email-validator';
+import nativeEmailValidator from './nativeEmailValidation.js';
 import { createTransport } from 'nodemailer';
 import dotenv from 'dotenv';
 
@@ -76,7 +76,7 @@ const validateEmail = (email) => {
     }
 
     // Validar formato usando biblioteca confiável
-    if (!emailValidator.validate(sanitizedEmail)) {
+    if (!nativeEmailValidator.validate(sanitizedEmail)) {
         result.error = 'Formato de email inválido';
         return result;
     }

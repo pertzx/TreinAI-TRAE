@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import nativeCron from '../utils/nativeCron.js';
 import LocalToken from '../models/LocalToken.js';
 
 // Função para limpar tokens expirados
@@ -28,7 +28,7 @@ const cleanupExpiredTokens = async () => {
 // Configurar cron job para executar a cada 6 horas
 const startTokenCleanupJob = () => {
   // Executar a cada 6 horas (0 */6 * * *)
-  cron.schedule('0 */6 * * *', cleanupExpiredTokens, {
+  const job = nativeCron.schedule('0 */6 * * *', cleanupExpiredTokens, {
     scheduled: true,
     timezone: 'America/Sao_Paulo'
   });
@@ -37,6 +37,8 @@ const startTokenCleanupJob = () => {
   
   // Executar uma limpeza inicial após 1 minuto
   setTimeout(cleanupExpiredTokens, 60000);
+  
+  return job;
 };
 
 // Função para executar limpeza manual (útil para testes)
