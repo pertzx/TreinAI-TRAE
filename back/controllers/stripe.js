@@ -549,7 +549,8 @@ export const CriarSessaoPagamentoLocal = async (req, res) => {
     // Validação robusta de entrada
     if (!localType || !userId) {
       return res.status(400).json({ 
-        success: false, 
+        success: false,
+        body: req.body, 
         msg: 'localType e userId são obrigatórios',
         code: 'MISSING_REQUIRED_FIELDS'
       });
