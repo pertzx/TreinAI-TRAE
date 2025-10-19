@@ -183,16 +183,22 @@ export const editarLocal = async (req, res) => {
       local.location = undefined;
     }
 
-    if (req.file && req.file.filename) {
+    // Debug logs para upload de imagem
+    console.log('[LocalController] req.file:', req.file ? 'presente' : 'ausente');
+    console.log('[LocalController] local.imageUrl atual:', local.imageUrl);
+
+    if (req.file) {
       // apagar antiga se existir
       if (local.imageUrl) await tryDeleteOldImage(local.imageUrl);
       // Usar path do Cloudinary em produção ou URL local em desenvolvimento
       local.imageUrl = req.file.url || buildImageUrl(req, req.file.filename);
+      console.log('[LocalController] Nova imageUrl definida:', local.imageUrl);
     }
 
     local.atualizadoEm = new Date(getBrazilDate());
 
     const saved = await local.save();
+    console.log('[LocalController] Local salvo com imageUrl:', saved.imageUrl);
 
     return res.status(200).json({
       success: true,

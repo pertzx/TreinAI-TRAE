@@ -136,7 +136,7 @@ export const cleanupOnError = (req, res, next) => {
   
   const cleanup = () => {
     if (req.file?.path) {
-      require('fs').unlink(req.file.path, () => {});
+      ('fs').unlink(req.file.path, () => {});
     }
     if (req.files) {
       Object.values(req.files).flat().forEach(file => {
