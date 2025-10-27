@@ -144,15 +144,13 @@ const CriarLocal = ({ tema, user }) => {
         console.log(result);
         
         // Verificar se há URL de pagamento para redirecionamento
-        if (result.paymentUrl) {
+        if (result.payment?.url) {
           setLocalData(result.local);
-          setStep(2); // Ir para step de pagamento
           showSuccess('Local criado! Redirecionando para pagamento...');
           
-          // Aguardar um momento para mostrar a mensagem e depois redirecionar
-          setTimeout(() => {
-            window.location.href = result.paymentUrl;
-          }, 2000);
+          // Redirecionar imediatamente para o Stripe
+          window.location.href = result.payment.url;
+          return; // Evitar continuar a execução
         } else {
           // Fluxo antigo (sem pagamento)
           setLocalData(result.local);

@@ -106,7 +106,12 @@ const validate = (schema) => {
 
 // Sanitização de entrada
 const sanitizeInput = (req, res, next) => {
-    if (req && req.body) {
+    // Pular sanitização para webhook do Stripe (precisa manter raw body)
+    if (req.path === '/webhook' && req.headers['stripe-signature']) {
+        return next();
+    }
+    
+    if (req && req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
         for (const key in req.body) {
             if (typeof req.body[key] === 'string') {
                 console.log(req.body[key])
