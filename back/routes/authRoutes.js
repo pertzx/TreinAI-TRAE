@@ -248,7 +248,7 @@ router.post('/limpar-tokens-expirados',
   limparTokensExpirados
 ); // UTILITÁRIO ADMIN
 router.post('/editar-local', uploadSecurityHeaders, uploadImage.single('image'), editarLocal);
-router.get('/locais', getLocais);
+router.get('/locais', buscarLocais);
 router.post('/deletar-local', deletarLocal);
 
 // anuncios
@@ -291,7 +291,7 @@ router.post('/lgpd/excluir-conta', verificarToken, async (req, res) => {
 // =======================
 
 // Criar avaliação para um local
-router.post('/avaliar-local', verificarToken, validateAndSanitize, avaliarLocal);
+router.post('/avaliar-local', verificarToken, validateAndSanitize.localData, avaliarLocal);
 
 // Listar avaliações aceitas de um local (público)
 router.get('/avaliacoes-local/:localId', listarAvaliacoesLocal);
