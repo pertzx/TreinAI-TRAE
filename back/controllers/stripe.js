@@ -965,12 +965,16 @@ export const CreateCheckoutSession = async (req, res) => {
 export const StripeWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
   
+  // Usar rawBody se disponível (para Vercel), senão usar req.body
+  const body = req.rawBody || req.body;
+  
   // Verificações de segurança robustas para debugging
   console.log('🔍 Webhook Debug Info:');
   console.log('- Content-Type:', req.headers['content-type']);
-  console.log('- Body type:', typeof req.body);
-  console.log('- Body is Buffer:', Buffer.isBuffer(req.body));
-  console.log('- Body length:', req.body?.length || 'undefined');
+  console.log('- Body type:', typeof body);
+  console.log('- Body is Buffer:', Buffer.isBuffer(body));
+  console.log('- Body length:', body?.length || 'undefined');
+  console.log('- RawBody available:', !!req.rawBody);
   console.log('- Signature present:', !!sig);
   console.log('- Webhook secret configured:', !!process.env.STRIPE_WEBHOOK_SECRET);
 
@@ -981,14 +985,14 @@ export const StripeWebhook = async (req, res) => {
   }
 
   // Validar se o corpo da requisição está em formato correto
-  if (!req.body) {
+  if (!body) {
     console.error('❌ Request body está vazio ou undefined');
     return res.status(400).send('Request body vazio');
   }
 
-  if (!Buffer.isBuffer(req.body) && typeof req.body !== 'string') {
-    console.error('❌ Request body não é Buffer nem string:', typeof req.body);
-    console.error('❌ Body content preview:', JSON.stringify(req.body).substring(0, 200));
+  if (!Buffer.isBuffer(body) && typeof body !== 'string') {
+    console.error('❌ Request body não é Buffer nem string:', typeof body);
+    console.error('❌ Body content preview:', JSON.stringify(body).substring(0, 200));
     return res.status(400).send('Request body deve ser Buffer ou string raw');
   }
 
@@ -1006,8 +1010,8 @@ export const StripeWebhook = async (req, res) => {
 
   let event;
   try {
-    // Tentar construir o evento com verificação de assinatura
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    // Tentar construir o evento com verificação de assinatura usando body correto
+    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
     console.log('✅ Webhook signature verificada com sucesso');
   } catch (err) {
     console.error('❌ Webhook constructEvent error:', err.message || err);
@@ -1018,10 +1022,10 @@ export const StripeWebhook = async (req, res) => {
       statusCode: err.statusCode
     });
     
-    // Log adicional para debugging <mcreference link="https://docs.stripe.com/webhooks/signature" index="2">2</mcreference>
+    // Log adicional para debugging
     if (err.message?.includes('No signatures found')) {
       console.error('🔍 Debugging signature verification:');
-      console.error('- Raw body preview:', req.body.toString().substring(0, 100));
+      console.error('- Raw body preview:', body.toString().substring(0, 100));
       console.error('- Signature header:', sig.substring(0, 100) + '...');
       console.error('- Secret prefix:', process.env.STRIPE_WEBHOOK_SECRET?.substring(0, 10) + '...');
     }

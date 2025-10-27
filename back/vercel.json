@@ -12,6 +12,16 @@
             "dest": "/uploads/$1"
         },
         {
+            "src": "/webhook",
+            "dest": "index.js",
+            "headers": {
+                "X-Content-Type-Options": "nosniff",
+                "X-Frame-Options": "DENY",
+                "X-XSS-Protection": "1; mode=block",
+                "Referrer-Policy": "strict-origin-when-cross-origin"
+            }
+        },
+        {
             "src": "/(.*)",
             "dest": "index.js",
             "headers": {
@@ -21,5 +31,10 @@
                 "Referrer-Policy": "strict-origin-when-cross-origin"
             }
         }
-    ]
+    ],
+    "functions": {
+        "index.js": {
+            "maxDuration": 30
+        }
+    }
 }

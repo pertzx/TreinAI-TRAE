@@ -39,7 +39,11 @@ if (process.env.NODE_ENV === 'production') {
 // Stripe Webhook (usa raw body) - DEVE vir ANTES de outros middlewares de body parsing
 app.post('/webhook', express.raw({ 
   type: 'application/json',
-  limit: '1mb' // Limite de segurança para webhooks
+  limit: '1mb', // Limite de segurança para webhooks
+  verify: (req, res, buf) => {
+    // Garantir que o body seja preservado como Buffer para Vercel
+    req.rawBody = buf;
+  }
 }), StripeWebhook);
 
 const limiter = rateLimit({
