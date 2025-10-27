@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaMapMarkerAlt, FaImage, FaCheck, FaTimes, FaSpinner } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaImage, FaCheck, FaTimes, FaSpinner, FaEye, FaCode } from 'react-icons/fa';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../components/Toast';
 import LocalForm from '../../../components/LocalForm';
 import api from '../../../Api';
 
-const CriarLocal = ({ tema }) => {
-  const { user } = useAuth();
+const CriarLocal = ({ tema, user }) => {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1); // 1: formulário, 2: pagamento, 3: confirmação
   const [localData, setLocalData] = useState(null);
+  const [showPayload, setShowPayload] = useState(false);
+  const [currentPayload, setCurrentPayload] = useState(null);
 
   const theme = {
     light: {
@@ -43,8 +44,8 @@ const CriarLocal = ({ tema }) => {
       localDescricao: data.localDescricao?.trim() || '',
       link: data.link?.trim() || '',
       localType: data.localType || 'outros',
-      country: data.country || '',
-      countryCode: data.countryCode || '',
+      country: data.country || 'Brasil',
+      countryCode: data.countryCode || 'BR',
       state: data.state || '',
       city: data.city || ''
     };
@@ -69,6 +70,51 @@ const CriarLocal = ({ tema }) => {
 
       // Sanitizar dados
       const sanitizedData = sanitizeLocalData(formData);
+
+      // Preparar payload para visualização
+      const payloadPreview = {
+        ...sanitizedData,
+        image: formData.image ? {
+          name: formData.image.name,
+          size: formData.image.size,
+          type: formData.image.type
+        } : null
+      };
+
+      // Mostrar payload antes da requisição
+      setCurrentPayload(payloadPreview);
+      setShowPayload(true);
+
+      // Aguardar confirmação do usuário
+      const confirmed = await new Promise((resolve) => {
+        const confirmButton = document.getElementById('confirm-payload');
+        const cancelButton = document.getElementById('cancel-payload');
+        
+        const handleConfirm = () => {
+          confirmButton?.removeEventListener('click', handleConfirm);
+          cancelButton?.removeEventListener('click', handleCancel);
+          resolve(true);
+        };
+        
+        const handleCancel = () => {
+          confirmButton?.removeEventListener('click', handleConfirm);
+          cancelButton?.removeEventListener('click', handleCancel);
+          resolve(false);
+        };
+
+        // Aguardar os botões serem renderizados
+        setTimeout(() => {
+          document.getElementById('confirm-payload')?.addEventListener('click', handleConfirm);
+          document.getElementById('cancel-payload')?.addEventListener('click', handleCancel);
+        }, 100);
+      });
+
+      setShowPayload(false);
+
+      if (!confirmed) {
+        setLoading(false);
+        return;
+      }
 
       // Criar FormData para envio
       const submitData = new FormData();
@@ -257,6 +303,50 @@ const CriarLocal = ({ tema }) => {
               <FaSpinner className="animate-spin text-4xl text-blue-600 mx-auto mb-4" />
               <p className="text-lg">Criando local...</p>
             </div>
+          </motion.div>
+        )}
+
+        {/* Payload Preview Modal */}
+        {showPayload && currentPayload && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className={`${currentTheme.card} rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <FaCode className="text-blue-600 text-xl" />
+                  <h3 className="text-xl font-bold">Payload da Requisição</h3>
+                </div>
+                <FaEye className="text-gray-500" />
+              </div>
+              
+              <div className={`${currentTheme.border} border rounded-lg p-4 mb-6`}>
+                <pre className={`${currentTheme.text} text-sm overflow-x-auto whitespace-pre-wrap`}>
+                  {JSON.stringify(currentPayload, null, 2)}
+                </pre>
+              </div>
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  id="cancel-payload"
+                  className={`px-4 py-2 rounded-lg border ${currentTheme.border} ${currentTheme.text} hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  id="confirm-payload"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Confirmar e Enviar
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </div>

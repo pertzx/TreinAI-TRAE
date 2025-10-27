@@ -149,7 +149,8 @@ export const criarLocalDireto = async (req, res) => {
       city,
       userId,
       imagePath,
-      status: 'pendente_pagamento', // Status inicial
+      subscriptionId: 'temp_' + localId, // ID temporário até o pagamento
+      status: 'inativo', // Status inicial válido
       criadoEm: new Date(getBrazilDate()),
       atualizadoEm: new Date(getBrazilDate())
     });

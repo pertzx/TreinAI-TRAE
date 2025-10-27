@@ -933,7 +933,7 @@ const Dashboard = ({ needToPay, plano }) => {
               <Route path="/chat" element={<ChatsOptimized user={user} tema={tema} />} />
               <Route path="/infosCoach" element={<InfoCoachs user={user} />} />
               <Route path="/anuncios" element={<AnunciosDash user={user} tema={tema} />} />
-              <Route path="/locais" element={<CriarLocal tema={tema} />} />
+              <Route path="/locais" element={<CriarLocal tema={tema} user={user} />} />
               <Route path="" element={db} />
             </Routes>
             {user && <Footer tema={tema} user={user} />}
