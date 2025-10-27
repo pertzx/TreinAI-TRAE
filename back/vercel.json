@@ -31,10 +31,5 @@
                 "Referrer-Policy": "strict-origin-when-cross-origin"
             }
         }
-    ],
-    "functions": {
-        "index.js": {
-            "maxDuration": 30
-        }
-    }
+    ]
 }
