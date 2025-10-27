@@ -215,24 +215,16 @@ router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
 // locais
 router.post('/createPayment', uploadSecurityHeaders, uploadImage.single('image'), CriarAssinaturaProLocal); // LEGADO
 router.post('/criar-sessao-pagamento-local', 
-  securityLogger, 
-  paymentRateLimit, 
   uploadSecurityHeaders, 
   CriarSessaoPagamentoLocal
 ); // NOVA LÓGICA
 router.post('/criar-local-com-token', 
-  securityLogger, 
-  tokenRateLimit, 
   uploadSecurityHeaders, 
-  validateImageUpload,
   uploadImage.single('image'), 
-  validateAndSanitize.localData,
-  validateAndSanitize.token,
   criarLocalComToken
 ); // NOVA LÓGICA
 router.get('/verificar-tokens/:userId', 
   securityLogger,
-  validateAndSanitize.userId,
   verificarTokensDisponiveis
 ); // NOVA LÓGICA
 router.post('/limpar-tokens-expirados', 

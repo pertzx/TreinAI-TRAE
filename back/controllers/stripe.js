@@ -569,7 +569,7 @@ export const CriarSessaoPagamentoLocal = async (req, res) => {
     if (!unitPrice) {
       return res.status(400).json({ 
         success: false, 
-        msg: `Tipo de local inválido: ${tipo}. Tipos aceitos: ${Object.keys(priceMap).join(', ')}`,
+        msg: `Tipo de local inválido: ${tipoNorm}. Tipos aceitos: ${Object.keys(priceMap).join(', ')}`,
         code: 'INVALID_LOCAL_TYPE'
       });
     }

@@ -139,11 +139,27 @@ const Locais = ({ user = {}, tema = 'light' }) => {
     }
 
     try {
+      // Converter FormData para objeto JSON
+      const data = {}
+      for (let [key, value] of formData.entries()) {
+        data[key] = value
+      }
+
+      // Garantir que userId e localType estão presentes
+      if (!data.userId) {
+        data.userId = userId
+      }
+      if (!data.localType) {
+        data.localType = 'outros' // valor padrão
+      }
+
+      console.log('Dados sendo enviados para pagamento:', data)
+
       const controller = createRequestTimeout(15000) // 15s timeout
-      const response = await api.post('/criar-sessao-pagamento-local', formData, {
+      const response = await api.post('/criar-sessao-pagamento-local', data, {
         signal: controller.signal,
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'application/json'
         }
       })
 
