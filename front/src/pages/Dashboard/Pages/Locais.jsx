@@ -133,6 +133,11 @@ const Locais = ({ user = {}, tema = 'light' }) => {
   const criarSessaoPagamento = async (formData) => {
     const userId = user?._id || user?.id
 
+    // DEBUG: Log do usuário
+    console.log('=== DEBUG criarSessaoPagamento ===')
+    console.log('User object:', user)
+    console.log('Extracted userId:', userId)
+
     // Verificar rate limiting para pagamentos
     if (!paymentRateLimit.isAllowed(userId)) {
       throw new Error('Muitas tentativas de pagamento. Aguarde alguns minutos.')
@@ -145,6 +150,12 @@ const Locais = ({ user = {}, tema = 'light' }) => {
         data[key] = value
       }
 
+      // DEBUG: Log do FormData original
+      console.log('FormData entries:')
+      for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}:`, value)
+      }
+
       // Garantir que userId e localType estão presentes
       if (!data.userId) {
         data.userId = userId
@@ -153,7 +164,10 @@ const Locais = ({ user = {}, tema = 'light' }) => {
         data.localType = 'outros' // valor padrão
       }
 
-      console.log('Dados sendo enviados para pagamento:', data)
+      // DEBUG: Log dos dados finais
+      console.log('Dados finais sendo enviados para pagamento:', data)
+      console.log('userId presente?', !!data.userId)
+      console.log('localType presente?', !!data.localType)
 
       const controller = createRequestTimeout(15000) // 15s timeout
       const response = await api.post('/criar-sessao-pagamento-local', data, {
@@ -172,6 +186,7 @@ const Locais = ({ user = {}, tema = 'light' }) => {
       throw new Error('URL de pagamento não recebida')
     } catch (err) {
       console.error('Erro ao criar sessão de pagamento:', err)
+      console.error('Response data:', err?.response?.data)
       if (err.name === 'AbortError') {
         throw new Error('Timeout na criação do pagamento. Tente novamente.')
       }

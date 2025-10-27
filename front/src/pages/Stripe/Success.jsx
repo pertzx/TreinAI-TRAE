@@ -35,7 +35,7 @@ const Success = () => {
 
   useEffect(() => {
     // Verificar autenticação usando apenas cookies httpOnly
-    api.get('/dashboard')
+    api.post('/dashboard')
       .then((res) => {
         if (res.data.user) {
           setUser(res.data.user);

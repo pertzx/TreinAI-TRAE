@@ -539,6 +539,12 @@ export const CriarAssinaturaProLocal = async (req, res) => {
 // =====================================================================================
 export const CriarSessaoPagamentoLocal = async (req, res) => {
   try {
+    // DEBUG: Log completo da requisição
+    console.log('=== DEBUG CriarSessaoPagamentoLocal ===')
+    console.log('req.body:', req.body)
+    console.log('req.headers:', req.headers)
+    console.log('Content-Type:', req.headers['content-type'])
+
     const {
       localType,
       userId,
@@ -546,8 +552,18 @@ export const CriarSessaoPagamentoLocal = async (req, res) => {
       paymentMethod = 'card'
     } = req.body || {};
 
+    // DEBUG: Log dos campos extraídos
+    console.log('Campos extraídos:')
+    console.log('  localType:', localType)
+    console.log('  userId:', userId)
+    console.log('  description:', description)
+    console.log('  paymentMethod:', paymentMethod)
+
     // Validação robusta de entrada
     if (!localType || !userId) {
+      console.log('ERRO: Campos obrigatórios ausentes')
+      console.log('  localType presente?', !!localType)
+      console.log('  userId presente?', !!userId)
       return res.status(400).json({ 
         success: false,
         body: req.body, 
