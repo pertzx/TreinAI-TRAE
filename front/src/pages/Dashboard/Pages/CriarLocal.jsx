@@ -7,7 +7,7 @@ import LocalForm from '../../../components/LocalForm';
 import api from '../../../Api';
 
 const CriarLocal = ({ tema, user }) => {
-  const { showToast } = useToast();
+  const { showError, showSuccess } = useToast();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1); // 1: formulário, 2: pagamento, 3: confirmação
   const [localData, setLocalData] = useState(null);
@@ -141,9 +141,24 @@ const CriarLocal = ({ tema, user }) => {
       const result = response.data;
 
       if (result.success) {
-        setLocalData(result.local);
-        setStep(3); // Ir para confirmação
-        showToast('Local criado com sucesso!', 'success');
+        console.log(result);
+        
+        // Verificar se há URL de pagamento para redirecionamento
+        if (result.paymentUrl) {
+          setLocalData(result.local);
+          setStep(2); // Ir para step de pagamento
+          showSuccess('Local criado! Redirecionando para pagamento...');
+          
+          // Aguardar um momento para mostrar a mensagem e depois redirecionar
+          setTimeout(() => {
+            window.location.href = result.paymentUrl;
+          }, 2000);
+        } else {
+          // Fluxo antigo (sem pagamento)
+          setLocalData(result.local);
+          setStep(3); // Ir para confirmação
+          showSuccess('Local criado com sucesso!');
+        }
       } else {
         throw new Error(result.message || 'Erro ao criar local');
       }
@@ -151,7 +166,7 @@ const CriarLocal = ({ tema, user }) => {
     } catch (error) {
       console.error('Erro ao criar local:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Erro ao criar local';
-      showToast(errorMessage, 'error');
+      showError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -237,10 +252,18 @@ const CriarLocal = ({ tema, user }) => {
               className={`${currentTheme.card} rounded-lg p-6 shadow-lg text-center`}
             >
               <FaSpinner className="animate-spin text-4xl text-blue-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold mb-4">Processando Pagamento</h2>
+              <h2 className="text-2xl font-bold mb-4">Redirecionando para Pagamento</h2>
               <p className={currentTheme.muted}>
-                Aguarde enquanto processamos seu pagamento...
+                Seu local foi criado com sucesso! Você será redirecionado para o Stripe para completar o pagamento.
               </p>
+              <div className={`${currentTheme.bg} rounded-lg p-4 mt-4 text-left`}>
+                <h3 className="font-bold mb-2">Próximos passos:</h3>
+                <ul className={`${currentTheme.muted} text-sm space-y-1`}>
+                  <li>• Complete o pagamento no Stripe</li>
+                  <li>• Seu local será ativado automaticamente</li>
+                  <li>• Você receberá um email de confirmação</li>
+                </ul>
+              </div>
             </motion.div>
           )}
 

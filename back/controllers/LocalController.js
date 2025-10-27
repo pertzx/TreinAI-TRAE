@@ -5,6 +5,16 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
+import Stripe from 'stripe';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { 
+  apiVersion: '2024-06-20',
+  maxNetworkRetries: 3,
+  timeout: 30000
+});
 
 // Configuração do multer para upload de imagens
 const storage = multer.diskStorage({
@@ -90,9 +100,65 @@ const isValidUrl = (string) => {
 };
 
 // =======================
+// Função auxiliar para excluir local em caso de erro no pagamento
+// =======================
+export const excluirLocalPorErro = async (localId, imagePath = null) => {
+  try {
+    // Excluir local do banco
+    const localExcluido = await Local.findByIdAndDelete(localId);
+    
+    // Limpar arquivo de imagem se existir
+    if (imagePath) {
+      try {
+        const fullPath = path.join(process.cwd(), imagePath);
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+          console.log(`Imagem removida: ${imagePath}`);
+        }
+      } catch (unlinkError) {
+        console.error('Erro ao remover imagem:', unlinkError);
+      }
+    }
+
+    console.log(`Local ${localId} excluído devido a erro no pagamento`);
+    return { success: true, localExcluido };
+  } catch (error) {
+    console.error('Erro ao excluir local:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// =======================
+// Função auxiliar para ativar local após pagamento bem-sucedido
+// =======================
+export const ativarLocalAposPagamento = async (localId, subscriptionId) => {
+  try {
+    const localAtualizado = await Local.findByIdAndUpdate(
+      localId,
+      {
+        status: 'ativo',
+        subscriptionId: subscriptionId,
+        atualizadoEm: new Date(getBrazilDate())
+      },
+      { new: true }
+    );
+
+    if (!localAtualizado) {
+      throw new Error(`Local ${localId} não encontrado`);
+    }
+
+    console.log(`Local ${localId} ativado com sucesso. SubscriptionId: ${subscriptionId}`);
+    return { success: true, local: localAtualizado };
+  } catch (error) {
+    console.error('Erro ao ativar local:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// =======================
 // POST /criar-local-direto
-// Cria um local diretamente no banco (sem pagamento)
-// Status inicial: 'pendente_pagamento'
+// Cria um local diretamente no banco e redireciona para pagamento Stripe
+// Status inicial: 'inativo'
 // =======================
 export const criarLocalDireto = async (req, res) => {
   try {
@@ -136,7 +202,7 @@ export const criarLocalDireto = async (req, res) => {
     // Gerar ID único para o local
     const localId = uuidv4();
 
-    // Criar local no banco
+    // Criar local no banco com status inativo
     const novoLocal = new Local({
       localId,
       localName: localName.trim(),
@@ -157,19 +223,158 @@ export const criarLocalDireto = async (req, res) => {
 
     const localSalvo = await novoLocal.save();
 
-    res.status(201).json({
-      success: true,
-      message: 'Local criado com sucesso',
-      local: {
-        id: localSalvo._id,
-        localId: localSalvo.localId,
-        localName: localSalvo.localName,
-        localDescricao: localSalvo.localDescricao,
-        localType: localSalvo.localType,
-        status: localSalvo.status,
-        imagePath: localSalvo.imagePath
+    // Criar sessão de pagamento no Stripe
+    try {
+      // Mapear tipos de local para preços
+      const tipoNorm = String(localType || '').toLowerCase().trim();
+      const priceMap = {
+        'restaurante': process.env.STRIPE_PRICEID_180,
+        'academia': process.env.STRIPE_PRICEID_180,
+        'loja': process.env.STRIPE_PRICEID_180,
+        'outros': process.env.STRIPE_PRICEID_50
+      };
+      
+      const unitPrice = priceMap[tipoNorm];
+      if (!unitPrice) {
+        // Se não encontrar preço, excluir o local criado
+        await Local.findByIdAndDelete(localSalvo._id);
+        if (req.file) {
+          try {
+            fs.unlinkSync(req.file.path);
+          } catch (unlinkError) {
+            console.error('Erro ao limpar arquivo:', unlinkError);
+          }
+        }
+        return res.status(400).json({ 
+          success: false, 
+          message: `Tipo de local inválido: ${localType}. Tipos aceitos: ${Object.keys(priceMap).join(', ')}`,
+          code: 'INVALID_LOCAL_TYPE'
+        });
       }
-    });
+
+      // Buscar ou criar customer no Stripe
+      let customerId = user?.planInfos?.stripeCustomerId || null;
+      if (!customerId) {
+        try {
+          const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+          customerId = customers.data[0]?.id || null;
+          
+          if (!customerId) {
+            const customer = await stripe.customers.create({ 
+              email: user.email,
+              name: user.name || user.email,
+              metadata: {
+                app: 'treinai',
+                userId: String(userId)
+              }
+            });
+            customerId = customer.id;
+          }
+
+          // Atualizar usuário com customerId
+          if (!user.planInfos) user.planInfos = {};
+          user.planInfos.stripeCustomerId = customerId;
+          await user.save();
+        } catch (customerError) {
+          console.error('Erro ao criar/buscar customer:', customerError);
+          // Se falhar, excluir o local criado
+          await Local.findByIdAndDelete(localSalvo._id);
+          if (req.file) {
+            try {
+              fs.unlinkSync(req.file.path);
+            } catch (unlinkError) {
+              console.error('Erro ao limpar arquivo:', unlinkError);
+            }
+          }
+          return res.status(500).json({
+            success: false,
+            message: 'Erro ao configurar pagamento',
+            code: 'STRIPE_CUSTOMER_ERROR'
+          });
+        }
+      }
+
+      // Criar sessão de checkout
+      const sessionMetadata = {
+        app: 'treinai',
+        flow: 'create_local_payment',
+        userId: String(userId),
+        localId: String(localSalvo._id),
+        localType: tipoNorm,
+        localName: localName.trim()
+      };
+
+      const sessionParams = {
+        mode: 'subscription',
+        line_items: [{
+          price: unitPrice,
+          quantity: 1,
+        }],
+        success_url: `${process.env.FRONTEND_URL}/pagamento-sucesso?session_id={CHECKOUT_SESSION_ID}&type=local_payment&local_id=${localSalvo._id}`,
+        cancel_url: `${process.env.FRONTEND_URL}/pagamento-cancelado?type=local_payment&local_id=${localSalvo._id}`,
+        expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutos
+        metadata: sessionMetadata,
+        subscription_data: {
+          metadata: {
+            ...sessionMetadata,
+            description: `Assinatura para ${tipoNorm} - ${localName.trim()}`
+          },
+        },
+        customer: customerId,
+        allow_promotion_codes: true,
+        billing_address_collection: 'auto'
+      };
+
+      const session = await stripe.checkout.sessions.create(sessionParams);
+
+      // Atualizar local com sessionId para rastreamento
+      localSalvo.metadata = {
+        stripeSessionId: session.id,
+        stripeCustomerId: customerId
+      };
+      await localSalvo.save();
+
+      // Retornar resposta com URL de pagamento
+      res.status(201).json({
+        success: true,
+        message: 'Local criado com sucesso. Redirecionando para pagamento...',
+        local: {
+          id: localSalvo._id,
+          localId: localSalvo.localId,
+          localName: localSalvo.localName,
+          localDescricao: localSalvo.localDescricao,
+          localType: localSalvo.localType,
+          status: localSalvo.status,
+          imagePath: localSalvo.imagePath
+        },
+        payment: {
+          sessionId: session.id,
+          url: session.url,
+          expiresAt: session.expires_at
+        },
+        requiresPayment: true
+      });
+
+    } catch (stripeError) {
+      console.error('Erro ao criar sessão de pagamento:', stripeError);
+      
+      // Se falhar na criação da sessão, excluir o local criado
+      await Local.findByIdAndDelete(localSalvo._id);
+      if (req.file) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (unlinkError) {
+          console.error('Erro ao limpar arquivo:', unlinkError);
+        }
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: 'Erro ao configurar pagamento',
+        code: 'STRIPE_SESSION_ERROR',
+        error: process.env.NODE_ENV === 'development' ? stripeError.message : undefined
+      });
+    }
 
   } catch (error) {
     console.error('Erro ao criar local:', error);

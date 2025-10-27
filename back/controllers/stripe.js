@@ -13,6 +13,7 @@ import mongoose from 'mongoose';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import { sendNotificationEmail } from '../utils/sendEmail.js';
+import { excluirLocalPorErro, ativarLocalAposPagamento } from './LocalController.js';
 
 dotenv.config();
 
@@ -1113,6 +1114,30 @@ export const StripeWebhook = async (req, res) => {
           }
         }
 
+        // NOVA LÓGICA: se for fluxo create_local_payment, apenas vincular subscriptionId
+        if (session.metadata.flow === 'create_local_payment' && session.metadata.localId) {
+          try {
+            const localId = session.metadata.localId;
+            const local = await Local.findById(localId);
+            
+            if (local) {
+              // Atualizar local com subscriptionId da sessão
+              local.subscriptionId = subscriptionId;
+              local.metadata = {
+                ...local.metadata,
+                stripeSessionId: session.id,
+                stripeCustomerId: customerId
+              };
+              await local.save();
+              log('checkout.session.completed: Local atualizado com subscriptionId:', localId, subscriptionId);
+            } else {
+              log('checkout.session.completed: Local não encontrado para localId:', localId);
+            }
+          } catch (errLocal) {
+            console.error('checkout.session.completed: erro ao atualizar local:', errLocal?.message || errLocal);
+          }
+        }
+
         // NOVA LÓGICA: se for fluxo add_local_token, gerar token único
         if (session.metadata.flow === 'add_local_token' && session.metadata.userId && session.metadata.localType) {
           try {
@@ -1247,6 +1272,38 @@ export const StripeWebhook = async (req, res) => {
           log('invoice.paid: usuário não encontrado (customer/subscription/metadata).');
         }
 
+
+        // --- NOVA LÓGICA: ativar local após pagamento bem-sucedido ---
+        // Verificar se é fluxo create_local_payment
+        if (subscriptionId) {
+          try {
+            const subFull = await stripe.subscriptions.retrieve(subscriptionId);
+            const subMetadata = subFull?.metadata || {};
+            
+            if (subMetadata.flow === 'create_local_payment' && subMetadata.localId) {
+              const localId = subMetadata.localId;
+              const resultado = await ativarLocalAposPagamento(localId, subscriptionId);
+              
+              if (resultado.success) {
+                log('invoice.paid: Local ativado com sucesso:', localId);
+                
+                // Enviar email de confirmação ao usuário
+                const user = await User.findById(resultado.local.userId);
+                if (user) {
+                  sendNotificationEmail(
+                    user.email, 
+                    'Local Ativado com Sucesso', 
+                    `Seu local "${resultado.local.localName}" foi ativado com sucesso após o pagamento!`
+                  );
+                }
+              } else {
+                console.error('invoice.paid: Erro ao ativar local:', resultado.error);
+              }
+            }
+          } catch (err) {
+            console.error('invoice.paid: Erro ao processar ativação de local:', err?.message || err);
+          }
+        }
 
         // --- lifecycle do PendingUpload -> criação do Local definitivo ---
         let md = invoice.metadata || {};
@@ -1441,6 +1498,37 @@ export const StripeWebhook = async (req, res) => {
         const flow = md.flow || null;
         const pendingUploadId = md.pendingUploadId || null;
 
+        // --- NOVA LÓGICA: excluir local em caso de falha no pagamento ---
+        // Verificar se é fluxo create_local_payment
+        if (flow === 'create_local_payment' && md.localId) {
+          try {
+            const localId = md.localId;
+            const local = await Local.findById(localId);
+            
+            if (local) {
+              const resultado = await excluirLocalPorErro(localId, local.imagePath);
+              
+              if (resultado.success) {
+                log('invoice.payment_failed: Local excluído devido a falha no pagamento:', localId);
+                
+                // Enviar email de notificação ao usuário
+                const user = await User.findById(local.userId);
+                if (user) {
+                  sendNotificationEmail(
+                    user.email, 
+                    'Falha no Pagamento - Local Removido', 
+                    `Infelizmente houve uma falha no pagamento do seu local "${local.localName}". O local foi removido do sistema. Você pode tentar novamente quando desejar.`
+                  );
+                }
+              } else {
+                console.error('invoice.payment_failed: Erro ao excluir local:', resultado.error);
+              }
+            }
+          } catch (err) {
+            console.error('invoice.payment_failed: Erro ao processar exclusão de local:', err?.message || err);
+          }
+        }
+
         // fluxo publish_local: se houver pendingUploadId -> remover tmp + PendingUpload
         if (flow === 'publish_local' && pendingUploadId) {
           try {
@@ -1497,10 +1585,41 @@ export const StripeWebhook = async (req, res) => {
         break;
       }
 
-      // checkout.session.expired -> usuário abandonou checkout: remover pendingUpload (se existir)
+      // checkout.session.expired -> usuário abandonou checkout: remover pendingUpload (se existir) ou excluir local criado
       case 'checkout.session.expired': {
         log('checkout.session.expired');
         const session = data;
+        
+        // --- NOVA LÓGICA: excluir local se for fluxo create_local_payment ---
+        if (session.metadata?.flow === 'create_local_payment' && session.metadata?.localId) {
+          try {
+            const localId = session.metadata.localId;
+            const local = await Local.findById(localId);
+            
+            if (local) {
+              const resultado = await excluirLocalPorErro(localId, local.imagePath);
+              
+              if (resultado.success) {
+                log('checkout.session.expired: Local excluído devido a sessão expirada:', localId);
+                
+                // Enviar email de notificação ao usuário
+                const user = await User.findById(local.userId);
+                if (user) {
+                  sendNotificationEmail(
+                    user.email, 
+                    'Sessão de Pagamento Expirada - Local Removido', 
+                    `A sessão de pagamento para o seu local "${local.localName}" expirou. O local foi removido do sistema. Você pode tentar novamente quando desejar.`
+                  );
+                }
+              } else {
+                console.error('checkout.session.expired: Erro ao excluir local:', resultado.error);
+              }
+            }
+          } catch (err) {
+            console.error('checkout.session.expired: Erro ao processar exclusão de local:', err?.message || err);
+          }
+        }
+        
         // session.metadata.pendingUploadId é o que criamos
         const pendingUploadId = session.metadata?.pendingUploadId || null;
         if (pendingUploadId) {
