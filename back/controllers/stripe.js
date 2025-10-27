@@ -965,18 +965,21 @@ export const CreateCheckoutSession = async (req, res) => {
 export const StripeWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
   
-  // Usar rawBody se disponível (para Vercel), senão usar req.body
-  const body = req.rawBody || req.body;
+  // Usar rawBody capturado pelo middleware customizado
+  const body = req.rawBody;
   
   // Verificações de segurança robustas para debugging
   console.log('🔍 Webhook Debug Info:');
   console.log('- Content-Type:', req.headers['content-type']);
   console.log('- Body type:', typeof body);
-  console.log('- Body is Buffer:', Buffer.isBuffer(body));
+  console.log('- Body is string:', typeof body === 'string');
   console.log('- Body length:', body?.length || 'undefined');
   console.log('- RawBody available:', !!req.rawBody);
+  console.log('- Body preview (first 100 chars):', body?.substring(0, 100));
   console.log('- Signature present:', !!sig);
+  console.log('- Signature preview:', sig?.substring(0, 50) + '...');
   console.log('- Webhook secret configured:', !!process.env.STRIPE_WEBHOOK_SECRET);
+  console.log('- Webhook secret prefix:', process.env.STRIPE_WEBHOOK_SECRET?.substring(0, 10) + '...');
 
   // Validar se o cabeçalho de assinatura está presente
   if (!sig) {
@@ -990,10 +993,10 @@ export const StripeWebhook = async (req, res) => {
     return res.status(400).send('Request body vazio');
   }
 
-  if (!Buffer.isBuffer(body) && typeof body !== 'string') {
-    console.error('❌ Request body não é Buffer nem string:', typeof body);
+  if (typeof body !== 'string') {
+    console.error('❌ Request body não é string:', typeof body);
     console.error('❌ Body content preview:', JSON.stringify(body).substring(0, 200));
-    return res.status(400).send('Request body deve ser Buffer ou string raw');
+    return res.status(400).send('Request body deve ser string raw');
   }
 
   // Verificar se o webhook secret está configurado

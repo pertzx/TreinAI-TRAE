@@ -37,14 +37,8 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Stripe Webhook (usa raw body) - DEVE vir ANTES de outros middlewares de body parsing
-app.post('/webhook', express.raw({ 
-  type: 'application/json',
-  limit: '1mb', // Limite de segurança para webhooks
-  verify: (req, res, buf) => {
-    // Garantir que o body seja preservado como Buffer para Vercel
-    req.rawBody = buf;
-  }
-}), StripeWebhook);
+// Webhook Stripe - DEVE vir ANTES de qualquer middleware de parsing
+app.post('/webhook', StripeWebhook);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
@@ -112,6 +106,27 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Middleware customizado para capturar raw body ANTES do parsing
+app.use('/webhook', (req, res, next) => {
+    let data = '';
+    req.setEncoding('utf8');
+    
+    req.on('data', (chunk) => {
+        data += chunk;
+    });
+    
+    req.on('end', () => {
+        req.rawBody = data;
+        req.body = data; // Manter compatibilidade
+        next();
+    });
+    
+    req.on('error', (err) => {
+        console.error('❌ Erro ao capturar raw body:', err);
+        res.status(400).send('Erro ao processar webhook');
+    });
+});
 
 // Aplicar sanitizeInput APENAS para rotas que não sejam webhook
 app.use((req, res, next) => {
