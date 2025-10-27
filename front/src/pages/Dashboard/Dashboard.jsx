@@ -23,7 +23,7 @@ import Footer from './Components/Footer.jsx';
 import ChatNutriAI from './Components/ChatNutriAi.jsx';
 import InfoCoachs from '../../components/InfoCoachs.jsx';
 import AnunciosDash from './Pages/AnunciosDash.jsx';
-import Locais from './Pages/Locais.jsx';
+import CriarLocal from './Pages/CriarLocal.jsx';
 import AdminPage from './Pages/AdminPage/AdminPage.jsx';
 import SupportPage from './Pages/SupportPage.jsx';
 import Recordes from './Pages/Recordes.jsx';
@@ -933,7 +933,7 @@ const Dashboard = ({ needToPay, plano }) => {
               <Route path="/chat" element={<ChatsOptimized user={user} tema={tema} />} />
               <Route path="/infosCoach" element={<InfoCoachs user={user} />} />
               <Route path="/anuncios" element={<AnunciosDash user={user} tema={tema} />} />
-              <Route path="/locais" element={<Locais user={user} tema={tema} />} />
+              <Route path="/locais" element={<CriarLocal tema={tema} />} />
               <Route path="" element={db} />
             </Routes>
             {user && <Footer tema={tema} user={user} />}

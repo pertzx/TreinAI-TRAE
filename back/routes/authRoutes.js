@@ -34,8 +34,7 @@ import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVistas, pegarChat, pegarChats, removerUsuario, editarMensagem, responderMensagem, marcarMensagensVistasV2, configurarChat, buscarHistorico, iniciarChatPorUserId } from '../controllers/chatController.js';
 import { conversarNutri } from '../controllers/NutriAI.js';
-import { editarLocal } from '../controllers/LocalController.js';
-import { getLocais } from '../controllers/LocalController.js';
+import { editarLocal, criarLocalDireto, deletarLocalPorId, ativarLocal, buscarLocais, meusLocais, upload, avaliarLocal, listarAvaliacoesLocal, listarAvaliacoesPendentes, moderarAvaliacao } from '../controllers/LocalController.js';
 import { criarAnuncio, editarAnuncio, getAnuncios, deletarAnuncio, marcarClique, marcarImpressao } from '../controllers/AnunciosController.js';
 import { checkTokenLimit } from '../middlewares/tokenLimitMiddleware.js';
 import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
@@ -212,7 +211,24 @@ router.get('/buscar-historico', buscarHistorico);
 // nutri
 router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
 
-// locais
+// locais - NOVO FLUXO
+router.post('/criar-local-direto', 
+  uploadSecurityHeaders, 
+  upload.single('image'), 
+  criarLocalDireto
+); // Criar local sem pagamento imediato
+router.post('/ativar-local', 
+  uploadSecurityHeaders, 
+  ativarLocal
+); // Ativar local após pagamento
+router.delete('/deletar-local-por-id/:localId', 
+  uploadSecurityHeaders, 
+  deletarLocalPorId
+); // Deletar local por ID (rollback)
+router.get('/buscar-locais', buscarLocais); // Buscar locais do usuário
+router.get('/meus-locais', meusLocais); // Listar locais do usuário logado
+
+// locais - FLUXO LEGADO
 router.post('/createPayment', uploadSecurityHeaders, uploadImage.single('image'), CriarAssinaturaProLocal); // LEGADO
 router.post('/criar-sessao-pagamento-local', 
   uploadSecurityHeaders, 
@@ -269,6 +285,22 @@ router.post('/lgpd/excluir-conta', verificarToken, async (req, res) => {
     res.status(500).json({ error: 'Erro ao excluir conta' });
   }
 });
+
+// =======================
+// ROTAS DE AVALIAÇÃO DE LOCAIS
+// =======================
+
+// Criar avaliação para um local
+router.post('/avaliar-local', verificarToken, validateAndSanitize, avaliarLocal);
+
+// Listar avaliações aceitas de um local (público)
+router.get('/avaliacoes-local/:localId', listarAvaliacoesLocal);
+
+// Listar avaliações pendentes de moderação (admin)
+router.get('/avaliacoes-pendentes', verificarToken, listarAvaliacoesPendentes);
+
+// Moderar avaliação (aceitar/rejeitar) - admin
+router.post('/moderar-avaliacao', verificarToken, moderarAvaliacao);
 
 // Rota de logout para limpar cookies
 router.post('/logout', (req, res) => {

@@ -39,7 +39,7 @@ export const sanitizeLocalData = (formData) => {
   });
   
   // Campos que não precisam de sanitização (IDs, tipos, etc.)
-  const safeFields = ['localId', 'localType', 'countryCode'];
+  const safeFields = ['localId', 'localType', 'countryCode', 'userId'];
   safeFields.forEach(field => {
     if (formData[field] !== undefined) {
       sanitized[field] = formData[field];

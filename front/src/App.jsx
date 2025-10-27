@@ -15,12 +15,14 @@ import PoliticaPrivacidade from './pages/PoliticaPrivacidade';
 import { ToastProvider, GlobalToastContainer } from './components/Toast.jsx';
 import CookieConsent from './components/CookieConsent';
 import Logo from './components/Logo.jsx';
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   const [plano, setPlano] = useState('free');
 
   return (
-    <ToastProvider>
+    <AuthProvider>
+      <ToastProvider>
       <BrowserRouter>
         {/* <Menu /> */}
         
@@ -41,7 +43,8 @@ function App() {
         <GlobalToastContainer position="top-right" />
         <CookieConsent />
       </BrowserRouter>
-    </ToastProvider>
+      </ToastProvider>
+    </AuthProvider>
   );
 }
 
