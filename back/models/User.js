@@ -106,7 +106,7 @@ const UserSchema = new Schema({
       }
     ],
     deviceHistory: [{
-      deviceId: { type: String, unique: true, required: true },
+      deviceId: { type: String, required: true },
       bloqueado: { type: Boolean, default: false },
       
       // Informações do sistema (substituindo campos individuais de browser/os/device)
