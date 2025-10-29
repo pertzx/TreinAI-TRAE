@@ -36,8 +36,40 @@ if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', true);
 }
 
-// Stripe Webhook (usa raw body) - DEVE vir ANTES de outros middlewares de body parsing
-// Webhook Stripe - DEVE vir ANTES de qualquer middleware de parsing
+// Middleware customizado para capturar raw body ANTES do parsing - DEVE vir PRIMEIRO
+app.use('/webhook', (req, res, next) => {
+    let data = '';
+    req.setEncoding('utf8');
+    
+    console.log('🔍 [MIDDLEWARE] Iniciando captura do raw body para webhook');
+    console.log('🔍 [MIDDLEWARE] Headers recebidos:', JSON.stringify(req.headers, null, 2));
+    
+    req.on('data', (chunk) => {
+        data += chunk;
+        console.log('🔍 [MIDDLEWARE] Chunk recebido, tamanho:', chunk.length);
+    });
+    
+    req.on('end', () => {
+        console.log('🔍 [MIDDLEWARE] Raw body capturado com sucesso');
+        console.log('🔍 [MIDDLEWARE] Tamanho total do body:', data.length);
+        console.log('🔍 [MIDDLEWARE] Preview do body (primeiros 200 chars):', data.substring(0, 200));
+        
+        req.rawBody = data;
+        req.body = data; // Manter compatibilidade
+        
+        console.log('🔍 [MIDDLEWARE] req.rawBody definido:', !!req.rawBody);
+        console.log('🔍 [MIDDLEWARE] req.body definido:', !!req.body);
+        
+        next();
+    });
+    
+    req.on('error', (err) => {
+        console.error('❌ [MIDDLEWARE] Erro ao capturar raw body:', err);
+        res.status(400).send('Erro ao processar webhook');
+    });
+});
+
+// Stripe Webhook (usa raw body) - DEVE vir DEPOIS do middleware de captura
 app.post('/webhook', StripeWebhook);
 
 const limiter = rateLimit({
@@ -106,27 +138,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// Middleware customizado para capturar raw body ANTES do parsing
-app.use('/webhook', (req, res, next) => {
-    let data = '';
-    req.setEncoding('utf8');
-    
-    req.on('data', (chunk) => {
-        data += chunk;
-    });
-    
-    req.on('end', () => {
-        req.rawBody = data;
-        req.body = data; // Manter compatibilidade
-        next();
-    });
-    
-    req.on('error', (err) => {
-        console.error('❌ Erro ao capturar raw body:', err);
-        res.status(400).send('Erro ao processar webhook');
-    });
-});
 
 // Aplicar sanitizeInput APENAS para rotas que não sejam webhook
 app.use((req, res, next) => {

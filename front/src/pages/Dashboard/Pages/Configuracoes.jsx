@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../../Api';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
 import TokensChart from '../Components/TokensChart.jsx';
+import { useToast } from '../../../components/Toast.jsx';
 
 /**
  * Configuracoes - usa `tema` com valores 'dark' | 'light'
@@ -53,6 +54,9 @@ const Configuracoes = ({ setTema, tema, user }) => {
   // Estado para controlar exibição de dispositivos
   const [showAllDevices, setShowAllDevices] = useState(false);
   const INITIAL_DEVICES_SHOWN = 1;
+
+  // Toast
+  const { showError, showSuccess } = useToast();
 
   // Função de logout
   const handleLogout = async () => {
@@ -358,6 +362,7 @@ const Configuracoes = ({ setTema, tema, user }) => {
       if (res?.data?.url) window.location.href = res?.data?.url;
       if (res?.data?.msg) console.log('Resposta do backend:', res.data.msg);
     } catch (err) {
+      showError(err?.response?.data?.msg || 'Erro ao tentar alterar plano. Tente novamente.');
       console.error('Erro ao tentar alterar plano:', err);
     } finally {
       setPlanLoading(false);
