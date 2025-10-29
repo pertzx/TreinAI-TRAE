@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { uploadToCloudinary } from '../config/cloudinaryConfig.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import Stripe from 'stripe';
@@ -16,19 +17,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   timeout: 30000
 });
 
-// Configuração do multer para upload de imagens
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(process.cwd(), 'uploads', 'image-local');
-    // Criar diretório se não existir
-    fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
+// Configuração do multer para upload via Cloudinary (memory storage)
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -195,8 +185,21 @@ export const criarLocalDireto = async (req, res) => {
 
     // Processar imagem se enviada
     let imagePath = null;
+    let cloudinaryUrl = null;
     if (req.file) {
-      imagePath = `uploads/image-local/${req.file.filename}`;
+      try {
+        // Upload para Cloudinary
+        const cloudinaryResult = await uploadToCloudinary(req.file.buffer, 'image-local', 'image');
+        imagePath = cloudinaryResult.secure_url; // URL completa do Cloudinary
+        cloudinaryUrl = cloudinaryResult.secure_url;
+        console.log('Imagem enviada para Cloudinary:', cloudinaryUrl);
+      } catch (uploadError) {
+        console.error('Erro no upload para Cloudinary:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Erro no upload da imagem'
+        });
+      }
     }
 
     // Gerar ID único para o local
@@ -301,7 +304,8 @@ export const criarLocalDireto = async (req, res) => {
         userId: String(userId),
         localId: String(localSalvo._id),
         localType: tipoNorm,
-        localName: localName.trim()
+        localName: localName.trim(),
+        imagePath: imagePath || ''
       };
 
       const sessionParams = {
@@ -917,31 +921,38 @@ export const editarLocal = async (req, res) => {
 
     // se veio arquivo novo, substituir
     if (req.file) {
-      // apagar arquivo antigo se existir
+      // apagar arquivo antigo do Cloudinary se existir
       if (local.imagePath) {
         try {
-          const oldPath = path.join(process.cwd(), local.imagePath);
-          if (fs.existsSync(oldPath)) {
-            fs.unlinkSync(oldPath);
-          }
+          const { deleteFromCloudinary } = await import('../config/cloudinaryConfig.js');
+          await deleteFromCloudinary(local.imagePath);
         } catch (e) {
-          console.warn("Erro ao apagar imagem antiga:", e?.message || e);
+          console.warn("Erro ao apagar imagem antiga do Cloudinary:", e?.message || e);
         }
       }
-      // definir nova imagem
-      local.imagePath = `uploads/image-local/${req.file.filename}`;
+      
+      // fazer upload da nova imagem para Cloudinary
+      try {
+        const cloudinaryResult = await uploadToCloudinary(req.file.buffer, 'image-local', 'image');
+        local.imagePath = cloudinaryResult.secure_url;
+        console.log('Nova imagem enviada para Cloudinary:', cloudinaryResult.secure_url);
+      } catch (uploadError) {
+        console.error('Erro no upload da nova imagem para Cloudinary:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Erro no upload da nova imagem'
+        });
+      }
     }
 
     // se removeImage=true, apagar imagem atual
     if (req.body.removeImage === 'true' || req.body.removeImage === true) {
       if (local.imagePath) {
         try {
-          const oldPath = path.join(process.cwd(), local.imagePath);
-          if (fs.existsSync(oldPath)) {
-            fs.unlinkSync(oldPath);
-          }
+          const { deleteFromCloudinary } = await import('../config/cloudinaryConfig.js');
+          await deleteFromCloudinary(local.imagePath);
         } catch (e) {
-          console.warn("Erro ao apagar imagem:", e?.message || e);
+          console.warn("Erro ao apagar imagem do Cloudinary:", e?.message || e);
         }
       }
       local.imagePath = null;

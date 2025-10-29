@@ -273,266 +273,6 @@ export const SessionPaymentSaldoDeImpressoes = async (req, res) => {
 };
 
 // =====================================================================================
-// Criar Assinatura / Checkout Session (Subscription)
-// - NÃO cria Local definitivo. salva upload em tmp + PendingUpload e envia pendingUploadId na metadata
-// =====================================================================================
-export const CriarAssinaturaProLocal = async (req, res) => {
-  try {
-    const {
-      tipo,
-      userId,
-      description = '',
-      paymentMethod = 'card',
-      link,
-      localName,
-      localDescricao,
-      country,
-      countryCode,
-      state,
-      city,
-    } = req.body || {};
-
-    // Validação robusta de entrada
-    if (!tipo || !userId) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'tipo e userId são obrigatórios',
-        code: 'MISSING_REQUIRED_FIELDS'
-      });
-    }
-
-    // Validação de imagem obrigatória
-    const incomingField = req.file?.fieldname || 'image';
-    if (!req.file || !req.file.path) {
-      return res.status(400).json({
-        success: false,
-        msg: `A imagem é obrigatória para a criação do local. Envie um arquivo de imagem no campo "${incomingField}".`,
-        code: 'MISSING_IMAGE'
-      });
-    }
-
-    const tipoNorm = String(tipo).trim().toLowerCase();
-    const priceMap = {
-      'clinica-de-fisioterapia': process.env.STRIPE_PRICEID_100,
-      'consultorio-de-nutricionista': process.env.STRIPE_PRICEID_100,
-      'academia': process.env.STRIPE_PRICEID_180,
-      'loja': process.env.STRIPE_PRICEID_180,
-      'outros': process.env.STRIPE_PRICEID_50
-    };
-    
-    const unitPrice = priceMap[tipoNorm];
-    if (!unitPrice) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: `Tipo de local inválido: ${localType}. Tipos aceitos: ${Object.keys(priceMap).join(', ')}`,
-        code: 'INVALID_LOCAL_TYPE'
-      });
-    }
-
-    const pm = String(paymentMethod || 'card').toLowerCase();
-    if (!['card', 'pix'].includes(pm)) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: 'Método de pagamento inválido. Aceitos: card, pix',
-        code: 'INVALID_PAYMENT_METHOD'
-      });
-    }
-
-    // Buscar usuário com validação
-    let user = null;
-    try {
-      user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          msg: 'Usuário não encontrado',
-          code: 'USER_NOT_FOUND'
-        });
-      }
-    } catch (err) {
-      return res.status(400).json({
-        success: false,
-        msg: 'ID de usuário inválido',
-        code: 'INVALID_USER_ID'
-      });
-    }
-
-    // Buscar ou criar customer no Stripe com melhor tratamento
-    let customerId = user?.planInfos?.stripeCustomerId || null;
-    if (!customerId) {
-      try {
-        const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-        customerId = customers.data[0]?.id || null;
-        
-        if (!customerId) {
-          const customer = await stripe.customers.create({ 
-            email: user.email,
-            name: user.name || user.username,
-            metadata: { 
-              app_user_id: String(user._id),
-              app: 'treinai',
-              created_at: new Date().toISOString()
-            }
-          });
-          customerId = customer.id;
-          
-          // Salvar customer ID
-          user.planInfos = user.planInfos || {};
-          user.planInfos.stripeCustomerId = customerId;
-          await user.save();
-        }
-      } catch (err) {
-        log('Erro ao criar/buscar customer:', err?.message || err);
-        return res.status(500).json({
-          success: false,
-          msg: 'Erro ao processar dados do cliente no Stripe',
-          code: 'STRIPE_CUSTOMER_ERROR'
-        });
-      }
-    }
-
-    // Processar upload com validação melhorada
-    let pendingUpload = null;
-    if (req.file) {
-      try {
-        // Em ambiente serverless, o arquivo já está no Cloudinary
-        // req.file.path contém o path do Cloudinary (ex: 'treinai/images/filename.jpg')
-        const isServerless = !!(process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
-        
-        let filename, tmpPath;
-        
-        if (isServerless) {
-          // Em ambiente serverless, usar o path do Cloudinary diretamente
-          filename = req.file.filename || path.basename(req.file.path || req.file.originalname);
-          // Não precisamos mover arquivo em ambiente serverless
-          tmpPath = req.file.path; // Path do Cloudinary
-        } else {
-          // Em ambiente local, mover arquivo para diretório temporário
-          await ensureDir(TMP_DIR);
-          const origPath = req.file.path;
-          filename = req.file.filename || path.basename(origPath);
-          tmpPath = path.join(TMP_DIR, filename);
-          
-          // Mover arquivo para diretório temporário
-          await moveFile(origPath, tmpPath);
-        }
-
-        pendingUpload = await PendingUpload.create({
-          filename,
-          originalName: req.file.originalname || filename,
-          userId: String(userId),
-          localName: localName || '',
-          localDescricao: localDescricao || '',
-          localType: tipoNorm,
-          link: link || '',
-          country: country || '',
-          countryCode: countryCode || '',
-          state: state || '',
-          city: city || '',
-          createdAt: new Date(),
-          metadata: { 
-            app: 'treinai',
-            fileSize: req.file.size,
-            mimeType: req.file.mimetype
-          }
-        });
-        
-        log(`PendingUpload criado: ${pendingUpload._id} para usuário ${userId}`);
-      } catch (err) {
-        console.error('CriarAssinaturaProLocal: falha ao processar upload:', err);
-        
-        // Limpar arquivo em caso de erro apenas em ambiente local
-        const isServerless = !!(process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
-        if (!isServerless && req.file?.path) {
-          await unlinkIfExists(req.file.path);
-        }
-        
-        return res.status(500).json({ 
-          success: false, 
-          msg: 'Erro ao processar upload da imagem',
-          code: 'UPLOAD_ERROR'
-        });
-      }
-    }
-
-    // Gerar chave de idempotência
-    const idempotencyKey = `local_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    // Metadata da subscription
-    const subscriptionMetadata = {
-      app: 'treinai',
-      flow: 'publish_local',
-      pendingUploadId: pendingUpload ? String(pendingUpload._id) : null,
-      userId: String(userId),
-      link: link || '',
-      localType: tipoNorm,
-      localName: localName || '',
-      localDescricao: localDescricao || '',
-      imageTmpFilename: pendingUpload ? pendingUpload.filename : '',
-      country: country || '',
-      countryCode: countryCode || '',
-      state: state || '',
-      city: city || '',
-      price_id: unitPrice,
-      idempotency_key: idempotencyKey
-    };
-
-    // Configuração da sessão melhorada
-    const sessionParams = {
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      line_items: [{ price: unitPrice, quantity: 1 }],
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&type=local`,
-      cancel_url: `${process.env.FRONTEND_URL}/cancel?type=local`,
-      expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutos
-      metadata: { 
-        app: 'treinai', 
-        pendingUploadId: pendingUpload ? String(pendingUpload._id) : null, 
-        flow: 'publish_local',
-        idempotency_key: idempotencyKey
-      },
-      subscription_data: {
-        metadata: subscriptionMetadata,
-      },
-      customer: customerId,
-      allow_promotion_codes: true, // Permitir códigos promocionais
-      billing_address_collection: 'auto'
-    };
-
-    const session = await stripe.checkout.sessions.create(sessionParams);
-    
-    log(`Checkout session criada para local: ${session.id} - User: ${userId} - Tipo: ${tipoNorm}`);
-
-    return res.status(201).json({
-      success: true,
-      msg: `Checkout session criada para ${tipoNorm} (${pm}).`,
-      sessionId: session.id,
-      url: session.url,
-      priceId: unitPrice,
-      tipo: tipoNorm,
-      userId: String(userId),
-      customerId: customerId || null,
-      paymentMethodTypes: session.payment_method_types || [pm],
-      pendingUploadId: pendingUpload ? String(pendingUpload._id) : null,
-      expiresAt: session.expires_at
-    });
-
-  } catch (error) {
-    console.error('CriarAssinaturaProLocal fatal error:', error?.message || error);
-    
-    // Limpar pending upload em caso de erro
-    if (req.body?.pendingUploadId) {
-      await removePendingUpload(req.body.pendingUploadId).catch(() => {});
-    }
-    
-    return res.status(500).json({ 
-      success: false, 
-      msg: 'Erro interno ao criar sessão de assinatura', 
-      code: 'INTERNAL_ERROR',
-      error: process.env.NODE_ENV === 'development' ? error?.message : undefined
-    });
-  }
-};
 
 // =====================================================================================
 // Novo endpoint: Criar sessão de pagamento para local (sem upload)
@@ -1129,13 +869,22 @@ export const StripeWebhook = async (req, res) => {
             const local = await Local.findById(localId);
             
             if (local) {
-              // Atualizar local com subscriptionId da sessão
-              local.subscriptionId = subscriptionId;
-              local.metadata = {
-                ...local.metadata,
-                stripeSessionId: session.id,
-                stripeCustomerId: customerId
+              // Atualizar local com subscriptionId da sessão e imagePath se disponível
+              const updateData = {
+                subscriptionId: subscriptionId,
+                metadata: {
+                  ...local.metadata,
+                  stripeSessionId: session.id,
+                  stripeCustomerId: customerId
+                }
               };
+
+              // Se há imagePath no metadata da sessão, garantir que está no local
+              if (session.metadata.imagePath && session.metadata.imagePath.trim() !== '') {
+                updateData.imagePath = session.metadata.imagePath;
+              }
+
+              Object.assign(local, updateData);
               await local.save();
               log('checkout.session.completed: Local atualizado com subscriptionId:', localId, subscriptionId);
             } else {
@@ -1295,6 +1044,18 @@ export const StripeWebhook = async (req, res) => {
               if (resultado.success) {
                 log('invoice.paid: Local ativado com sucesso:', localId);
                 
+                // Se há imagePath no metadata da subscription, garantir que está no local ativado
+                if (subMetadata.imagePath && subMetadata.imagePath.trim() !== '') {
+                  try {
+                    await Local.findByIdAndUpdate(localId, { 
+                      imagePath: subMetadata.imagePath 
+                    });
+                    log('invoice.paid: ImagePath atualizado no local:', localId, subMetadata.imagePath);
+                  } catch (imgErr) {
+                    console.error('invoice.paid: Erro ao atualizar imagePath:', imgErr?.message || imgErr);
+                  }
+                }
+                
                 // Enviar email de confirmação ao usuário
                 const user = await User.findById(resultado.local.userId);
                 if (user) {
@@ -1354,8 +1115,10 @@ export const StripeWebhook = async (req, res) => {
                   // mesmo se mover falhar, podemos tentar criar local com imageUrl null ou registrar para revisão
                 }
                 
-                // montar imageUrl apenas com path relativo
-                imageUrl = pending.filename ? `/uploads/image-local/${pending.filename}` : null;
+                // montar imageUrl - agora pode ser URL do Cloudinary ou path local
+                imageUrl = pending.filename ? 
+                  (pending.filename.startsWith('http') ? pending.filename : `/uploads/image-local/${pending.filename}`) 
+                  : null;
               }
 
               // checar duplicidade (por userId+localName+localType)

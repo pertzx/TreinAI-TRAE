@@ -81,29 +81,11 @@ const processImage = async (buffer, options = {}) => {
 };
 
 /**
- * Configuração de storage adaptável para serverless e local
+ * Cria storage para upload - sempre usa memoryStorage para Cloudinary
  */
-const createStorage = (uploadPath = 'uploads') => {
-  if (isServerless()) {
-    // Em ambiente serverless, usar memoryStorage
-    return multer.memoryStorage();
-  }
-
-  // Em ambiente local, usar diskStorage
-  const fullPath = path.join(__dirname, '..', uploadPath);
-  if (!fs.existsSync(fullPath)) {
-    fs.mkdirSync(fullPath, { recursive: true });
-  }
-
-  return multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, fullPath);
-    },
-    filename: (req, file, cb) => {
-      const secureFilename = generateSecureFilename(file.originalname, file.mimetype);
-      cb(null, secureFilename);
-    }
-  });
+const createStorage = (uploadPath) => {
+  // Sempre usar memoryStorage para integração com Cloudinary
+  return multer.memoryStorage();
 };
 
 /**

@@ -18,12 +18,10 @@ import {
   CreateCheckoutSession,
   SessionStatus,
   atualizarPlano,
-  CriarAssinaturaProLocal,
   CriarSessaoPagamentoLocal,
   deletarLocal,
   SessionPaymentSaldoDeImpressoes,
 } from '../controllers/stripe.js';
-import { criarLocalComToken, verificarTokensDisponiveis, limparTokensExpirados } from '../controllers/LocalTokenController.js';
 import { conversar, criarExercicioIA, criarTreinoIA } from '../controllers/UsingIA.js';
 import User from '../models/User.js';
 import { publicarNoHistorico } from '../controllers/database.js';
@@ -211,7 +209,7 @@ router.get('/buscar-historico', buscarHistorico);
 // nutri
 router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
 
-// locais - NOVO FLUXO
+// locais - FLUXO ATUAL
 router.post('/criar-local-direto', 
   uploadSecurityHeaders, 
   upload.single('image'), 
@@ -228,25 +226,10 @@ router.delete('/deletar-local-por-id/:localId',
 router.get('/buscar-locais', buscarLocais); // Buscar locais do usuário
 router.get('/meus-locais', meusLocais); // Listar locais do usuário logado
 
-// locais - FLUXO LEGADO
-router.post('/createPayment', uploadSecurityHeaders, uploadImage.single('image'), CriarAssinaturaProLocal); // LEGADO
 router.post('/criar-sessao-pagamento-local', 
   uploadSecurityHeaders, 
   CriarSessaoPagamentoLocal
-); // NOVA LÓGICA
-router.post('/criar-local-com-token', 
-  uploadSecurityHeaders, 
-  uploadImage.single('image'), 
-  criarLocalComToken
-); // NOVA LÓGICA
-router.get('/verificar-tokens/:userId', 
-  securityLogger,
-  verificarTokensDisponiveis
-); // NOVA LÓGICA
-router.post('/limpar-tokens-expirados', 
-  securityLogger,
-  limparTokensExpirados
-); // UTILITÁRIO ADMIN
+); // Criar sessão de pagamento para local
 router.post('/editar-local', uploadSecurityHeaders, uploadImage.single('image'), editarLocal);
 router.get('/locais', buscarLocais);
 router.post('/deletar-local', deletarLocal);
