@@ -37,27 +37,34 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Middleware customizado para capturar raw body ANTES do parsing - DEVE vir PRIMEIRO
+// IMPORTANTE: Não usar encoding para preservar o formato exato do Stripe
 app.use('/webhook', (req, res, next) => {
-    let data = '';
-    req.setEncoding('utf8');
+    const chunks = [];
     
-    console.log('🔍 [MIDDLEWARE] Iniciando captura do raw body para webhook');
+    console.log('🔍 [MIDDLEWARE] Iniciando captura do raw body para webhook (sem encoding)');
     console.log('🔍 [MIDDLEWARE] Headers recebidos:', JSON.stringify(req.headers, null, 2));
     
     req.on('data', (chunk) => {
-        data += chunk;
+        chunks.push(chunk);
         console.log('🔍 [MIDDLEWARE] Chunk recebido, tamanho:', chunk.length);
     });
     
     req.on('end', () => {
-        console.log('🔍 [MIDDLEWARE] Raw body capturado com sucesso');
-        console.log('🔍 [MIDDLEWARE] Tamanho total do body:', data.length);
-        console.log('🔍 [MIDDLEWARE] Preview do body (primeiros 200 chars):', data.substring(0, 200));
+        const rawBuffer = Buffer.concat(chunks);
+        const rawString = rawBuffer.toString('utf8');
         
-        req.rawBody = data;
-        req.body = data; // Manter compatibilidade
+        console.log('🔍 [MIDDLEWARE] Raw body capturado com sucesso');
+        console.log('🔍 [MIDDLEWARE] Tamanho total do buffer:', rawBuffer.length);
+        console.log('🔍 [MIDDLEWARE] Tamanho total da string:', rawString.length);
+        console.log('🔍 [MIDDLEWARE] Preview do body (primeiros 200 chars):', rawString.substring(0, 200));
+        
+        // Armazenar tanto o buffer quanto a string para compatibilidade
+        req.rawBody = rawString;
+        req.rawBuffer = rawBuffer;
+        req.body = rawString; // Manter compatibilidade
         
         console.log('🔍 [MIDDLEWARE] req.rawBody definido:', !!req.rawBody);
+        console.log('🔍 [MIDDLEWARE] req.rawBuffer definido:', !!req.rawBuffer);
         console.log('🔍 [MIDDLEWARE] req.body definido:', !!req.body);
         
         next();

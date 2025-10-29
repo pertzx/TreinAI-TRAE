@@ -1102,6 +1102,7 @@ export const StripeWebhook = async (req, res) => {
         if (!session.metadata || session.metadata.app !== 'treinai') { log('session: origem diferente -> ignorando'); break; }
         const subscriptionId = session.subscription || null;
         const customerId = session.customer || null;
+        let md = session.metadata || {};
 
         // atualização de usuário (se aplicável) - mantive sua lógica
         if (session.metadata.plan_type) {
