@@ -95,7 +95,7 @@ const isValidUrl = (string) => {
 // =======================
 export const excluirLocalPorErro = async (localId, session = null) => {
   try {
-    const local = await Local.findById(localId).session(session);
+    const local = await Local.findOne({ localId: localId }).session(session);
     if (!local) return { success: false, error: 'Local não encontrado' };
 
     // Função para deletar imagem (mesma lógica do editarProfissional)
@@ -143,7 +143,7 @@ export const excluirLocalPorErro = async (localId, session = null) => {
     }
 
     // Deletar local do banco
-    const localExcluido = await Local.findByIdAndDelete(localId).session(session);
+    const localExcluido = await Local.findOneAndDelete({ localId: localId }).session(session);
     console.log(`[LocalController] Local ${localId} excluído devido a erro no pagamento`);
     return { success: true, localExcluido };
   } catch (error) {
@@ -157,8 +157,8 @@ export const excluirLocalPorErro = async (localId, session = null) => {
 // =======================
 export const ativarLocalAposPagamento = async (localId, subscriptionId, session = null) => {
   try {
-    const localAtualizado = await Local.findByIdAndUpdate(
-      localId,
+    const localAtualizado = await Local.findOneAndUpdate(
+      { localId: localId },
       {
         status: 'ativo',
         subscriptionId: subscriptionId,
@@ -441,7 +441,12 @@ export const avaliarLocal = async (req, res) => {
     }
 
     // Verificar se o local existe
-    const local = await Local.findById(localId);
+    const local = await Local.findOne({ 
+      $or: [
+        { localId },
+        { _id: localId }
+      ]
+    });
     if (!local) {
       return res.status(404).json({
         success: false,
@@ -509,7 +514,12 @@ export const listarAvaliacoesLocal = async (req, res) => {
       });
     }
 
-    const local = await Local.findById(localId).lean();
+    const local = await Local.findOne({ 
+      $or: [
+        { localId },
+        { _id: localId }
+      ]
+    }).lean();
     if (!local) {
       return res.status(404).json({
         success: false,
@@ -640,7 +650,12 @@ export const moderarAvaliacao = async (req, res) => {
       });
     }
 
-    const local = await Local.findById(localId);
+    const local = await Local.findOne({ 
+      $or: [
+        { localId },
+        { _id: localId }
+      ]
+    });
     if (!local) {
       return res.status(404).json({
         success: false,

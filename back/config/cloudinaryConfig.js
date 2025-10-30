@@ -1,4 +1,8 @@
+import dotenv from 'dotenv';
 import { v2 as cloudinary } from 'cloudinary';
+
+// Carregar variáveis de ambiente
+dotenv.config();
 
 // Configuração do Cloudinary
 cloudinary.config({

@@ -88,7 +88,12 @@ export const updateLocalStatus = async (req, res) => {
             });
         }
 
-        const local = await Local.findById(localId);
+        const local = await Local.findOne({ 
+            $or: [
+                { localId },
+                { _id: localId }
+            ]
+        });
         if (!local) {
             return res.status(404).json({
                 success: false,
@@ -130,7 +135,12 @@ export const deleteLocal = async (req, res) => {
             });
         }
 
-        const local = await Local.findById(localId);
+        const local = await Local.findOne({ 
+            $or: [
+                { localId },
+                { _id: localId }
+            ]
+        });
         if (!local) {
             return res.status(404).json({
                 success: false,
@@ -138,7 +148,7 @@ export const deleteLocal = async (req, res) => {
             });
         }
 
-        await Local.findByIdAndDelete(localId);
+        await Local.findByIdAndDelete(local._id);
 
         return res.status(200).json({
             success: true,
@@ -180,7 +190,12 @@ export const editLocal = async (req, res) => {
             });
         }
 
-        const local = await Local.findById(localId);
+        const local = await Local.findOne({ 
+            $or: [
+                { localId },
+                { _id: localId }
+            ]
+        });
         if (!local) {
             return res.status(404).json({
                 success: false,

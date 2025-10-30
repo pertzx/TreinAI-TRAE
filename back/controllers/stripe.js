@@ -866,7 +866,12 @@ export const StripeWebhook = async (req, res) => {
         if (session.metadata.flow === 'create_local_payment' && session.metadata.localId) {
           try {
             const localId = session.metadata.localId;
-            const local = await Local.findById(localId);
+            const local = await Local.findOne({ 
+              $or: [
+                { localId },
+                { _id: localId }
+              ]
+            });
             
             if (local) {
               // Atualizar local com subscriptionId da sessão e imagePath se disponível
@@ -1292,7 +1297,12 @@ export const StripeWebhook = async (req, res) => {
         if (flow === 'create_local_payment' && md.localId) {
           try {
             const localId = md.localId;
-            const local = await Local.findById(localId);
+            const local = await Local.findOne({ 
+              $or: [
+                { localId },
+                { _id: localId }
+              ]
+            });
             
             if (local) {
               const resultado = await excluirLocalPorErro(localId, local.imagePath);
@@ -1383,7 +1393,12 @@ export const StripeWebhook = async (req, res) => {
         if (session.metadata?.flow === 'create_local_payment' && session.metadata?.localId) {
           try {
             const localId = session.metadata.localId;
-            const local = await Local.findById(localId);
+            const local = await Local.findOne({ 
+              $or: [
+                { localId },
+                { _id: localId }
+              ]
+            });
             
             if (local) {
               const resultado = await excluirLocalPorErro(localId, local.imagePath);
