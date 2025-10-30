@@ -222,20 +222,25 @@ export const criarLocalDireto = async (req, res) => {
 
       // Processar imagem usando a mesma lógica do editarProfissional
       let imageUrl = null;
+      console.log("req.file:", req.file);
       if (req.file) {
+        console.log("Tem file");
         try {
           // Em produção usar Cloudinary, em desenvolvimento usar local
           // Mesma lógica do editarProfissional: req.file.url || path local
           if (req.file.url) {
             // Se já foi processado pelo middleware (Cloudinary)
             imageUrl = req.file.url;
+            console.log("imageUrl:", imageUrl);
           } else if (req.file.buffer) {
             // Upload para Cloudinary
             const cloudinaryResult = await uploadToCloudinary(req.file.buffer, 'image-local', 'image');
             imageUrl = cloudinaryResult.secure_url;
+            console.log("cloudinaryResult:", cloudinaryResult);
           } else {
             // Fallback para upload local
             imageUrl = `/uploads/image-local/${req.file.filename}`;
+            console.log("imageUrl fallback:", imageUrl);
           }
           console.log('[LocalController] Imagem processada:', imageUrl);
         } catch (uploadError) {
