@@ -212,7 +212,7 @@ router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
 // locais - FLUXO ATUAL
 router.post('/criar-local-direto', 
   uploadSecurityHeaders, 
-  upload.single('image'), 
+  uploadImage.single('image'), 
   criarLocalDireto
 ); // Criar local sem pagamento imediato
 router.post('/ativar-local', 

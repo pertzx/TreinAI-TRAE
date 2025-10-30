@@ -47,5 +47,9 @@
     "uuid": "^11.1.0",
     "ws": "^8.18.3",
     "xss": "^1.0.15"
+  },
+  "devDependencies": {
+    "form-data": "^4.0.4",
+    "node-fetch": "^3.3.2"
   }
 }
