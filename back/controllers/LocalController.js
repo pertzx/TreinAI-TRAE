@@ -93,9 +93,9 @@ const isValidUrl = (string) => {
 // =======================
 // Função auxiliar para excluir local em caso de erro no pagamento
 // =======================
-export const excluirLocalPorErro = async (localId, session = null) => {
+export const excluirLocalPorErro = async (localId) => {
   try {
-    const local = await Local.findOne({ localId: localId }).session(session);
+    const local = await Local.findOne({ localId: localId });
     if (!local) return { success: false, error: 'Local não encontrado' };
 
     // Função para deletar imagem (mesma lógica do editarProfissional)
@@ -143,19 +143,19 @@ export const excluirLocalPorErro = async (localId, session = null) => {
     }
 
     // Deletar local do banco
-    const localExcluido = await Local.findOneAndDelete({ localId: localId }).session(session);
+    const localExcluido = await Local.findOneAndDelete({ localId: localId });
     console.log(`[LocalController] Local ${localId} excluído devido a erro no pagamento`);
     return { success: true, localExcluido };
   } catch (error) {
     console.error('Erro ao excluir local por erro:', error);
-    throw error; // Re-throw para que a transação possa fazer rollback
+    throw error;
   }
 };
 
 // =======================
 // Função auxiliar para ativar local após pagamento bem-sucedido
 // =======================
-export const ativarLocalAposPagamento = async (localId, subscriptionId, session = null) => {
+export const ativarLocalAposPagamento = async (localId, subscriptionId) => {
   try {
     const localAtualizado = await Local.findOneAndUpdate(
       { localId: localId },
@@ -163,8 +163,7 @@ export const ativarLocalAposPagamento = async (localId, subscriptionId, session 
         status: 'ativo',
         subscriptionId: subscriptionId,
         atualizadoEm: new Date(getBrazilDate())
-      },
-      { new: true, session }
+      }
     );
 
     if (!localAtualizado) {
@@ -175,7 +174,7 @@ export const ativarLocalAposPagamento = async (localId, subscriptionId, session 
     return { success: true, local: localAtualizado };
   } catch (error) {
     console.error('Erro ao ativar local após pagamento:', error);
-    throw error; // Re-throw para que a transação possa fazer rollback
+    throw error;
   }
 };
 
@@ -214,7 +213,7 @@ export const criarLocalDireto = async (req, res) => {
     }
 
     // Verificar se usuário existe
-    const user = await User.findById(userId).session(session);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -276,7 +275,7 @@ export const criarLocalDireto = async (req, res) => {
       atualizadoEm: new Date(getBrazilDate())
     });
 
-    const localSalvo = await novoLocal.save({ session });
+    const localSalvo = await novoLocal.save();
 
     // Criar sessão de pagamento no Stripe
     try {
@@ -321,7 +320,7 @@ export const criarLocalDireto = async (req, res) => {
           // Atualizar usuário com customerId
           if (!user.planInfos) user.planInfos = {};
           user.planInfos.stripeCustomerId = customerId;
-          await user.save({ session });
+          await user.save();
         } catch (customerError) {
           console.error('Erro ao criar/buscar customer:', customerError);
           return res.status(500).json({
@@ -371,7 +370,7 @@ export const criarLocalDireto = async (req, res) => {
         stripeSessionId: stripeSession.id,
         stripeCustomerId: customerId
       };
-      await localSalvo.save({ session });
+      await localSalvo.save();
 
       // Retornar resposta com URL de pagamento
       return res.status(201).json({
@@ -413,8 +412,6 @@ export const criarLocalDireto = async (req, res) => {
       message: 'Erro interno do servidor',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
-  } finally {
-    await session.endSession();
   }
 };
 

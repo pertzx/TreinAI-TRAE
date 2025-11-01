@@ -1038,62 +1038,53 @@ export const StripeWebhook = async (req, res) => {
         // --- NOVA LÓGICA: ativar local após pagamento bem-sucedido ---
         // Verificar se é fluxo create_local_payment
         if (subscriptionId) {
-          const session = await mongoose.startSession();
-          
           try {
-            await session.withTransaction(async () => {
-              const subFull = await stripe.subscriptions.retrieve(subscriptionId);
-              const subMetadata = subFull?.metadata || {};
+            const subFull = await stripe.subscriptions.retrieve(subscriptionId);
+            const subMetadata = subFull?.metadata || {};
+            
+            if (subMetadata.flow === 'create_local_payment' && subMetadata.localId) {
+              const localId = subMetadata.localId;
               
-              if (subMetadata.flow === 'create_local_payment' && subMetadata.localId) {
-                const localId = subMetadata.localId;
+              // Usar a função ativarLocalAposPagamento
+              const resultado = await ativarLocalAposPagamento(localId, subscriptionId);
+              
+              if (resultado.success) {
+                log('invoice.paid: Local ativado com sucesso:', localId);
                 
-                // Usar a função ativarLocalAposPagamento com transação
-                const resultado = await ativarLocalAposPagamento(localId, subscriptionId, session);
-                
-                if (resultado.success) {
-                  log('invoice.paid: Local ativado com sucesso:', localId);
-                  
-                  // Se há imageUrl no metadata da subscription, garantir que está no local ativado
-                  if (subMetadata.imageUrl && subMetadata.imageUrl.trim() !== '') {
-                    try {
-                      await Local.findOneAndUpdate(
-                        { localId: localId }, 
-                        { imageUrl: subMetadata.imageUrl },
-                        { session }
-                      );
-                      log('invoice.paid: ImageUrl atualizado no local:', localId, subMetadata.imageUrl);
-                    } catch (imgErr) {
-                      console.error('invoice.paid: Erro ao atualizar imageUrl:', imgErr?.message || imgErr);
-                      throw imgErr; // Re-throw para fazer rollback da transação
-                    }
+                // Se há imageUrl no metadata da subscription, garantir que está no local ativado
+                if (subMetadata.imageUrl && subMetadata.imageUrl.trim() !== '') {
+                  try {
+                    await Local.findOneAndUpdate(
+                      { localId: localId }, 
+                      { imageUrl: subMetadata.imageUrl }
+                    );
+                    log('invoice.paid: ImageUrl atualizado no local:', localId, subMetadata.imageUrl);
+                  } catch (imgErr) {
+                    console.error('invoice.paid: Erro ao atualizar imageUrl:', imgErr?.message || imgErr);
                   }
-                  
-                  // Enviar email de confirmação ao usuário (fora da transação)
-                  setImmediate(async () => {
-                    try {
-                      const user = await User.findById(resultado.local.userId);
-                      if (user) {
-                        sendNotificationEmail(
-                          user.email, 
-                          'Local Ativado com Sucesso', 
-                          `Seu local "${resultado.local.localName}" foi ativado com sucesso após o pagamento!`
-                        );
-                      }
-                    } catch (emailErr) {
-                      console.error('Erro ao enviar email de confirmação:', emailErr);
-                    }
-                  });
-                } else {
-                  console.error('invoice.paid: Erro ao ativar local:', resultado.error);
-                  throw new Error(`Falha na ativação do local: ${resultado.error}`);
                 }
+                
+                // Enviar email de confirmação ao usuário
+                setImmediate(async () => {
+                  try {
+                    const user = await User.findById(resultado.local.userId);
+                    if (user) {
+                      sendNotificationEmail(
+                        user.email, 
+                        'Local Ativado com Sucesso', 
+                        `Seu local "${resultado.local.localName}" foi ativado com sucesso após o pagamento!`
+                      );
+                    }
+                  } catch (emailErr) {
+                    console.error('Erro ao enviar email de confirmação:', emailErr);
+                  }
+                });
+              } else {
+                console.error('invoice.paid: Erro ao ativar local:', resultado.error);
               }
-            });
+            }
           } catch (err) {
             console.error('invoice.paid: Erro ao processar ativação de local:', err?.message || err);
-          } finally {
-            await session.endSession();
           }
         }
 
@@ -1305,7 +1296,7 @@ export const StripeWebhook = async (req, res) => {
             });
             
             if (local) {
-              const resultado = await excluirLocalPorErro(localId, local.imagePath);
+              const resultado = await excluirLocalPorErro(localId);
               
               if (resultado.success) {
                 log('invoice.payment_failed: Local excluído devido a falha no pagamento:', localId);
@@ -1401,7 +1392,7 @@ export const StripeWebhook = async (req, res) => {
             });
             
             if (local) {
-              const resultado = await excluirLocalPorErro(localId, local.imagePath);
+              const resultado = await excluirLocalPorErro(localId);
               
               if (resultado.success) {
                 log('checkout.session.expired: Local excluído devido a sessão expirada:', localId);
