@@ -101,6 +101,8 @@ export const createUpload = (type = 'image', options = {}) => {
   const allowedTypes = type === 'media' ? ['image', 'video'] : [type];
   const limits = UPLOAD_LIMITS[type] || UPLOAD_LIMITS.image;
 
+  console.log('[multerConfig.js] req.file: ', req.file);
+  console.log('[multerConfig.js] req.body: ', req.body);
   const upload = multer({
     storage: createStorage(uploadPath),
     fileFilter: createFileFilter(allowedTypes),

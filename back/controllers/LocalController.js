@@ -223,7 +223,8 @@ export const criarLocalDireto = async (req, res) => {
 
     // Processar imagem usando a mesma lógica do editarProfissional
     let imageUrl = null;
-    console.log("req.file:", req.file);
+    console.log("[LocalController.js] req.file:", req.file);
+    console.log("[LocalController.js] req.body:", req.body);
     if (req.file) {
       console.log("Tem file");
       try {
