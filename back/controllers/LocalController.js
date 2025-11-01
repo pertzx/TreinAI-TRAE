@@ -1016,7 +1016,7 @@ export const meusLocais = async (req, res) => {
     }
 
     // Buscar locais do usuário
-    const locais = await Local.find({ userId })
+    const locais = await Local.find({ userId: toString(userId) })
       .sort({ criadoEm: -1 })
       .lean();
 
