@@ -124,9 +124,9 @@ const CriarLocal = ({ tema, user }) => {
       // Criar FormData para envio
       const submitData = new FormData();
       
-      // Adicionar campos de texto
+      // Adicionar campos de texto (excluindo image para evitar duplicação)
       Object.keys(sanitizedData).forEach(key => {
-        if (sanitizedData[key] !== null && sanitizedData[key] !== undefined) {
+        if (key !== 'image' && sanitizedData[key] !== null && sanitizedData[key] !== undefined) {
           submitData.append(key, sanitizedData[key]);
         }
       });
