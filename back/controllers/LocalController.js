@@ -283,7 +283,8 @@ export const criarLocalDireto = async (req, res) => {
       // Mapear tipos de local para preços
       const tipoNorm = String(localType || '').toLowerCase().trim();
       const priceMap = {
-        'restaurante': process.env.STRIPE_PRICEID_180,
+        'clinica-de-fisioterapia': process.env.STRIPE_PRICEID_100,
+        'consultorio-de-nutricionista': process.env.STRIPE_PRICEID_100,
         'academia': process.env.STRIPE_PRICEID_180,
         'loja': process.env.STRIPE_PRICEID_180,
         'outros': process.env.STRIPE_PRICEID_50
