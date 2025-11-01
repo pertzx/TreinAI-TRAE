@@ -12,7 +12,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-06-20',
   maxNetworkRetries: 3,
   timeout: 30000
@@ -42,39 +42,39 @@ export const upload = multer({
 // Helper para validar dados do local
 const validateLocalData = (data) => {
   const errors = {};
-  
+
   if (!data.localName || data.localName.trim().length < 3) {
     errors.localName = 'Nome do local deve ter pelo menos 3 caracteres';
   }
-  
+
   if (!data.localDescricao || data.localDescricao.trim().length < 10) {
     errors.localDescricao = 'Descrição deve ter pelo menos 10 caracteres';
   }
-  
+
   if (!data.link || !isValidUrl(data.link)) {
     errors.link = 'Link deve ser uma URL válida';
   }
-  
+
   if (!data.localType) {
     errors.localType = 'Tipo de local é obrigatório';
   }
-  
+
   if (!data.country) {
     errors.country = 'País é obrigatório';
   }
-  
+
   if (!data.state) {
     errors.state = 'Estado é obrigatório';
   }
-  
+
   if (!data.city) {
     errors.city = 'Cidade é obrigatória';
   }
-  
+
   if (!data.userId) {
     errors.userId = 'ID do usuário é obrigatório';
   }
-  
+
   return {
     isValid: Object.keys(errors).length === 0,
     errors
@@ -102,7 +102,7 @@ export const excluirLocalPorErro = async (localId, session = null) => {
     const tryDeleteImage = async (imageUrl) => {
       try {
         if (!imageUrl || typeof imageUrl !== 'string') return;
-        
+
         // Se é URL do Cloudinary, deletar do Cloudinary
         if (imageUrl.includes('cloudinary.com')) {
           try {
@@ -116,16 +116,16 @@ export const excluirLocalPorErro = async (localId, session = null) => {
           const parsed = imageUrl.split('/').pop();
           if (!parsed) return;
           const filename = parsed.split('?')[0].split('#')[0];
-          
+
           const candidatePath = path.join(process.cwd(), 'uploads', 'image-local', filename);
-          
+
           // apenas remove se o arquivo estiver dentro do upload dir e existir
           if (candidatePath.includes('image-local') && fs.existsSync(candidatePath)) {
-            try { 
-              fs.unlinkSync(candidatePath); 
+            try {
+              fs.unlinkSync(candidatePath);
               console.log('[LocalController] Imagem local removida:', candidatePath);
-            } catch (err) { 
-              console.warn('Falha ao remover arquivo local:', candidatePath, err); 
+            } catch (err) {
+              console.warn('Falha ao remover arquivo local:', candidatePath, err);
             }
           }
         }
@@ -185,228 +185,229 @@ export const ativarLocalAposPagamento = async (localId, subscriptionId, session 
 // Status inicial: 'inativo'
 // =======================
 export const criarLocalDireto = async (req, res) => {
-  const session = await mongoose.startSession();
-  
+  // const session = await mongoose.startSession();
   try {
-    return await session.withTransaction(async () => {
-      const {
-        localName,
-        localDescricao,
-        link,
-        localType,
-        country,
-        countryCode,
-        state,
-        city,
-        userId
-      } = req.body;
+    // return await session.withTransaction(async () => {
 
-      // Validar dados
-      const validation = validateLocalData(req.body);
-      if (!validation.isValid) {
-        return res.status(400).json({
-          success: false,
-          message: 'Dados inválidos',
-          errors: validation.errors
-        });
-      }
+    // });
 
-      // Verificar se usuário existe
-      const user = await User.findById(userId).session(session);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'Usuário não encontrado'
-        });
-      }
+    const {
+      localName,
+      localDescricao,
+      link,
+      localType,
+      country,
+      countryCode,
+      state,
+      city,
+      userId
+    } = req.body;
 
-      // Processar imagem usando a mesma lógica do editarProfissional
-      let imageUrl = null;
-      console.log("req.file:", req.file);
-      if (req.file) {
-        console.log("Tem file");
-        try {
-          // Em produção usar Cloudinary, em desenvolvimento usar local
-          // Mesma lógica do editarProfissional: req.file.url || path local
-          if (req.file.url) {
-            // Se já foi processado pelo middleware (Cloudinary)
-            imageUrl = req.file.url;
-            console.log("imageUrl:", imageUrl);
-          } else if (req.file.buffer) {
-            // Upload para Cloudinary
-            const cloudinaryResult = await uploadToCloudinary(req.file.buffer, 'image-local', 'image');
-            imageUrl = cloudinaryResult.secure_url;
-            console.log("cloudinaryResult:", cloudinaryResult);
-          } else {
-            // Fallback para upload local
-            imageUrl = `/uploads/image-local/${req.file.filename}`;
-            console.log("imageUrl fallback:", imageUrl);
-          }
-          console.log('[LocalController] Imagem processada:', imageUrl);
-        } catch (uploadError) {
-          console.error('Erro no upload da imagem:', uploadError);
-          return res.status(500).json({
-            success: false,
-            message: 'Erro no upload da imagem'
-          });
-        }
-      }
-
-      // Gerar ID único para o local
-      const localId = uuidv4();
-
-      // Criar local no banco com status inativo
-      const novoLocal = new Local({
-        localId,
-        localName: localName.trim(),
-        localDescricao: localDescricao.trim(),
-        link: link.trim(),
-        localType,
-        country,
-        countryCode,
-        state,
-        city,
-        userId,
-        imageUrl, // Usar imageUrl em vez de imagePath para consistência
-        subscriptionId: 'temp_' + localId, // ID temporário até o pagamento
-        status: 'inativo', // Status inicial válido
-        criadoEm: new Date(getBrazilDate()),
-        atualizadoEm: new Date(getBrazilDate())
+    // Validar dados
+    const validation = validateLocalData(req.body);
+    if (!validation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Dados inválidos',
+        errors: validation.errors
       });
+    }
 
-      const localSalvo = await novoLocal.save({ session });
+    // Verificar se usuário existe
+    const user = await User.findById(userId).session(session);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuário não encontrado'
+      });
+    }
 
-      // Criar sessão de pagamento no Stripe
+    // Processar imagem usando a mesma lógica do editarProfissional
+    let imageUrl = null;
+    console.log("req.file:", req.file);
+    if (req.file) {
+      console.log("Tem file");
       try {
-        // Mapear tipos de local para preços
-        const tipoNorm = String(localType || '').toLowerCase().trim();
-        const priceMap = {
-          'restaurante': process.env.STRIPE_PRICEID_180,
-          'academia': process.env.STRIPE_PRICEID_180,
-          'loja': process.env.STRIPE_PRICEID_180,
-          'outros': process.env.STRIPE_PRICEID_50
-        };
-        
-        const unitPrice = priceMap[tipoNorm];
-        if (!unitPrice) {
-          // Se não encontrar preço, a transação fará rollback automático
-          return res.status(400).json({ 
-            success: false, 
-            message: `Tipo de local inválido: ${localType}. Tipos aceitos: ${Object.keys(priceMap).join(', ')}`,
-            code: 'INVALID_LOCAL_TYPE'
-          });
+        // Em produção usar Cloudinary, em desenvolvimento usar local
+        // Mesma lógica do editarProfissional: req.file.url || path local
+        if (req.file.url) {
+          // Se já foi processado pelo middleware (Cloudinary)
+          imageUrl = req.file.url;
+          console.log("imageUrl:", imageUrl);
+        } else if (req.file.buffer) {
+          // Upload para Cloudinary
+          const cloudinaryResult = await uploadToCloudinary(req.file.buffer, 'image-local', 'image');
+          imageUrl = cloudinaryResult.secure_url;
+          console.log("cloudinaryResult:", cloudinaryResult);
+        } else {
+          // Fallback para upload local
+          imageUrl = `/uploads/image-local/${req.file.filename}`;
+          console.log("imageUrl fallback:", imageUrl);
         }
-
-        // Buscar ou criar customer no Stripe
-        let customerId = user?.planInfos?.stripeCustomerId || null;
-        if (!customerId) {
-          try {
-            const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-            customerId = customers.data[0]?.id || null;
-            
-            if (!customerId) {
-              const customer = await stripe.customers.create({ 
-                email: user.email,
-                name: user.name || user.email,
-                metadata: {
-                  app: 'treinai',
-                  userId: String(userId)
-                }
-              });
-              customerId = customer.id;
-            }
-
-            // Atualizar usuário com customerId
-            if (!user.planInfos) user.planInfos = {};
-            user.planInfos.stripeCustomerId = customerId;
-            await user.save({ session });
-          } catch (customerError) {
-            console.error('Erro ao criar/buscar customer:', customerError);
-            return res.status(500).json({
-              success: false,
-              message: 'Erro ao configurar pagamento',
-              code: 'STRIPE_CUSTOMER_ERROR'
-            });
-          }
-        }
-
-        // Criar sessão de checkout
-        const sessionMetadata = {
-          app: 'treinai',
-          flow: 'create_local_payment',
-          userId: String(userId),
-          localId: String(localSalvo.localId), // Usar localId em vez de _id
-          localType: tipoNorm,
-          localName: localName.trim(),
-          imageUrl: imageUrl || ''
-        };
-
-        const sessionParams = {
-          mode: 'subscription',
-          line_items: [{
-            price: unitPrice,
-            quantity: 1,
-          }],
-          success_url: `${process.env.FRONTEND_URL}/pagamento-sucesso?session_id={CHECKOUT_SESSION_ID}&type=local_payment&local_id=${localSalvo.localId}`,
-          cancel_url: `${process.env.FRONTEND_URL}/pagamento-cancelado?type=local_payment&local_id=${localSalvo.localId}`,
-          expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutos
-          metadata: sessionMetadata,
-          subscription_data: {
-            metadata: {
-              ...sessionMetadata,
-              description: `Assinatura para ${tipoNorm} - ${localName.trim()}`
-            },
-          },
-          customer: customerId,
-          allow_promotion_codes: true,
-          billing_address_collection: 'auto'
-        };
-
-        const stripeSession = await stripe.checkout.sessions.create(sessionParams);
-
-        // Atualizar local com sessionId para rastreamento
-        localSalvo.metadata = {
-          stripeSessionId: stripeSession.id,
-          stripeCustomerId: customerId
-        };
-        await localSalvo.save({ session });
-
-        // Retornar resposta com URL de pagamento
-        return res.status(201).json({
-          success: true,
-          message: 'Local criado com sucesso. Redirecionando para pagamento...',
-          local: {
-            id: localSalvo._id,
-            localId: localSalvo.localId,
-            localName: localSalvo.localName,
-            localDescricao: localSalvo.localDescricao,
-            localType: localSalvo.localType,
-            status: localSalvo.status,
-            imageUrl: localSalvo.imageUrl
-          },
-          payment: {
-            sessionId: stripeSession.id,
-            url: stripeSession.url,
-            expiresAt: stripeSession.expires_at
-          },
-          requiresPayment: true
-        });
-
-      } catch (stripeError) {
-        console.error('Erro ao criar sessão de pagamento:', stripeError);
-        
+        console.log('[LocalController] Imagem processada:', imageUrl);
+      } catch (uploadError) {
+        console.error('Erro no upload da imagem:', uploadError);
         return res.status(500).json({
           success: false,
-          message: 'Erro ao configurar pagamento',
-          code: 'STRIPE_SESSION_ERROR',
-          error: process.env.NODE_ENV === 'development' ? stripeError.message : undefined
+          message: 'Erro no upload da imagem'
         });
       }
+    }
+
+    // Gerar ID único para o local
+    const localId = uuidv4();
+
+    // Criar local no banco com status inativo
+    const novoLocal = new Local({
+      localId,
+      localName: localName.trim(),
+      localDescricao: localDescricao.trim(),
+      link: link.trim(),
+      localType,
+      country,
+      countryCode,
+      state,
+      city,
+      userId,
+      imageUrl, // Usar imageUrl em vez de imagePath para consistência
+      subscriptionId: 'temp_' + localId, // ID temporário até o pagamento
+      status: 'inativo', // Status inicial válido
+      criadoEm: new Date(getBrazilDate()),
+      atualizadoEm: new Date(getBrazilDate())
     });
+
+    const localSalvo = await novoLocal.save({ session });
+
+    // Criar sessão de pagamento no Stripe
+    try {
+      // Mapear tipos de local para preços
+      const tipoNorm = String(localType || '').toLowerCase().trim();
+      const priceMap = {
+        'restaurante': process.env.STRIPE_PRICEID_180,
+        'academia': process.env.STRIPE_PRICEID_180,
+        'loja': process.env.STRIPE_PRICEID_180,
+        'outros': process.env.STRIPE_PRICEID_50
+      };
+
+      const unitPrice = priceMap[tipoNorm];
+      if (!unitPrice) {
+        // Se não encontrar preço, a transação fará rollback automático
+        return res.status(400).json({
+          success: false,
+          message: `Tipo de local inválido: ${localType}. Tipos aceitos: ${Object.keys(priceMap).join(', ')}`,
+          code: 'INVALID_LOCAL_TYPE'
+        });
+      }
+
+      // Buscar ou criar customer no Stripe
+      let customerId = user?.planInfos?.stripeCustomerId || null;
+      if (!customerId) {
+        try {
+          const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+          customerId = customers.data[0]?.id || null;
+
+          if (!customerId) {
+            const customer = await stripe.customers.create({
+              email: user.email,
+              name: user.name || user.email,
+              metadata: {
+                app: 'treinai',
+                userId: String(userId)
+              }
+            });
+            customerId = customer.id;
+          }
+
+          // Atualizar usuário com customerId
+          if (!user.planInfos) user.planInfos = {};
+          user.planInfos.stripeCustomerId = customerId;
+          await user.save({ session });
+        } catch (customerError) {
+          console.error('Erro ao criar/buscar customer:', customerError);
+          return res.status(500).json({
+            success: false,
+            message: 'Erro ao configurar pagamento',
+            code: 'STRIPE_CUSTOMER_ERROR'
+          });
+        }
+      }
+
+      // Criar sessão de checkout
+      const sessionMetadata = {
+        app: 'treinai',
+        flow: 'create_local_payment',
+        userId: String(userId),
+        localId: String(localSalvo.localId), // Usar localId em vez de _id
+        localType: tipoNorm,
+        localName: localName.trim(),
+        imageUrl: imageUrl || ''
+      };
+
+      const sessionParams = {
+        mode: 'subscription',
+        line_items: [{
+          price: unitPrice,
+          quantity: 1,
+        }],
+        success_url: `${process.env.FRONTEND_URL}/pagamento-sucesso?session_id={CHECKOUT_SESSION_ID}&type=local_payment&local_id=${localSalvo.localId}`,
+        cancel_url: `${process.env.FRONTEND_URL}/pagamento-cancelado?type=local_payment&local_id=${localSalvo.localId}`,
+        expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutos
+        metadata: sessionMetadata,
+        subscription_data: {
+          metadata: {
+            ...sessionMetadata,
+            description: `Assinatura para ${tipoNorm} - ${localName.trim()}`
+          },
+        },
+        customer: customerId,
+        allow_promotion_codes: true,
+        billing_address_collection: 'auto'
+      };
+
+      const stripeSession = await stripe.checkout.sessions.create(sessionParams);
+
+      // Atualizar local com sessionId para rastreamento
+      localSalvo.metadata = {
+        stripeSessionId: stripeSession.id,
+        stripeCustomerId: customerId
+      };
+      await localSalvo.save({ session });
+
+      // Retornar resposta com URL de pagamento
+      return res.status(201).json({
+        success: true,
+        message: 'Local criado com sucesso. Redirecionando para pagamento...',
+        local: {
+          id: localSalvo._id,
+          localId: localSalvo.localId,
+          localName: localSalvo.localName,
+          localDescricao: localSalvo.localDescricao,
+          localType: localSalvo.localType,
+          status: localSalvo.status,
+          imageUrl: localSalvo.imageUrl
+        },
+        payment: {
+          sessionId: stripeSession.id,
+          url: stripeSession.url,
+          expiresAt: stripeSession.expires_at
+        },
+        requiresPayment: true
+      });
+
+    } catch (stripeError) {
+      console.error('Erro ao criar sessão de pagamento:', stripeError);
+
+      return res.status(500).json({
+        success: false,
+        message: 'Erro ao configurar pagamento',
+        code: 'STRIPE_SESSION_ERROR',
+        error: process.env.NODE_ENV === 'development' ? stripeError.message : undefined
+      });
+    }
 
   } catch (error) {
     console.error('Erro ao criar local:', error);
-    
+
     return res.status(500).json({
       success: false,
       message: 'Erro interno do servidor',
@@ -441,7 +442,7 @@ export const avaliarLocal = async (req, res) => {
     }
 
     // Verificar se o local existe
-    const local = await Local.findOne({ 
+    const local = await Local.findOne({
       $or: [
         { localId },
         { _id: localId }
@@ -514,7 +515,7 @@ export const listarAvaliacoesLocal = async (req, res) => {
       });
     }
 
-    const local = await Local.findOne({ 
+    const local = await Local.findOne({
       $or: [
         { localId },
         { _id: localId }
@@ -529,7 +530,7 @@ export const listarAvaliacoesLocal = async (req, res) => {
 
     // Filtrar apenas avaliações aceitas
     const avaliacoesAceitas = local.avaliacoes?.filter(av => av.aceito) || [];
-    
+
     // Ordenar por data mais recente
     avaliacoesAceitas.sort((a, b) => new Date(b.dataAvaliacao) - new Date(a.dataAvaliacao));
 
@@ -541,7 +542,7 @@ export const listarAvaliacoesLocal = async (req, res) => {
     // Calcular estatísticas
     const estatisticas = {
       total: avaliacoesAceitas.length,
-      mediaEstrelas: avaliacoesAceitas.length > 0 
+      mediaEstrelas: avaliacoesAceitas.length > 0
         ? avaliacoesAceitas.reduce((acc, av) => acc + av.estrelas, 0) / avaliacoesAceitas.length
         : 0,
       distribuicaoEstrelas: {
@@ -650,7 +651,7 @@ export const moderarAvaliacao = async (req, res) => {
       });
     }
 
-    const local = await Local.findOne({ 
+    const local = await Local.findOne({
       $or: [
         { localId },
         { _id: localId }
@@ -676,7 +677,7 @@ export const moderarAvaliacao = async (req, res) => {
     local.avaliacoes[avaliacaoIndex].aceito = aceitar;
     local.avaliacoes[avaliacaoIndex].moderadoPor = moderadorId;
     local.avaliacoes[avaliacaoIndex].dataModeração = new Date();
-    
+
     if (!aceitar && motivoRejeicao) {
       local.avaliacoes[avaliacaoIndex].motivoRejeicao = motivoRejeicao.trim().substring(0, 200);
     }
@@ -716,7 +717,7 @@ export const deletarLocalPorId = async (req, res) => {
     }
 
     // Buscar local
-    const local = await Local.findOne({ 
+    const local = await Local.findOne({
       $or: [
         { localId },
         { _id: localId }
@@ -786,7 +787,7 @@ export const ativarLocal = async (req, res) => {
     }
 
     // Buscar local
-    const local = await Local.findOne({ 
+    const local = await Local.findOne({
       $or: [
         { localId },
         { _id: localId }
@@ -803,7 +804,7 @@ export const ativarLocal = async (req, res) => {
     // Atualizar status para ativo
     local.status = 'ativo';
     local.atualizadoEm = new Date(getBrazilDate());
-    
+
     if (subscriptionId) {
       local.subscriptionId = subscriptionId;
     }
@@ -923,9 +924,9 @@ export const editarLocal = async (req, res) => {
 
     // Verificar se está tentando alterar o tipo de local (não permitido)
     if (localType !== undefined) {
-      return res.status(400).json({ 
-        success: false, 
-        msg: "Não é permitido alterar o tipo de local após a criação devido às diferenças de preço." 
+      return res.status(400).json({
+        success: false,
+        msg: "Não é permitido alterar o tipo de local após a criação devido às diferenças de preço."
       });
     }
 
@@ -962,7 +963,7 @@ export const editarLocal = async (req, res) => {
           console.warn("Erro ao apagar imagem antiga do Cloudinary:", e?.message || e);
         }
       }
-      
+
       // fazer upload da nova imagem para Cloudinary
       try {
         const cloudinaryResult = await uploadToCloudinary(req.file.buffer, 'image-local', 'image');

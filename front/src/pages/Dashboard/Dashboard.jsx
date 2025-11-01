@@ -433,7 +433,7 @@ const Dashboard = ({ needToPay, plano }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+      className="max-w-6xl mx-auto px-2 sm:px-3 lg:px-4"
     >
       {/* Seção de Boas-vindas */}
       <WelcomeSection />
@@ -880,7 +880,7 @@ const Dashboard = ({ needToPay, plano }) => {
   }
 
   return (
-    <div className={`min-h-screen w-full flex flex-col items-center p-4 ${themeClasses}`}>
+    <div className={`min-h-screen w-full flex flex-col items-center p-1 ${themeClasses}`}>
       {/* Alerta de segurança para dispositivo bloqueado */}
       <SecurityAlert />
 
