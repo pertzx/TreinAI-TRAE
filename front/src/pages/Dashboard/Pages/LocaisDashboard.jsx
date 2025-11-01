@@ -113,10 +113,13 @@ const LocaisDashboard = ({ tema, user }) => {
         page: paginaAtual,
         limit: itensPorPagina,
         ...filtros
-      };
+      }
+
+      console.log(params)
 
       const response = await api.get('/meus-locais', { params });
 
+      console.log(response)
       if (response.data.success) {
         setLocais(response.data.locais || []);
         setTotalItens(response.data.total || 0);
