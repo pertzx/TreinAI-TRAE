@@ -227,6 +227,7 @@ const Perfil = ({ user, tema = 'light' }) => {
       if (cityIndex >= 0 && cities[cityIndex]) formData.append('city', cities[cityIndex]);
 
       if (avatarFile) {
+        console.log(avatarFile);
         formData.append('avatar', avatarFile);
       }
 

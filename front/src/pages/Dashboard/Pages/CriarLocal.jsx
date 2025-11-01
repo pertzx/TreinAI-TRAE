@@ -55,6 +55,11 @@ const CriarLocal = ({ tema, user }) => {
       sanitized.userId = user._id;
     }
 
+    // Preservar arquivo de imagem (File object)
+    if (data.image instanceof File) {
+      sanitized.image = data.image;
+    }
+
     return sanitized;
   };
 
@@ -128,6 +133,8 @@ const CriarLocal = ({ tema, user }) => {
 
       // Adicionar imagem se existir
       if (formData.image) {
+        console.log('Tem imagem:', formData.image);
+        console.log(formData.image);
         submitData.append('image', formData.image);
       }
 

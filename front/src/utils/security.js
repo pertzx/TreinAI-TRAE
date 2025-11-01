@@ -46,6 +46,11 @@ export const sanitizeLocalData = (formData) => {
     }
   });
   
+  // Preservar arquivo de imagem (File object)
+  if (formData.image instanceof File) {
+    sanitized.image = formData.image;
+  }
+  
   return sanitized;
 };
 
