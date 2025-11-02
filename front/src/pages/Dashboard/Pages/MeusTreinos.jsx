@@ -5,6 +5,7 @@ import { FiChevronDown, FiChevronUp, FiPlus } from 'react-icons/fi';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
 import { useToast } from '../../../components/Toast.jsx';
 import { createToastHelper } from '../../../utils/toastHelper.js';
+import axios from 'axios';
 
 const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   const isDark = tema === 'dark';
@@ -44,6 +45,12 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
 
   useEffect(() => {
     showWarning('Somente usuarios PRO, MAX ou COACH podem editar os seus treinos.');
+
+    setLoading(true)
+
+    setTimeout(() => {
+      setLoading(false);
+    }, 4 * 1000);
   }, [rebuke]);
 
   useEffect(() => {
@@ -103,7 +110,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
         if (!Array.isArray(user.meusTreinos) || user.meusTreinos.length === 0) {
           // tenta criar treinos iniciais no backend
           try {
-            const resp = await api.post('/criar-meusTreinos', { email: user.email, profissionalId });
+            const resp = await axios.post(`${import.meta.env.VITE_API_URL}/criar-meusTreinos`, { email: user.email, profissionalId });
 
             // console.log(resp)
 
@@ -397,7 +404,19 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
     return user?.planInfos?.planType !== 'free' && user?.planInfos?.status === 'ativo';
   };
 
-  if (loading) return <div>Carregando treinos...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="relative w-24 h-24">
+        {/* IA-inspired orbit rings */}
+        <div className="absolute inset-0 rounded-full border-2 border-blue-400/20 animate-[spin_4s_linear_infinite]" />
+        <div className="absolute inset-2 rounded-full border-2 border-purple-400/30 animate-[spin_3s_linear_infinite_reverse]" />
+        <div className="absolute inset-4 rounded-full border-2 border-indigo-400/40 animate-[spin_2s_linear_infinite]" />
+        {/* Central glowing dot */}
+        <div className="absolute inset-0 m-auto w-4 h-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full shadow-[0_0_12px_#6366f1] animate-pulse" />
+      </div>
+      <span className="ml-4 text-lg font-medium text-gray-400">Gerando treinos com IA...</span>
+    </div>
+  );
 
   return (
     <div className="space-y-6 mt-6 relative">

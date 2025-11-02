@@ -59,7 +59,7 @@ Formato obrigatório:
 {
   "success": true,
   "treinoGerado": {
-    "treinoName": "string (obrigatório)",
+    "treinoName": "string (obrigatório | Deve ser um nome com base no treino gerado e nao o mesmo nome que o usuario pediu)",
     "descricao": "string",
     "exercicios": [
       {
