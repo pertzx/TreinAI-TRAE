@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FaPlus, 
-  FaEdit, 
-  FaTrash, 
-  FaEye, 
-  FaSearch, 
-  FaFilter, 
+import {
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaEye,
+  FaSearch,
+  FaFilter,
   FaMapMarkerAlt,
   FaCalendarAlt,
   FaToggleOn,
@@ -34,8 +34,6 @@ const LocaisDashboard = ({ tema, user }) => {
 
   // Estados para paginação
   const [paginaAtual, setPaginaAtual] = useState(1);
-  const [totalPaginas, setTotalPaginas] = useState(1);
-  const [totalItens, setTotalItens] = useState(0);
   const itensPorPagina = 10;
 
   // Estados para filtros
@@ -109,10 +107,7 @@ const LocaisDashboard = ({ tema, user }) => {
 
     try {
       const params = {
-        userId: user._id,
-        page: paginaAtual,
-        limit: itensPorPagina,
-        ...filtros
+        userId: user._id
       }
 
       console.log(params)
@@ -121,9 +116,7 @@ const LocaisDashboard = ({ tema, user }) => {
 
       console.log(response)
       if (response.data.success) {
-        setLocais(response.data.locais || []);
-        setTotalItens(response.data.total || 0);
-        setTotalPaginas(Math.ceil((response.data.total || 0) / itensPorPagina));
+        setLocais(response.data.data.locais || []);
       } else {
         setErro(response.data.message || 'Erro ao carregar locais');
         showError('Erro ao carregar locais');
@@ -135,7 +128,7 @@ const LocaisDashboard = ({ tema, user }) => {
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [paginaAtual, filtros, showError]);
+  }, [showError]);
 
   // Função para criar local
   const criarLocal = async (e) => {
@@ -144,7 +137,7 @@ const LocaisDashboard = ({ tema, user }) => {
 
     try {
       const submitData = new FormData();
-      
+
       // Adicionar campos de texto
       Object.keys(formData).forEach(key => {
         if (key !== 'image' && formData[key]) {
@@ -188,7 +181,7 @@ const LocaisDashboard = ({ tema, user }) => {
 
     try {
       const submitData = new FormData();
-      
+
       // Adicionar campos de texto
       Object.keys(editFormData).forEach(key => {
         if (key !== 'image' && editFormData[key]) {
@@ -300,10 +293,51 @@ const LocaisDashboard = ({ tema, user }) => {
     setPaginaAtual(1);
   };
 
+  // Filtrar locais no frontend
+  const locaisFiltrados = useMemo(() => {
+    return locais.filter(local => {
+      const matchBusca = !filtros.busca || 
+        local.localName?.toLowerCase().includes(filtros.busca.toLowerCase()) ||
+        local.localDescricao?.toLowerCase().includes(filtros.busca.toLowerCase()) ||
+        local.city?.toLowerCase().includes(filtros.busca.toLowerCase()) ||
+        local.state?.toLowerCase().includes(filtros.busca.toLowerCase());
+      
+      const matchStatus = filtros.status === 'all' || !filtros.status || local.status === filtros.status;
+      
+      return matchBusca && matchStatus;
+    });
+  }, [locais, filtros]);
+
+  // Aplicar ordenação
+  const locaisOrdenados = useMemo(() => {
+    const locaisParaOrdenar = [...locaisFiltrados];
+    
+    switch (filtros.ordenacao) {
+      case 'nome':
+        return locaisParaOrdenar.sort((a, b) => a.localName?.localeCompare(b.localName));
+      case 'antigo':
+        return locaisParaOrdenar.sort((a, b) => new Date(a.criadoEm) - new Date(b.criadoEm));
+      case 'recente':
+      default:
+        return locaisParaOrdenar.sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
+    }
+  }, [locaisFiltrados, filtros.ordenacao]);
+
+  // Calcular paginação
+  const totalItensCalculado = locaisOrdenados.length;
+  const totalPaginasCalculado = Math.ceil(totalItensCalculado / itensPorPagina);
+  const indiceInicio = (paginaAtual - 1) * itensPorPagina;
+  const locaisPaginados = locaisOrdenados.slice(indiceInicio, indiceInicio + itensPorPagina);
+
   // Efeito para carregar locais
   useEffect(() => {
     carregarLocais();
   }, [carregarLocais]);
+
+  // Efeito para resetar página quando filtros mudarem
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [filtros.busca, filtros.status, filtros.ordenacao]);
 
   return (
     <div className={`min-h-screen ${currentTheme.bg} p-6`}>
@@ -371,7 +405,7 @@ const LocaisDashboard = ({ tema, user }) => {
         </div>
 
         {/* Lista de Locais */}
-        <div className={`${currentTheme.cardBg} rounded-lg ${currentTheme.shadow} overflow-hidden`}>
+        <div className={`overflow-x-auto ${currentTheme.cardBg} rounded-lg ${currentTheme.shadow} overflow-hidden`}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <FaSpinner className={`animate-spin text-4xl ${currentTheme.textSecondary}`} />
@@ -383,7 +417,7 @@ const LocaisDashboard = ({ tema, user }) => {
                 <p className={currentTheme.textSecondary}>{erro}</p>
               </div>
             </div>
-          ) : locais.length === 0 ? (
+          ) : locaisFiltrados.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <FaMapMarkerAlt className={`text-4xl ${currentTheme.textSecondary} mb-4 mx-auto`} />
@@ -401,7 +435,7 @@ const LocaisDashboard = ({ tema, user }) => {
           ) : (
             <>
               {/* Tabela */}
-              <div className="overflow-x-auto">
+              <div className="">
                 <table className="w-full">
                   <thead className={`${currentTheme.bg} border-b ${currentTheme.border}`}>
                     <tr>
@@ -423,7 +457,7 @@ const LocaisDashboard = ({ tema, user }) => {
                     </tr>
                   </thead>
                   <tbody className={`${currentTheme.cardBg} divide-y ${currentTheme.border}`}>
-                    {locais.map((local) => (
+                    {locaisPaginados.map((local) => (
                       <motion.tr
                         key={local._id}
                         initial={{ opacity: 0, y: 20 }}
@@ -458,12 +492,11 @@ const LocaisDashboard = ({ tema, user }) => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            local.ativo 
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${local.status == 'ativo'
                               ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                               : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-                          }`}>
-                            {local.ativo ? (
+                            }`}>
+                            {local.status == 'ativo' ? (
                               <>
                                 <FaToggleOn className="mr-1" />
                                 Ativo
@@ -525,11 +558,11 @@ const LocaisDashboard = ({ tema, user }) => {
               </div>
 
               {/* Paginação */}
-              {totalPaginas > 1 && (
+              {totalPaginasCalculado > 1 && (
                 <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between">
                     <div className={`text-sm ${currentTheme.textSecondary}`}>
-                      Mostrando {((paginaAtual - 1) * itensPorPagina) + 1} a {Math.min(paginaAtual * itensPorPagina, totalItens)} de {totalItens} locais
+                      Mostrando {((paginaAtual - 1) * itensPorPagina) + 1} a {Math.min(paginaAtual * itensPorPagina, totalItensCalculado)} de {totalItensCalculado} locais
                     </div>
                     <div className="flex items-center space-x-2">
                       <motion.button
@@ -542,13 +575,13 @@ const LocaisDashboard = ({ tema, user }) => {
                         Anterior
                       </motion.button>
                       <span className={`px-3 py-1 ${currentTheme.text}`}>
-                        {paginaAtual} de {totalPaginas}
+                        {paginaAtual} de {totalPaginasCalculado}
                       </span>
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => setPaginaAtual(prev => Math.min(prev + 1, totalPaginas))}
-                        disabled={paginaAtual === totalPaginas}
+                        onClick={() => setPaginaAtual(prev => Math.min(prev + 1, totalPaginasCalculado))}
+                        disabled={paginaAtual === totalPaginasCalculado}
                         className={`px-3 py-1 rounded ${currentTheme.buttonSecondary} disabled:opacity-50 disabled:cursor-not-allowed`}
                       >
                         Próxima
@@ -1019,12 +1052,11 @@ const LocaisDashboard = ({ tema, user }) => {
                           <strong>Tipo:</strong> {selectedLocal.localType}
                         </p>
                         <p className={currentTheme.textSecondary}>
-                          <strong>Status:</strong> 
-                          <span className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs ${
-                            selectedLocal.ativo 
+                          <strong>Status:</strong>
+                          <span className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs ${selectedLocal.ativo
                               ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                               : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-                          }`}>
+                            }`}>
                             {selectedLocal.ativo ? 'Ativo' : 'Inativo'}
                           </span>
                         </p>

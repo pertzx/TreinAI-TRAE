@@ -1211,12 +1211,19 @@ export const carregarTreinos = async (req, res) => {
     }
 
     // Caso já tenha treinos
+    if (user.tentouCriarMeusTreinos) {
+      return res.json({ msg: 'Você já tentou criar treinos. As vezes demora pra carregar. Recarregue a página para ver os treinos criados!', user, total_tokens: 0 });
+    }
+
     if (Array.isArray(user.meusTreinos) && user.meusTreinos.length > 0) {
       return res.json({ msg: 'Você já tem treinos criados', user, total_tokens: 0 });
     }
 
     // Sem treinos: gerar via IA
     const meusTreinosResp = await criarTreinos(user.perfil?.objetivo, email);
+    user.tentouCriarMeusTreinos = true;
+    await user.save();
+
     console.log('meusTreinosResp', meusTreinosResp);
     const treinosGPT = meusTreinosResp?.treinos || meusTreinosResp || [];
     const totalTokens = Number(meusTreinosResp?.total_tokens) || 0;

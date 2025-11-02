@@ -58,6 +58,7 @@ const UserSchema = new Schema({
     city: { type: String, default: null },
   },
 
+  tentouCriarMeusTreinos: { type: Boolean, default: false },
   meusTreinos: [
     {
       treinoId: { type: String, default: () => uuidv4() },
