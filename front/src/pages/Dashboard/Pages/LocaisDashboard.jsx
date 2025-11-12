@@ -172,7 +172,7 @@ const LocaisDashboard = ({ tema, user }) => {
 
       // Adicionar campos de texto
       Object.keys(formData).forEach(key => {
-        if (key !== 'image' && formData[key]) {
+        if (key !== 'image' && key !== 'countryCode' && formData[key]) {
           submitData.append(key, formData[key]);
         }
       });
@@ -185,7 +185,7 @@ const LocaisDashboard = ({ tema, user }) => {
         submitData.append('image', formData.image);
       }
 
-      submitData.append('countryCode', formData.country === 'Brasil' ? 'BR' : (formData.countryCode || ''));
+      submitData.append('countryCode', formData.countryCode || '');
 
       const response = await api.post('/criar-local-direto', submitData, {
         headers: {
