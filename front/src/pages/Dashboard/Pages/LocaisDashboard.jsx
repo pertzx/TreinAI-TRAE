@@ -18,6 +18,7 @@ import {
 } from 'react-icons/fa';
 import { MdLocationOn, MdDateRange, MdVisibility } from 'react-icons/md';
 import api from '../../../Api';
+import locationsRaw from '../../../data/locations.json';
 import { useToast } from '../../../components/Toast';
 import { buildImageUrl } from '../../../utils/imageUtils';
 
@@ -49,10 +50,9 @@ const LocaisDashboard = ({ tema, user }) => {
     localDescricao: '',
     localType: 'academia',
     country: 'Brasil',
+    countryCode: 'BR',
     state: '',
     city: '',
-    lat: '',
-    lng: '',
     image: null
   });
 
@@ -61,10 +61,9 @@ const LocaisDashboard = ({ tema, user }) => {
     localName: '',
     localDescricao: '',
     country: 'Brasil',
+    countryCode: 'BR',
     state: '',
     city: '',
-    lat: '',
-    lng: '',
     image: null
   });
 
@@ -99,6 +98,30 @@ const LocaisDashboard = ({ tema, user }) => {
   };
 
   const currentTheme = theme[tema] || theme.light;
+
+  const countries = useMemo(() => (locationsRaw?.countries || []), []);
+  const statesCreate = useMemo(() => {
+    if (!formData.country) return [];
+    const byCountry = locationsRaw?.byCountry?.[formData.country];
+    return byCountry?.states || [];
+  }, [formData.country]);
+  const citiesCreate = useMemo(() => {
+    if (!formData.country || !formData.state) return [];
+    const byCountry = locationsRaw?.byCountry?.[formData.country];
+    const byState = byCountry?.citiesByState?.[formData.state];
+    return byState || [];
+  }, [formData.country, formData.state]);
+  const statesEdit = useMemo(() => {
+    if (!editFormData.country) return [];
+    const byCountry = locationsRaw?.byCountry?.[editFormData.country];
+    return byCountry?.states || [];
+  }, [editFormData.country]);
+  const citiesEdit = useMemo(() => {
+    if (!editFormData.country || !editFormData.state) return [];
+    const byCountry = locationsRaw?.byCountry?.[editFormData.country];
+    const byState = byCountry?.citiesByState?.[editFormData.state];
+    return byState || [];
+  }, [editFormData.country, editFormData.state]);
 
   // Função para carregar locais
   const carregarLocais = useCallback(async (showLoading = true) => {
@@ -152,6 +175,8 @@ const LocaisDashboard = ({ tema, user }) => {
       if (formData.image) {
         submitData.append('image', formData.image);
       }
+
+      submitData.append('countryCode', formData.country === 'Brasil' ? 'BR' : (formData.countryCode || ''));
 
       const response = await api.post('/criar-local-direto', submitData, {
         headers: {
@@ -269,10 +294,9 @@ const LocaisDashboard = ({ tema, user }) => {
       localName: local.localName || '',
       localDescricao: local.localDescricao || '',
       country: local.country || 'Brasil',
+      countryCode: local.countryCode || 'BR',
       state: local.state || '',
       city: local.city || '',
-      lat: local.lat || '',
-      lng: local.lng || '',
       image: null
     });
     setShowEditModal(true);
@@ -681,76 +705,54 @@ const LocaisDashboard = ({ tema, user }) => {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
-                        Estado *
-                      </label>
-                      <input
-                        type="text"
+                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>País *</label>
+                      <select
+                        required
+                        value={formData.country}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          const countryObj = (locationsRaw?.countries || []).find((c) => (c.name === name));
+                          const code = countryObj?.code || '';
+                          setFormData(prev => ({ ...prev, country: name, countryCode: code, state: '', city: '' }));
+                        }}
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      >
+                        {countries.map((country) => (
+                          <option key={country.code} value={country.name}>{country.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>Estado *</label>
+                      <select
                         required
                         value={formData.state}
-                        onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                        onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value, city: '' }))}
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                        placeholder="Ex: São Paulo"
-                      />
+                      >
+                        <option value="">Selecione</option>
+                        {statesCreate.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
                     </div>
-
                     <div>
-                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
-                        Cidade *
-                      </label>
-                      <input
-                        type="text"
+                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>Cidade *</label>
+                      <select
                         required
                         value={formData.city}
                         onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                        placeholder="Ex: São Paulo"
-                      />
-                    </div>
-
-                    <div>
-                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
-                        País
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.country}
-                        onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                        placeholder="Brasil"
-                      />
+                      >
+                        <option value="">Selecione</option>
+                        {citiesCreate.map((ct) => (
+                          <option key={ct} value={ct}>{ct}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
-                        Latitude
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={formData.lat}
-                        onChange={(e) => setFormData(prev => ({ ...prev, lat: e.target.value }))}
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                        placeholder="Ex: -23.5505"
-                      />
-                    </div>
-
-                    <div>
-                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
-                        Longitude
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={formData.lng}
-                        onChange={(e) => setFormData(prev => ({ ...prev, lng: e.target.value }))}
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                        placeholder="Ex: -46.6333"
-                      />
-                    </div>
-                  </div>
+                  
 
                   <div>
                     <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
@@ -876,71 +878,54 @@ const LocaisDashboard = ({ tema, user }) => {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
-                        Estado *
-                      </label>
-                      <input
-                        type="text"
+                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>País *</label>
+                      <select
+                        required
+                        value={editFormData.country}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          const countryObj = (locationsRaw?.countries || []).find((c) => (c.name === name));
+                          const code = countryObj?.code || '';
+                          setEditFormData(prev => ({ ...prev, country: name, countryCode: code, state: '', city: '' }));
+                        }}
+                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      >
+                        {countries.map((country) => (
+                          <option key={country.code} value={country.name}>{country.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>Estado *</label>
+                      <select
                         required
                         value={editFormData.state}
-                        onChange={(e) => setEditFormData(prev => ({ ...prev, state: e.target.value }))}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, state: e.target.value, city: '' }))}
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      />
+                      >
+                        <option value="">Selecione</option>
+                        {statesEdit.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
                     </div>
-
                     <div>
-                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
-                        Cidade *
-                      </label>
-                      <input
-                        type="text"
+                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>Cidade *</label>
+                      <select
                         required
                         value={editFormData.city}
                         onChange={(e) => setEditFormData(prev => ({ ...prev, city: e.target.value }))}
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      />
-                    </div>
-
-                    <div>
-                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
-                        País
-                      </label>
-                      <input
-                        type="text"
-                        value={editFormData.country}
-                        onChange={(e) => setEditFormData(prev => ({ ...prev, country: e.target.value }))}
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      />
+                      >
+                        <option value="">Selecione</option>
+                        {citiesEdit.map((ct) => (
+                          <option key={ct} value={ct}>{ct}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
-                        Latitude
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={editFormData.lat}
-                        onChange={(e) => setEditFormData(prev => ({ ...prev, lat: e.target.value }))}
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      />
-                    </div>
 
-                    <div>
-                      <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
-                        Longitude
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={editFormData.lng}
-                        onChange={(e) => setEditFormData(prev => ({ ...prev, lng: e.target.value }))}
-                        className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      />
-                    </div>
-                  </div>
 
                   <div>
                     <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>

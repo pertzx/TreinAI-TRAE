@@ -99,14 +99,14 @@ const LocalForm = ({
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Limpar erro do campo quando usuario comecar a digitar
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: null }));
     }
 
-    // Logica especial para campos dependentes
     if (field === 'country') {
-      setFormData(prev => ({ ...prev, state: '', city: '' }));
+      const countryObj = (locationsRaw?.countries || []).find((c) => c.name === value);
+      const code = countryObj?.code || '';
+      setFormData(prev => ({ ...prev, countryCode: code, state: '', city: '' }));
     } else if (field === 'state') {
       setFormData(prev => ({ ...prev, city: '' }));
     }
