@@ -317,10 +317,10 @@ export const CriarSessaoPagamentoLocal = async (req, res) => {
     const tipoNorm = String(localType).trim().toLowerCase();
     const priceMap = {
       'clinica-de-fisioterapia': process.env.STRIPE_PRICEID_100,
-      'consultorio-de-nutricionista': process.env.STRIPE_PRICEID_100,
+      'consultorio-do-nutricionista': process.env.STRIPE_PRICEID_100,
       'academia': process.env.STRIPE_PRICEID_180,
       'loja': process.env.STRIPE_PRICEID_180,
-      'outros': process.env.STRIPE_PRICEID_50
+      'outro': process.env.STRIPE_PRICEID_50
     };
     
     const unitPrice = priceMap[tipoNorm];

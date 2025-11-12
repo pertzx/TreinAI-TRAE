@@ -38,7 +38,7 @@ const LocalTokenSchema = new Schema({
   // Tipo de local que pode ser criado com este token
   localType: { 
     type: String, 
-    enum: ['clinica-de-fisioterapia', 'academia', 'consultorio-de-nutricionista', 'loja', 'outros'], 
+    enum: ['clinica-de-fisioterapia', 'academia', 'consultorio-do-nutricionista', 'loja', 'outro'], 
     required: true 
   },
   

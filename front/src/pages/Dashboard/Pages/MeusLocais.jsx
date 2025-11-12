@@ -278,9 +278,9 @@ const MeusLocais = ({ tema }) => {
             <option value="todos">Todos os Tipos</option>
             <option value="academia">Academia</option>
             <option value="clinica-de-fisioterapia">Clínica de Fisioterapia</option>
-            <option value="consultorio-de-nutricionista">Consultório de Nutricionista</option>
+            <option value="consultorio-do-nutricionista">Consultório do Nutricionista</option>
             <option value="loja">Loja</option>
-            <option value="outros">Outros</option>
+            <option value="outro">Outro</option>
           </select>
         </div>
       </div>

@@ -103,11 +103,11 @@ export const validateLocalData = (formData) => {
   
   // Validação de tipo de local
   const tiposPermitidos = [
-    'clinica-de-fisioterapia',
     'academia',
-    'consultorio-de-nutricionista',
+    'consultorio-do-nutricionista',
+    'clinica-de-fisioterapia',
     'loja',
-    'outros'
+    'outro'
   ];
   
   if (!formData.localType || !tiposPermitidos.includes(formData.localType)) {

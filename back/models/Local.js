@@ -9,7 +9,7 @@ const LocalSchema = new Schema({
   status: { type: String, enum: ['ativo', 'inativo'], default: 'inativo' },
   subscriptionId: { type: String, required: true },
   link: { type: String, required: true },
-  localType: { type: String, enum: ['clinica-de-fisioterapia', 'academia', 'consultorio-de-nutricionista', 'loja', 'outros'], required: true },
+  localType: { type: String, enum: ['clinica-de-fisioterapia', 'academia', 'consultorio-do-nutricionista', 'loja', 'outro'], required: true },
   estatisticas: {
     impressoes: { type: Number, default: 0 },
     cliques: { type: Number, default: 0 },

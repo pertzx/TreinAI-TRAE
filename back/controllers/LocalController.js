@@ -58,6 +58,10 @@ const validateLocalData = (data) => {
   if (!data.localType) {
     errors.localType = 'Tipo de local é obrigatório';
   }
+  const allowedTypes = ['clinica-de-fisioterapia','academia','consultorio-do-nutricionista','loja','outro'];
+  if (data.localType && !allowedTypes.includes(String(data.localType).trim().toLowerCase())) {
+    errors.localType = `Tipo de local inválido. Permitidos: ${allowedTypes.join(', ')}`;
+  }
 
   if (!data.country) {
     errors.country = 'País é obrigatório';
@@ -292,10 +296,10 @@ export const criarLocalDireto = async (req, res) => {
       const tipoNorm = String(localType || '').toLowerCase().trim();
       const priceMap = {
         'clinica-de-fisioterapia': process.env.STRIPE_PRICEID_100,
-        'consultorio-de-nutricionista': process.env.STRIPE_PRICEID_100,
+        'consultorio-do-nutricionista': process.env.STRIPE_PRICEID_100,
         'academia': process.env.STRIPE_PRICEID_180,
         'loja': process.env.STRIPE_PRICEID_180,
-        'outros': process.env.STRIPE_PRICEID_50
+        'outro': process.env.STRIPE_PRICEID_50
       };
 
       const unitPrice = priceMap[tipoNorm];

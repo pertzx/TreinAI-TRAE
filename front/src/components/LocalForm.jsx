@@ -29,7 +29,7 @@ const LocalForm = ({
     localName: '',
     localDescricao: '',
     link: '',
-    localType: 'outros',
+    localType: 'outro',
     country: '',
     countryCode: '',
     state: '',
@@ -60,11 +60,11 @@ const LocalForm = ({
 
   // Tipos de local
   const localTypes = [
-    { value: 'clinica-de-fisioterapia', label: 'Clinica de Fisioterapia', price: 'R$ 100/mes' },
-    { value: 'consultorio-de-nutricionista', label: 'Consultorio de Nutricionista', price: 'R$ 100/mes' },
-    { value: 'academia', label: 'Academia', price: 'R$ 180/mes' },
-    { value: 'loja', label: 'Loja', price: 'R$ 180/mes' },
-    { value: 'outros', label: 'Outros', price: 'R$ 50/mes' }
+    { value: 'academia', label: 'Academia', price: 'R$ 180/mês' },
+    { value: 'consultorio-do-nutricionista', label: 'Consultório do Nutricionista', price: 'R$ 100/mês' },
+    { value: 'clinica-de-fisioterapia', label: 'Clínica de Fisioterapia', price: 'R$ 100/mês' },
+    { value: 'loja', label: 'Loja', price: 'R$ 180/mês' },
+    { value: 'outro', label: 'Outro', price: 'R$ 50/mês' }
   ];
 
   // Inicializar dados se fornecidos

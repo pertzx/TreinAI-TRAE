@@ -87,7 +87,7 @@ const validateAndSanitize = {
     }
 
     // Validar localType
-    const allowedLocalTypes = ['clinica-de-fisioterapia', 'academia', 'consultorio-de-nutricionista', 'loja', 'outros'];
+    const allowedLocalTypes = ['clinica-de-fisioterapia', 'academia', 'consultorio-do-nutricionista', 'loja', 'outro'];
     if (!localType || !allowedLocalTypes.includes(localType)) {
       return res.status(400).json({ 
         error: 'Tipo de local inválido. Deve ser um dos tipos permitidos.' 

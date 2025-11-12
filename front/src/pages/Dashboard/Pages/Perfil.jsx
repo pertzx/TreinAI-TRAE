@@ -68,9 +68,9 @@ const Perfil = ({ user, tema = 'light' }) => {
   const tipos = [
     { value: 'academia', label: 'Academia' },
     { value: 'clinica-de-fisioterapia', label: 'Clínica de Fisioterapia' },
-    { value: 'consultorio-de-nutricionista', label: 'Consultório de Nutricionista' },
+    { value: 'consultorio-do-nutricionista', label: 'Consultório do Nutricionista' },
     { value: 'loja', label: 'Loja' },
-    { value: 'outros', label: 'Outros' }
+    { value: 'outro', label: 'Outro' }
   ];
 
   // derived location data

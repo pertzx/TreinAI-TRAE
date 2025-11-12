@@ -43,7 +43,7 @@ const CriarLocal = ({ tema, user }) => {
       localName: data.localName?.trim() || '',
       localDescricao: data.localDescricao?.trim() || '',
       link: data.link?.trim() || '',
-      localType: data.localType || 'outros',
+      localType: data.localType || 'outro',
       country: data.country || 'Brasil',
       countryCode: data.countryCode || 'BR',
       state: data.state || '',

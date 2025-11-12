@@ -132,9 +132,9 @@ const LOCAL_TYPES = [
   { value: '', label: 'Todos os tipos' },
   { value: 'academia', label: 'Academia' },
   { value: 'clinica-de-fisioterapia', label: 'Clínica de Fisioterapia' },
-  { value: 'consultorio-de-nutricionista', label: 'Consultório de Nutricionista' },
+  { value: 'consultorio-do-nutricionista', label: 'Consultório do Nutricionista' },
   { value: 'loja', label: 'Loja' },
-  { value: 'outros', label: 'Outros' }
+  { value: 'outro', label: 'Outro' }
 ];
 
 
@@ -459,7 +459,7 @@ export default function Encontrar({ user, tema = 'dark' }) {
           id: it.localId || it.id || it._id || '',
           link: it.link,
           localName: it.localName || it.name || it.title || '—',
-          localType: (it.localType || it.type || 'outros'),
+          localType: (it.localType || it.type || 'outro'),
           localDescricao: it.localDescricao || it.description || '',
           cidade: it.city || it.cidade || '',
           estado: it.state || it.estado || '',

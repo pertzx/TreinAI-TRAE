@@ -658,10 +658,9 @@ const LocaisDashboard = ({ tema, user }) => {
                         className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                       >
                         <option value="academia">Academia</option>
-                        <option value="parque">Parque</option>
-                        <option value="piscina">Piscina</option>
-                        <option value="quadra">Quadra</option>
-                        <option value="estudio">Estúdio</option>
+                        <option value="consultorio-do-nutricionista">Consultório do Nutricionista</option>
+                        <option value="clinica-de-fisioterapia">Clínica de Fisioterapia</option>
+                        <option value="loja">Loja</option>
                         <option value="outro">Outro</option>
                       </select>
                     </div>
