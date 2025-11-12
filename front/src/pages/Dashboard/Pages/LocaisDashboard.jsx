@@ -49,7 +49,7 @@ const LocaisDashboard = ({ tema, user }) => {
     localName: '',
     localDescricao: '',
     localType: 'academia',
-    country: 'Brasil',
+    country: 'Brazil',
     countryCode: 'BR',
     state: '',
     city: '',
@@ -290,11 +290,14 @@ const LocaisDashboard = ({ tema, user }) => {
   // Função para abrir modal de edição
   const abrirModalEdicao = (local) => {
     setSelectedLocal(local);
+    const countryName = local.country === 'Brasil' ? 'Brazil' : (local.country || 'Brazil');
+    const countryObj = (locationsRaw?.countries || []).find((c) => c.name === countryName);
+    const code = countryObj?.code || (local.countryCode || '');
     setEditFormData({
       localName: local.localName || '',
       localDescricao: local.localDescricao || '',
-      country: local.country || 'Brasil',
-      countryCode: local.countryCode || 'BR',
+      country: countryName,
+      countryCode: code,
       state: local.state || '',
       city: local.city || '',
       image: null
