@@ -50,7 +50,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
 
     setTimeout(() => {
       setLoading(false);
-    }, 4 * 1000);
+    }, 1 * 1000);
   }, [rebuke]);
 
   useEffect(() => {
