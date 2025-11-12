@@ -60,7 +60,8 @@ const LocaisDashboard = ({ tema, user }) => {
   const [editFormData, setEditFormData] = useState({
     localName: '',
     localDescricao: '',
-    country: 'Brasil',
+    link: '',
+    country: 'Brazil',
     countryCode: 'BR',
     state: '',
     city: '',
@@ -159,6 +160,14 @@ const LocaisDashboard = ({ tema, user }) => {
     setActionLoading(prev => ({ ...prev, create: true }));
 
     try {
+      if (!formData.link || !/^https?:\/\//.test(formData.link)) {
+        showError('Informe um link válido (http:// ou https://)');
+        return;
+      }
+      if (!formData.localDescricao || String(formData.localDescricao).trim().length < 10) {
+        showError('A descrição deve ter pelo menos 10 caracteres');
+        return;
+      }
       const submitData = new FormData();
 
       // Adicionar campos de texto
@@ -208,6 +217,14 @@ const LocaisDashboard = ({ tema, user }) => {
     setActionLoading(prev => ({ ...prev, edit: true }));
 
     try {
+      if (editFormData.link && !/^https?:\/\//.test(editFormData.link)) {
+        showError('Informe um link válido (http:// ou https://)');
+        return;
+      }
+      if (editFormData.localDescricao && String(editFormData.localDescricao).trim().length < 10) {
+        showError('A descrição deve ter pelo menos 10 caracteres');
+        return;
+      }
       const submitData = new FormData();
 
       // Adicionar campos de texto
@@ -277,12 +294,12 @@ const LocaisDashboard = ({ tema, user }) => {
     setFormData({
       localName: '',
       localDescricao: '',
+      link: '',
       localType: 'academia',
-      country: 'Brasil',
+      country: 'Brazil',
+      countryCode: 'BR',
       state: '',
       city: '',
-      lat: '',
-      lng: '',
       image: null
     });
   };
@@ -296,6 +313,7 @@ const LocaisDashboard = ({ tema, user }) => {
     setEditFormData({
       localName: local.localName || '',
       localDescricao: local.localDescricao || '',
+      link: local.link || '',
       country: countryName,
       countryCode: code,
       state: local.state || '',
@@ -695,6 +713,20 @@ const LocaisDashboard = ({ tema, user }) => {
 
                   <div>
                     <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
+                      Website ou Link *
+                    </label>
+                    <input
+                      type="url"
+                      required
+                      value={formData.link}
+                      onChange={(e) => setFormData(prev => ({ ...prev, link: e.target.value }))}
+                      className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      placeholder="https://www.seusite.com.br"
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
                       Descrição
                     </label>
                     <textarea
@@ -865,6 +897,18 @@ const LocaisDashboard = ({ tema, user }) => {
                         O tipo do local não pode ser alterado
                       </p>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium ${currentTheme.text} mb-2`}>
+                      Website ou Link
+                    </label>
+                    <input
+                      type="url"
+                      value={editFormData.link}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, link: e.target.value }))}
+                      className={`w-full px-3 py-2 rounded-lg border ${currentTheme.input} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                    />
                   </div>
 
                   <div>
