@@ -107,14 +107,33 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
           return;
         }
 
+        if (user.meusTreinos.length === 0) {
+          showToast(
+            '✨ Seus treinos estão sendo criados. Por favor, aguarde alguns instantes ou atualize a página caso ainda não apareçam.',
+            'success'
+          );
+
+          setTimeout(() => {
+            showToast(
+              '😅 Pode demorar. Aguarde o término ou recarregue a página.',
+              'info'
+            );
+          }, 2 * 1000);
+
+        } else {
+          showToast('🔎 Buscando suas informações de treinos...', 'info');
+        }
+
         if (!Array.isArray(user.meusTreinos) || user.meusTreinos.length === 0) {
           // tenta criar treinos iniciais no backend
           try {
             const resp = await axios.post(`${import.meta.env.VITE_API_URL}/criar-meusTreinos`, { email: user.email, profissionalId });
 
-            // console.log(resp)
+            showToast(
+              '😅 Pode demorar. Aguarde o término ou recarregue a página.',
+              'info'
+            );
 
-            if (resp?.data?.msg) showToast(resp.data.msg, resp.data.success ? 'success' : 'info');
             // se backend retornar user atualizado, sincroniza
             if (resp?.data?.user && typeof setUser === 'function') {
               setUser(resp.data.user);

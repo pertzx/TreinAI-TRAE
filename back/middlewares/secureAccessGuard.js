@@ -5,7 +5,7 @@ import { verifyBan } from './banFunctions.js';
 // - Prefixos estáticos (ex.: /public) e caminhos exatos (ex.: /health)
 // - Pode ser ampliada via variável de ambiente SECURITY_GUARD_BYPASS_PATHS (lista separada por vírgula)
 const STATIC_BYPASS_PREFIXES = ['/public', '/assets', '/docs', '/images', '/css', '/js', '/uploads'];
-const EXACT_BYPASS_PATHS = ['/webhook','/csrf-token', '/health', '/status', '/login', '/signup', '/login-nao-autorizado'];
+const EXACT_BYPASS_PATHS = ['/webhook', '/csrf-token', '/health', '/status', '/login', '/signup', '/login-nao-autorizado'];
 const ENV_BYPASS = (process.env.SECURITY_GUARD_BYPASS_PATHS || '')
   .split(',')
   .map(s => s.trim())
@@ -90,14 +90,13 @@ export const secureAccessGuard = async (req, res, next) => {
 
     const allIdsAreValid = allValues.every((v) => mongoose.Types.ObjectId.isValid(String(v)));
     if (!allIdsAreValid) {
-      console.warn('[secureAccessGuard] Parâmetros inválidos (ObjectId) detectados', {
+      console.warn('[secureAccessGuard] Parâmetros inválidos (ObjectId) detectados. | Possivel exploite.', {
         route: req.originalUrl,
         method: req.method,
-        ip: req.ip,
         ua: req.headers['user-agent']
       });
       return res.status(403).json({
-        msg: 'Acesso não autorizado - parâmetros inválidos',
+        msg: 'Acesso não autorizado - parâmetro inválido detectado. IDs devem estar no formato válido do MongoDB. | Se você é um exploiter é melhor parar por aqui 😉',
         code: 'PARAM_INVALID'
       });
     }
