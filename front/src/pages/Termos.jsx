@@ -61,6 +61,7 @@ const Termos = () => {
     { id: 'limitacoes', title: 'Limitações de Responsabilidade' },
     { id: 'modificacoes', title: 'Modificações' },
     { id: 'rescisao', title: 'Rescisão' },
+    { id: 'banimento', title: 'Sistema de Banimento' },
     { id: 'lei-aplicavel', title: 'Lei Aplicável' },
     { id: 'contato', title: 'Contato' }
   ];
@@ -498,6 +499,47 @@ const Termos = () => {
                     <li>Possível exclusão de dados da conta</li>
                     <li>Continuidade de obrigações financeiras pendentes</li>
                   </ul>
+                </div>
+              </section>
+
+              <section id="banimento" className="mb-12">
+                <h2 className="text-3xl font-bold text-gray-900 mb-6">Sistema de Banimento</h2>
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Causas para Suspensão ou Banimento</h3>
+                  <ul className="list-disc list-inside space-y-2 text-gray-700 mb-4">
+                    <li>Violações reiteradas dos Termos ou uso indevido dos Serviços</li>
+                    <li>Tentativas de fraude, acesso não autorizado ou automações indevidas</li>
+                    <li>Distribuição de conteúdo ofensivo, ilegal ou que infrinja direitos de terceiros</li>
+                    <li>Atividades que comprometam a segurança, estabilidade ou integridade da plataforma</li>
+                  </ul>
+
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Processo e Evidências</h3>
+                  <p className="text-gray-700 leading-relaxed mb-4">
+                    Podemos utilizar registros técnicos (como IP, dispositivo, eventos de sessão e logs de autenticação)
+                    para investigar violações e embasar medidas de moderação. Esses registros são coletados conforme
+                    nossa Política de Privacidade e destinam-se exclusivamente à segurança e conformidade dos Serviços.
+                  </p>
+
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Medidas Aplicáveis</h3>
+                  <ul className="list-disc list-inside space-y-2 text-gray-700 mb-4">
+                    <li>Advertência</li>
+                    <li>Suspensão temporária da conta</li>
+                    <li>Banimento definitivo em casos graves ou reincidência</li>
+                  </ul>
+
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Contestação e Recurso</h3>
+                  <p className="text-gray-700 leading-relaxed mb-4">
+                    Você pode solicitar revisão de uma suspensão ou banimento entrando em contato pelos canais oficiais.
+                    O pedido será analisado e respondido dentro de prazos razoáveis, considerando as evidências disponíveis.
+                  </p>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-yellow-800 text-sm">
+                      <strong>Importante:</strong> Medidas de banimento visam proteger a comunidade e manter a
+                      integridade dos Serviços. Em caso de banimento definitivo, dados poderão ser retidos pelo
+                      período necessário para auditoria e cumprimento de obrigações legais.
+                    </p>
+                  </div>
                 </div>
               </section>
 

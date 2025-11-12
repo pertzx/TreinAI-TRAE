@@ -51,6 +51,7 @@ const PoliticaPrivacidade = () => {
     { id: 'introducao', title: 'Introdução', icon: <FiShield className="w-4 h-4" /> },
     { id: 'dados-coletados', title: 'Dados Coletados', icon: <FiDatabase className="w-4 h-4" /> },
     { id: 'uso-informacoes', title: 'Uso das Informações', icon: <FiEye className="w-4 h-4" /> },
+    { id: 'rastreamento', title: 'Rastreamento e Monitoramento', icon: <FiEye className="w-4 h-4" /> },
     { id: 'notificacoes-seguranca', title: 'Notificações de Segurança', icon: <FiMail className="w-4 h-4" /> },
     { id: 'compartilhamento', title: 'Compartilhamento', icon: <FiUsers className="w-4 h-4" /> },
     { id: 'direitos-usuario', title: 'Direitos do Usuário', icon: <FiSettings className="w-4 h-4" /> },
@@ -278,6 +279,64 @@ const PoliticaPrivacidade = () => {
                         <li>• Comunicações importantes</li>
                       </ul>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section id="rastreamento" className="mb-8 sm:mb-12">
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 lg:p-8">
+                <div className="flex items-center mb-4 sm:mb-6">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center mr-3 sm:mr-4">
+                    <FiEye className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Rastreamento e Monitoramento</h2>
+                </div>
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="prose prose-sm sm:prose-base lg:prose-lg max-w-none text-gray-700">
+                    <p>
+                      Para garantir a segurança da plataforma, prevenir abuso e cumprir nossos Termos de Uso,
+                      realizamos monitoramento técnico de acessos e atividades dentro da TreinAI.
+                      Este monitoramento não tem fins de publicidade ou perfilamento comercial.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
+                      <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Dados Observados</h3>
+                      <ul className="space-y-1 sm:space-y-2 text-sm sm:text-base text-gray-700">
+                        <li>• Endereço IP, dispositivo, sistema operacional e navegador</li>
+                        <li>• Páginas acessadas, tempo de uso e eventos de sessão</li>
+                        <li>• Logs de autenticação e tentativas de acesso</li>
+                        <li>• Indicadores técnicos para detecção de fraude e abuso</li>
+                      </ul>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
+                      <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4">Finalidades</h3>
+                      <ul className="space-y-1 sm:space-y-2 text-sm sm:text-base text-gray-700">
+                        <li>• Segurança da conta e integridade do serviço</li>
+                        <li>• Investigação de violações dos Termos</li>
+                        <li>• Prevenção de fraudes, spam e automações indevidas</li>
+                        <li>• Auditoria e conformidade legal (LGPD/Marco Civil)</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                    <div className="bg-green-50 rounded-xl p-4 sm:p-6 border border-green-200">
+                      <h4 className="font-semibold text-green-900 mb-2 sm:mb-3 text-sm sm:text-base">Sem Publicidade</h4>
+                      <p className="text-green-800 text-xs sm:text-sm">Não utilizamos rastreadores de terceiros para fins de marketing ou anúncios.</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-xl p-4 sm:p-6 border border-blue-200">
+                      <h4 className="font-semibold text-blue-900 mb-2 sm:mb-3 text-sm sm:text-base">Base Legal</h4>
+                      <p className="text-blue-800 text-xs sm:text-sm">Execução do contrato, legítimo interesse em segurança e cumprimento de obrigações legais.</p>
+                    </div>
+                    <div className="bg-yellow-50 rounded-xl p-4 sm:p-6 border border-yellow-200">
+                      <h4 className="font-semibold text-yellow-900 mb-2 sm:mb-3 text-sm sm:text-base">Retenção</h4>
+                      <p className="text-yellow-800 text-xs sm:text-sm">Registros técnicos são mantidos pelo período necessário para segurança e auditoria.</p>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
+                    <h4 className="font-semibold text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Relação com Banimentos</h4>
+                    <p className="text-gray-700 text-xs sm:text-sm">Informações de monitoramento podem ser usadas para investigar violações e aplicar medidas como suspensão ou banimento conforme os Termos de Uso.</p>
                   </div>
                 </div>
               </div>

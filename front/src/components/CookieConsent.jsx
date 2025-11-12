@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { FiX, FiShield, FiCheck, FiInfo, FiMinus, FiMaximize2, FiChevronUp, FiChevronDown } from 'react-icons/fi';
 
 const CookieConsent = () => {
@@ -95,8 +96,11 @@ const CookieConsent = () => {
                   <p className="text-blue-100 leading-relaxed max-w-2xl">
                     <strong>Informação sobre Cookies:</strong> Este site utiliza exclusivamente cookies essenciais 
                     para autenticação, segurança e funcionamento básico da plataforma TreinAI. Não utilizamos 
-                    cookies de marketing ou analytics. Estes cookies são indispensáveis para o funcionamento 
-                    do sistema e não requerem seu consentimento.
+                    cookies de marketing ou analytics. Registramos <span className="font-semibold">logs técnicos de acesso</span>
+                    para segurança e prevenção de abuso, conforme nossa{' '}
+                    <Link to="/politica-de-privacidade" className="underline hover:text-white">Política de Privacidade</Link>{' '}e{' '}
+                    <Link to="/termos" className="underline hover:text-white">Termos de Uso</Link>. Estes cookies são indispensáveis 
+                    para o funcionamento do sistema e não requerem seu consentimento.
                   </p>
                   
                   <div className="flex flex-wrap items-center gap-4 text-sm text-blue-200">
@@ -152,7 +156,7 @@ const CookieConsent = () => {
             <div className="px-6 pb-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-blue-200">
-                  🍪 Utilizamos apenas cookies essenciais para funcionamento básico
+                  🍪 Utilizamos apenas cookies essenciais; mantemos logs técnicos para segurança
                 </p>
                 <button
                   onClick={acceptEssential}
