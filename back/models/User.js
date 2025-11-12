@@ -153,6 +153,17 @@ const UserSchema = new Schema({
         conteudo: { type: String, required: true },
       }
     ]
+  },
+
+  ban: {
+    banned: {
+      type: Boolean,
+      default: false,
+    },
+    motivo: {
+      type: String,
+      default: null,
+    }
   }
 
 }, { timestamps: true });
