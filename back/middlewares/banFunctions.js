@@ -42,7 +42,6 @@ const applyBan = async (userId, motivo) => {
 
         // Primeiro ban: define flags e data de bloqueio
         user.ban = { banned: true, motivo: normalizedReason };
-        user.blockedAt = getBrazilDate();
         await user.save();
 
         console.info(`[applyBan] Ban aplicado ao usuário ${user.username || user.email || user._id}`);
@@ -132,6 +131,13 @@ export const verifyBan = async (req, res, next) => {
     const sourceLabel = req.method === 'GET' ? 'query' : 'body';
     const { emails: bodyEmails, ids: bodyIds, profissionalIds } = collectUserIdentifiers(sourceObj);
     console.info(`[verifyBan] Fonte de identificadores: ${sourceLabel}`);
+
+    // Bypass solicitado: se não há nenhum email e nenhum id no payload consultado,
+    // então não há verificação a ser feita aqui e podemos seguir para o próximo middleware.
+    if (bodyEmails.length === 0 && bodyIds.length === 0) {
+        console.info('[verifyBan] Nenhum email e nenhum id encontrados -> bypass verificação, next()');
+        return next();
+    }
 
     // Extrair token de cookie httpOnly ou header Authorization
     let token = req.cookies?.authToken || req.cookies?.auth_token;

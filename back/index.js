@@ -18,6 +18,7 @@ import redisCache from './config/redis.js';
 import { sanitizeInput } from './middlewares/validationMiddleware.js';
 import gamificationRoutes from './routes/gamificationRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
+import { secureAccessGuard } from './middlewares/secureAccessGuard.js'
 
 // cria __filename e __dirname em ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -158,6 +159,10 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Middleware de segurança automático para rotas com userId/profissionalId
+// Mantido antes do registro das rotas para interceptação global
+app.use(secureAccessGuard);
 
 // Conexão com MongoDB
 const MONGO_URI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.vcxrbu2.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
