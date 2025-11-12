@@ -221,6 +221,14 @@ export const criarLocalDireto = async (req, res) => {
       });
     }
 
+    // Garantir que o usuário autenticado corresponde ao userId informado
+    if (req.userEmail && String(user.email) !== String(req.userEmail)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado a criar local para outro usuário'
+      });
+    }
+
     // Processar imagem usando a mesma lógica do editarProfissional
     let imageUrl = null;
     console.log("[LocalController.js] req.file:", req.file);
@@ -738,16 +746,12 @@ export const deletarLocalPorId = async (req, res) => {
       });
     }
 
-    // Deletar arquivo de imagem se existir
-    if (local.imagePath) {
+    // Deletar imagem no Cloudinary se existir
+    if (local.imageUrl) {
       try {
-        const imagePath = path.join(process.cwd(), local.imagePath);
-        if (fs.existsSync(imagePath)) {
-          fs.unlinkSync(imagePath);
-        }
+        await deleteFromCloudinary(local.imageUrl);
       } catch (imageError) {
-        console.error('Erro ao deletar imagem:', imageError);
-        // Não falhar a operação por causa da imagem
+        console.warn('Falha ao remover imagem antiga do Cloudinary:', imageError?.message || imageError);
       }
     }
 
@@ -940,6 +944,18 @@ export const editarLocal = async (req, res) => {
       return res.status(404).json({ success: false, msg: "Local não encontrado." });
     }
 
+    // checar propriedade via token (se disponível)
+    try {
+      if (req.userEmail) {
+        const requester = await User.findOne({ email: req.userEmail });
+        if (requester && String(local.userId) !== String(requester._id)) {
+          return res.status(403).json({ success: false, msg: "Não autorizado a editar este local." });
+        }
+      }
+    } catch (authErr) {
+      console.warn('Falha na verificação de propriedade:', authErr?.message || authErr);
+    }
+
     // atualizar campos se vierem
     if (link !== undefined) local.link = String(link || "");
     if (localName !== undefined) local.localName = String(localName || "");
@@ -954,10 +970,9 @@ export const editarLocal = async (req, res) => {
     // se veio arquivo novo, substituir
     if (req.file) {
       // apagar arquivo antigo do Cloudinary se existir
-      if (local.imagePath) {
+      if (local.imageUrl) {
         try {
-          const { deleteFromCloudinary } = await import('../config/cloudinaryConfig.js');
-          await deleteFromCloudinary(local.imagePath);
+          await deleteFromCloudinary(local.imageUrl);
         } catch (e) {
           console.warn("Erro ao apagar imagem antiga do Cloudinary:", e?.message || e);
         }
@@ -966,7 +981,7 @@ export const editarLocal = async (req, res) => {
       // fazer upload da nova imagem para Cloudinary
       try {
         const cloudinaryResult = await uploadToCloudinary(req.file.buffer, 'image-local', 'image');
-        local.imagePath = cloudinaryResult.secure_url;
+        local.imageUrl = cloudinaryResult.secure_url;
         console.log('Nova imagem enviada para Cloudinary:', cloudinaryResult.secure_url);
       } catch (uploadError) {
         console.error('Erro no upload da nova imagem para Cloudinary:', uploadError);
@@ -979,15 +994,14 @@ export const editarLocal = async (req, res) => {
 
     // se removeImage=true, apagar imagem atual
     if (req.body.removeImage === 'true' || req.body.removeImage === true) {
-      if (local.imagePath) {
+      if (local.imageUrl) {
         try {
-          const { deleteFromCloudinary } = await import('../config/cloudinaryConfig.js');
-          await deleteFromCloudinary(local.imagePath);
+          await deleteFromCloudinary(local.imageUrl);
         } catch (e) {
           console.warn("Erro ao apagar imagem do Cloudinary:", e?.message || e);
         }
       }
-      local.imagePath = null;
+      local.imageUrl = null;
     }
 
     local.atualizadoEm = new Date(getBrazilDate());
@@ -1006,7 +1020,15 @@ export const editarLocal = async (req, res) => {
 // =======================
 export const meusLocais = async (req, res) => {
   try {
-    const { userId } = req.query;
+    let { userId } = req.query;
+
+    // Se autenticado, forçar userId do token para evitar IDOR
+    if (req.userEmail) {
+      try {
+        const requester = await User.findOne({ email: req.userEmail });
+        if (requester) userId = String(requester._id);
+      } catch (e) { /* ignore */ }
+    }
 
     if (!userId) {
       return res.status(400).json({

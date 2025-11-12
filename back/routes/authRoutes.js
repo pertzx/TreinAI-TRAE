@@ -211,28 +211,32 @@ router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
 
 // locais - FLUXO ATUAL
 router.post('/criar-local-direto', 
+  verificarToken,
   uploadSecurityHeaders, 
   uploadImage.single('image'), 
   criarLocalDireto
 ); // Criar local sem pagamento imediato
-router.post('/ativar-local', 
+router.post('/ativar-local/:localId', 
+  verificarToken,
   uploadSecurityHeaders, 
   ativarLocal
 ); // Ativar local após pagamento
 router.delete('/deletar-local-por-id/:localId', 
+  verificarToken,
   uploadSecurityHeaders, 
   deletarLocalPorId
 ); // Deletar local por ID (rollback)
-router.get('/buscar-locais', buscarLocais); // Buscar locais do usuário
-router.get('/meus-locais', meusLocais); // Listar locais do usuário logado
+router.get('/buscar-locais', buscarLocais); // Buscar locais públicos (status=ativo)
+router.get('/meus-locais', verificarToken, meusLocais); // Listar locais do usuário logado
 
 router.post('/criar-sessao-pagamento-local', 
+  verificarToken,
   uploadSecurityHeaders, 
   CriarSessaoPagamentoLocal
 ); // Criar sessão de pagamento para local
-router.post('/editar-local', uploadSecurityHeaders, uploadImage.single('image'), editarLocal);
+router.post('/editar-local', verificarToken, uploadSecurityHeaders, uploadImage.single('image'), editarLocal);
 router.get('/locais', buscarLocais);
-router.post('/deletar-local', deletarLocal);
+router.post('/deletar-local', verificarToken, deletarLocal);
 
 // anuncios
 router.post('/adicionar-saldo', SessionPaymentSaldoDeImpressoes);

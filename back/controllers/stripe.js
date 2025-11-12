@@ -14,6 +14,7 @@ import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import { sendNotificationEmail } from '../utils/sendEmail.js';
 import { excluirLocalPorErro, ativarLocalAposPagamento } from './LocalController.js';
+import { deleteFromCloudinary } from '../config/cloudinaryConfig.js';
 
 dotenv.config();
 
@@ -874,7 +875,7 @@ export const StripeWebhook = async (req, res) => {
             });
             
             if (local) {
-              // Atualizar local com subscriptionId da sessão e imagePath se disponível
+              // Atualizar local com subscriptionId da sessão e imageUrl se disponível
               const updateData = {
                 subscriptionId: subscriptionId,
                 metadata: {
@@ -884,9 +885,9 @@ export const StripeWebhook = async (req, res) => {
                 }
               };
 
-              // Se há imagePath no metadata da sessão, garantir que está no local
-              if (session.metadata.imagePath && session.metadata.imagePath.trim() !== '') {
-                updateData.imagePath = session.metadata.imagePath;
+              // Se há imageUrl no metadata da sessão, garantir que está no local
+              if (session.metadata.imageUrl && session.metadata.imageUrl.trim() !== '') {
+                updateData.imageUrl = session.metadata.imageUrl;
               }
 
               Object.assign(local, updateData);
@@ -1820,6 +1821,11 @@ export const deletarLocal = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ msg: 'Usuário não encontrado' });
 
+    // Validar que o token corresponde ao usuário solicitante
+    if (req.userEmail && String(user.email) !== String(req.userEmail)) {
+      return res.status(403).json({ msg: 'Não autorizado' });
+    }
+
     let local = await Local.findOne({ localId }) || await Local.findOne({ localId });
     if (!local) return res.status(404).json({ msg: 'Local não encontrado' });
     if (String(local.userId) !== String(userId)) return res.status(403).json({ msg: 'Não autorizado' });
@@ -1858,6 +1864,13 @@ export const deletarLocal = async (req, res) => {
 
     // apagar local no banco
     try {
+      // tentar remover imagem associada no Cloudinary, se houver
+      try {
+        if (local?.imageUrl) await deleteFromCloudinary(local.imageUrl);
+      } catch (imgDelErr) {
+        console.warn('deletarLocal: falha ao remover imagem do Cloudinary (não crítico):', imgDelErr?.message || imgDelErr);
+      }
+
       if (local._id) {
         await Local.findByIdAndDelete(local._id);
         log('deletarLocal: Local removido do DB:', local._id);
@@ -1891,4 +1904,3 @@ export const deletarLocal = async (req, res) => {
     return res.status(500).json({ msg: 'Erro ao deletar local', error: error?.message || String(error) });
   }
 };
-

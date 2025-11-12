@@ -145,6 +145,9 @@ const LocaisDashboard = ({ tema, user }) => {
         }
       });
 
+      // Garantir envio do usuário proprietário
+      submitData.append('userId', user._id);
+
       // Adicionar imagem se existir
       if (formData.image) {
         submitData.append('image', formData.image);
@@ -189,6 +192,9 @@ const LocaisDashboard = ({ tema, user }) => {
         }
       });
 
+      // Garantir envio do identificador do local
+      submitData.append('localId', selectedLocal.localId || selectedLocal._id);
+
       // Adicionar imagem se existir
       if (editFormData.image) {
         submitData.append('image', editFormData.image);
@@ -225,7 +231,7 @@ const LocaisDashboard = ({ tema, user }) => {
     setActionLoading(prev => ({ ...prev, [`delete_${localId}`]: true }));
 
     try {
-      const response = await api.post('/deletar-local', { localId });
+      const response = await api.post('/deletar-local', { localId, userId: user._id });
 
       if (response.data.success) {
         showSuccess('Local deletado com sucesso!');

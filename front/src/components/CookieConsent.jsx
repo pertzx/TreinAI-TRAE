@@ -44,16 +44,14 @@ const CookieConsent = () => {
   if (!showBanner) return null;
 
   return (
-    <div 
-      className={`fixed bottom-0 m-6 left-0 right-0 z-50 transition-all duration-500 ease-in-out transform ${
-        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
-      }`}
+    <div
+      className={`fixed bottom-0 m-6 left-0 right-0 z-50 transition-all duration-500 ease-in-out transform ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
+        }`}
     >
-      <div className={`bg-blue-600/50 rounded-2xl backdrop-blur-sm border-t border-blue-700/50 shadow-2xl transition-all duration-300 ${
-        isMinimized ? 'pb-2' : 'pb-6'
-      }`}>
+      <div className={`bg-blue-600/50 rounded-2xl backdrop-blur-sm border-t border-blue-700/50 shadow-2xl transition-all duration-300 ${isMinimized ? 'pb-2' : 'pb-6'
+        }`}>
         <div className="max-w-7xl mx-auto">
-          
+
           {/* Header com botão minimizar/maximizar */}
           <div className="flex items-center justify-between px-6 pt-4 pb-2">
             <div className="flex items-center gap-3">
@@ -64,7 +62,7 @@ const CookieConsent = () => {
                 Cookies Essenciais
               </h3>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <button
                 onClick={toggleMinimize}
@@ -73,7 +71,7 @@ const CookieConsent = () => {
               >
                 {isMinimized ? <FiChevronUp className="w-5 h-5" /> : <FiChevronDown className="w-5 h-5" />}
               </button>
-              
+
               <button
                 onClick={closeBanner}
                 className="p-2 text-blue-300 hover:text-white hover:bg-red-600/50 rounded-lg transition-all duration-200"
@@ -85,36 +83,27 @@ const CookieConsent = () => {
           </div>
 
           {/* Conteúdo expansível */}
-          <div className={`overflow-hidden transition-all duration-300 ${
-            isMinimized ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
-          }`}>
+          <div className={`overflow-hidden transition-all duration-300 ${isMinimized ? 'max-h-0 opacity-0' : 'max-h-96 opacity-100'
+            }`}>
             <div className="px-6 pb-4">
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-                
+
                 {/* Conteúdo Principal */}
                 <div className="flex-1 space-y-3">
                   <p className="text-blue-100 leading-relaxed max-w-2xl">
-                    <strong>Informação sobre Cookies:</strong> Este site utiliza exclusivamente cookies essenciais 
-                    para autenticação, segurança e funcionamento básico da plataforma TreinAI. Não utilizamos 
+                    <strong>Informação sobre Cookies:</strong> Este site utiliza exclusivamente cookies essenciais
+                    para autenticação, segurança e funcionamento básico da plataforma TreinAI. Não utilizamos
                     cookies de marketing ou analytics. Registramos <span className="font-semibold">logs técnicos de acesso</span>
                     para segurança e prevenção de abuso, conforme nossa{' '}
                     <Link to="/politica-de-privacidade" className="underline hover:text-white">Política de Privacidade</Link>{' '}e{' '}
-                    <Link to="/termos" className="underline hover:text-white">Termos de Uso</Link>. Estes cookies são indispensáveis 
+                    <Link to="/termos" className="underline hover:text-white">Termos de Uso</Link>. Estes cookies são indispensáveis
                     para o funcionamento do sistema e não requerem seu consentimento.
                   </p>
-                  
+
                   <div className="flex flex-wrap items-center gap-4 text-sm text-blue-200">
                     <span className="flex items-center gap-1">
                       <FiCheck className="w-4 h-4 text-green-400" />
                       Apenas essenciais
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <FiCheck className="w-4 h-4 text-green-400" />
-                      Sem rastreamento
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <FiCheck className="w-4 h-4 text-green-400" />
-                      LGPD compliant
                     </span>
                   </div>
 
@@ -142,7 +131,7 @@ const CookieConsent = () => {
                     <FiCheck className="w-4 h-4" />
                     Entendi
                   </button>
-                  
+
                   <p className="text-xs text-blue-300 text-center max-w-48">
                     Ao continuar navegando, você concorda com o uso de cookies essenciais
                   </p>
