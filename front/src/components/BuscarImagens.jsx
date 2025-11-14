@@ -270,7 +270,7 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
       <div className="absolute right-3 top-3 pointer-events-none">
         <div className="text-xs bg-black/60 text-white rounded-full px-2 py-1">Imagem</div>
       </div>
-      <div className="absolute left-3 top-3 pointer-events-auto">
+      <div className="absolute left-3 top-3 pointer-events-auto z-20">
         <button
           onClick={(e) => { e.stopPropagation(); handleImageClick(e); }}
           className="text-xs bg-red-600/80 hover:bg-red-700 text-white rounded-full px-2 py-1 shadow"
