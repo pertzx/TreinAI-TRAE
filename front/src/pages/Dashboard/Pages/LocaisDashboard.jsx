@@ -194,6 +194,15 @@ const LocaisDashboard = ({ tema, user }) => {
       });
 
       if (response.data.success) {
+        const paymentUrl = response?.data?.payment?.url;
+        const localIdCreated = response?.data?.local?.localId || response?.data?.local?.id;
+        if (paymentUrl) {
+          try {
+            sessionStorage.setItem('pendingLocalPayment', JSON.stringify({ localId: localIdCreated, sessionId: response?.data?.payment?.sessionId }));
+          } catch (_) {}
+          window.location.assign(paymentUrl);
+          return;
+        }
         showSuccess('Local criado com sucesso!');
         setShowCreateForm(false);
         resetFormData();
@@ -271,6 +280,8 @@ const LocaisDashboard = ({ tema, user }) => {
     }
 
     setActionLoading(prev => ({ ...prev, [`delete_${localId}`]: true }));
+    const previousLocais = locais;
+    setLocais(prev => prev.filter((l) => String(l._id) !== String(localId) && String(l.localId) !== String(localId)));
 
     try {
       const response = await api.post('/deletar-local', { localId, userId: user._id });
@@ -279,11 +290,14 @@ const LocaisDashboard = ({ tema, user }) => {
         showSuccess('Local deletado com sucesso!');
         carregarLocais(false);
       } else {
-        showError(response.data.message || 'Erro ao deletar local');
+        showError(response.data.message || response.data.msg || 'Erro ao deletar local');
+        setLocais(previousLocais);
       }
     } catch (error) {
       console.error('Erro ao deletar local:', error);
-      showError('Erro ao deletar local');
+      const msg = error?.response?.data?.message || error?.response?.data?.msg || 'Erro ao deletar local';
+      showError(msg);
+      setLocais(previousLocais);
     } finally {
       setActionLoading(prev => ({ ...prev, [`delete_${localId}`]: false }));
     }

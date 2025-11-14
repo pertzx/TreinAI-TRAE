@@ -6,6 +6,7 @@ import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
 import { useToast } from '../../../components/Toast.jsx';
 import { createToastHelper } from '../../../utils/toastHelper.js';
 import axios from 'axios';
+import BuscarImagem from '../../../components/BuscarImagens.jsx';
 
 const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   const isDark = tema === 'dark';
@@ -563,24 +564,58 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
               ) : (
                 <div className="flex flex-col gap-3 sm:gap-4">
                   {(treino.exercicios || []).map((ex) => (
-                    <div key={ex.exercicioId} className={`p-3 sm:p-4 border rounded-xl ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white shadow-sm'}`}>
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-2 gap-1 sm:gap-2">
-                        <p className="font-medium text-sm sm:text-base">{ex.nome}</p>
-                        <p className="text-xs sm:text-sm text-gray-500">{ex.musculo}</p>
-                      </div>
-                      <p className="text-xs sm:text-sm text-gray-500 mb-1">Ordem: {ex.ordem}</p>
-                      {ex.instrucoes && <p className="text-xs sm:text-sm mb-2">{ex.instrucoes}</p>}
-                      <p className="text-xs sm:text-sm mb-3">
-                        Séries: {ex.series} | Reps: {ex.repeticoes} {ex.pse ? `| pse: ${ex.pse}/10` : ''}
-                      </p>
-
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          onClick={() => deletarExercicio(ex.exercicioId, treino.treinoId)}
-                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-lg border ${isDark ? 'border-gray-700 text-white hover:bg-gray-800' : 'border-gray-300 text-gray-800 hover:bg-gray-100'}`}
-                        >
-                          Excluir
-                        </button>
+                    <div
+                      key={ex.exercicioId}
+                      className={`rounded-2xl overflow-hidden border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white shadow-md'} transition-shadow hover:shadow-lg`}
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2">
+                        <div className="relative group">
+                          <BuscarImagem
+                            imgType={'gif'}
+                            chatTreino={true}
+                            email={user?.email}
+                            query={ex.imagem || ex.nome}
+                            className="w-full h-[280px] md:h-[360px] object-cover"
+                            alt={`Imagem do exercício ${ex.nome}`}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 flex items-center justify-between">
+                            <div>
+                              <p className="text-white font-semibold text-sm sm:text-base truncate">{ex.nome}</p>
+                              {ex.musculo && (
+                                <span className="mt-1 inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-white/20 text-white backdrop-blur-sm">
+                                  {ex.musculo}
+                                </span>
+                              )}
+                            </div>
+                            <span className="hidden md:inline-flex px-2 py-1 text-[10px] rounded bg-white/10 text-white border border-white/20">GIF</span>
+                          </div>
+                        </div>
+                        <div className="p-3 sm:p-4 flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isDark ? 'bg-blue-900/40 text-blue-200' : 'bg-blue-100 text-blue-800'}`}>Ordem {ex.ordem}</span>
+                            {ex.series != null && (
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isDark ? 'bg-green-900/40 text-green-200' : 'bg-green-100 text-green-800'}`}>{ex.series} séries</span>
+                            )}
+                            {ex.repeticoes != null && (
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isDark ? 'bg-purple-900/40 text-purple-200' : 'bg-purple-100 text-purple-800'}`}>{ex.repeticoes} reps</span>
+                            )}
+                            {ex.pse != null && (
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isDark ? 'bg-orange-900/40 text-orange-200' : 'bg-orange-100 text-orange-800'}`}>pse {ex.pse}/10</span>
+                            )}
+                          </div>
+                          {ex.instrucoes && (
+                            <div className={`${isDark ? 'text-gray-200' : 'text-gray-700'} text-xs sm:text-sm`}>{ex.instrucoes}</div>
+                          )}
+                          <div className="mt-2 flex gap-2">
+                            <button
+                              onClick={() => deletarExercicio(ex.exercicioId, treino.treinoId)}
+                              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-lg border ${isDark ? 'border-gray-700 text-white hover:bg-gray-800' : 'border-gray-300 text-gray-800 hover:bg-gray-100'}`}
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
