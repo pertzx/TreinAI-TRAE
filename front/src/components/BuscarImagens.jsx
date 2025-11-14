@@ -270,6 +270,14 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
       <div className="absolute right-3 top-3 pointer-events-none">
         <div className="text-xs bg-black/60 text-white rounded-full px-2 py-1">Imagem</div>
       </div>
+      <div className="absolute left-3 top-3 pointer-events-auto">
+        <button
+          onClick={(e) => { e.stopPropagation(); handleImageClick(e); }}
+          className="text-xs bg-red-600/80 hover:bg-red-700 text-white rounded-full px-2 py-1 shadow"
+        >
+          Reportar
+        </button>
+      </div>
 
       {showReport && (
         <div
@@ -279,6 +287,12 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="text-sm font-semibold">Reportar imagem</div>
             <button onClick={() => setShowReport(false)} className="text-xs opacity-60">Fechar</button>
+          </div>
+          <div className="text-xs mb-2">
+            <p className="mb-1">A ferramenta de busca de imagens pode falhar; relatar é essencial para manter a plataforma segura.</p>
+            <p>
+              Fonte: <a href={img} target="_blank" rel="noopener noreferrer" className="underline break-all">{img}</a>
+            </p>
           </div>
 
           <input
@@ -304,6 +318,10 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
           </div>
         </div>
       )}
+
+      <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400 break-all">
+        Fonte: <a href={img} target="_blank" rel="noopener noreferrer" className="underline">{img}</a>
+      </div>
     </div>
   );
 };
