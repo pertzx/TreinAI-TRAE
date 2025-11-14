@@ -5,6 +5,16 @@ import api from '../Api';
 
 const API_KEY = import.meta.env.VITE_API_GOOGLE_SEARCH_IMAGES;
 const CX = import.meta.env.VITE_CX;
+const ALLOWED_IMAGE_DOMAINS = [
+  'unsplash.com',
+  'images.unsplash.com',
+  'source.unsplash.com',
+  'pexels.com',
+  'images.pexels.com',
+  'pixabay.com',
+  'cdn.pixabay.com',
+  'ui-avatars.com'
+];
 
 /**
  * BuscarImagem (com console.logs)
@@ -79,7 +89,17 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
 
         const items = res?.data?.items;
         if (Array.isArray(items) && items.length > 0) {
-          const link = items.find(it => it?.link)?.link || items[0].link;
+          const filtered = items.filter(it => {
+            const lnk = it?.link;
+            if (!lnk) return false;
+            try {
+              const host = new URL(lnk).hostname.toLowerCase();
+              return ALLOWED_IMAGE_DOMAINS.some(d => host === d || host.endsWith(`.${d}`));
+            } catch (_) {
+              return false;
+            }
+          });
+          const link = filtered.find(it => it?.link)?.link || null;
           return link || null;
         }
         return null;
