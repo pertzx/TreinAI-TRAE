@@ -439,7 +439,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   );
 
   return (
-    <div className="space-y-6 mt-6 relative">
+    <div className="space-y-6 mt-6 p-3 relative">
       {/* {rebuke && (
         <div className={`p-4 border-4 rounded-2xl text-xl font-normal ${isDark ? 'bg-red-800 border-red-900 text-white' : 'bg-red-50 border-red-200 text-red-700'}`}>
           Somente usuarios com o plano <b>PRO, MAX ou COACH</b> podem editar os treinos!
