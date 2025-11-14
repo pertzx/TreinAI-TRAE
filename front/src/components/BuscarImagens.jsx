@@ -73,34 +73,38 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
       }
       
       try {
-        const res = await axios.get('https://www.googleapis.com/customsearch/v1', {
-          params: {
-            key: API_KEY,
-            cx: CX,
-            q: query,
-            searchType: 'image',
-            fileType: imgType,
-            imgType: 'clipart',
-            rights: 'cc_publicdomain,cc_attribute,cc_sharealike',
-            num: 5,
-          },
-          signal,
-        });
-
-        const items = res?.data?.items;
-        if (Array.isArray(items) && items.length > 0) {
-          const filtered = items.filter(it => {
-            const lnk = it?.link;
-            if (!lnk) return false;
-            try {
-              const host = new URL(lnk).hostname.toLowerCase();
-              return ALLOWED_IMAGE_DOMAINS.some(d => host === d || host.endsWith(`.${d}`));
-            } catch (_) {
-              return false;
-            }
+        // tentar por domínio permitido individualmente para melhorar relevância
+        for (const domain of ALLOWED_IMAGE_DOMAINS) {
+          const res = await axios.get('https://www.googleapis.com/customsearch/v1', {
+            params: {
+              key: API_KEY,
+              cx: CX,
+              q: query,
+              searchType: 'image',
+              fileType: imgType,
+              rights: 'cc_publicdomain,cc_attribute,cc_sharealike',
+              num: 3,
+              siteSearch: domain,
+              siteSearchFilter: 'i',
+            },
+            signal,
           });
-          const link = filtered.find(it => it?.link)?.link || null;
-          return link || null;
+
+          const items = res?.data?.items;
+          if (Array.isArray(items) && items.length > 0) {
+            const filtered = items.filter(it => {
+              const lnk = it?.link;
+              if (!lnk) return false;
+              try {
+                const host = new URL(lnk).hostname.toLowerCase();
+                return ALLOWED_IMAGE_DOMAINS.some(d => host === d || host.endsWith(`.${d}`));
+              } catch (_) {
+                return false;
+              }
+            });
+            const link = filtered.find(it => it?.link)?.link || null;
+            if (link) return link;
+          }
         }
         return null;
       } catch (err) {
@@ -168,7 +172,15 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
         }
         // For exercise/fitness related images
         else if (query.toLowerCase().includes('exercicio') || query.toLowerCase().includes('treino') || query.toLowerCase().includes('fitness')) {
-          fallbackUrl = `https://source.unsplash.com/400x400/?fitness,exercise,${encodeURIComponent(query)}`;
+          // tente uma sequência de consultas para aumentar chance de resultado
+          const candidates = [
+            `https://source.unsplash.com/400x400/?fitness,exercise,${encodeURIComponent(query)}`,
+            `https://source.unsplash.com/400x400/?workout,${encodeURIComponent(query)}`,
+            `https://source.unsplash.com/400x400/?gym,${encodeURIComponent(query)}`,
+            `https://source.unsplash.com/400x400/?fitness`
+          ];
+          fallbackUrl = candidates[0];
+          // opcional: poderíamos testar carregamento, mas aqui adotamos o primeiro candidato
         }
         // For food/nutrition related images
         else if (query.toLowerCase().includes('comida') || query.toLowerCase().includes('alimento') || query.toLowerCase().includes('receita')) {
