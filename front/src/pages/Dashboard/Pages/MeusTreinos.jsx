@@ -578,7 +578,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
                             className="w-full h-[280px] md:h-[360px] object-cover"
                             alt={`Imagem do exercício ${ex.nome}`}
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                           <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 flex items-center justify-between">
                             <div>
                               <p className="text-white font-semibold text-sm sm:text-base truncate">{ex.nome}</p>
