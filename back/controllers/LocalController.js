@@ -117,20 +117,30 @@ export const excluirLocalPorErro = async (localId) => {
           }
         } else {
           // Se é URL local, deletar do sistema de arquivos
-          const parsed = imageUrl.split('/').pop();
-          if (!parsed) return;
-          const filename = parsed.split('?')[0].split('#')[0];
-
-          const candidatePath = path.join(process.cwd(), 'uploads', 'image-local', filename);
-
-          // apenas remove se o arquivo estiver dentro do upload dir e existir
-          if (candidatePath.includes('image-local') && fs.existsSync(candidatePath)) {
-            try {
-              fs.unlinkSync(candidatePath);
-              console.log('[LocalController] Imagem local removida:', candidatePath);
-            } catch (err) {
-              console.warn('Falha ao remover arquivo local:', candidatePath, err);
+          try {
+            let relPath = null;
+            if (imageUrl.startsWith('/uploads/')) {
+              relPath = imageUrl.replace(/^\//, '');
+            } else {
+              const parsed = imageUrl.split('/').pop();
+              if (!parsed) return;
+              const filename = parsed.split('?')[0].split('#')[0];
+              // tentar em ambos diretórios conhecidos
+              const candidateLocal = path.join(process.cwd(), 'uploads', 'images', filename);
+              const candidateLegacy = path.join(process.cwd(), 'uploads', 'image-local', filename);
+              if (fs.existsSync(candidateLocal)) relPath = path.join('uploads', 'images', filename);
+              else if (fs.existsSync(candidateLegacy)) relPath = path.join('uploads', 'image-local', filename);
             }
+
+            if (relPath) {
+              const full = path.join(process.cwd(), relPath);
+              if (fs.existsSync(full)) {
+                fs.unlinkSync(full);
+                console.log('[LocalController] Imagem local removida:', full);
+              }
+            }
+          } catch (err) {
+            console.warn('Falha ao remover arquivo local:', err?.message || err);
           }
         }
       } catch (err) {
@@ -750,12 +760,20 @@ export const deletarLocalPorId = async (req, res) => {
       });
     }
 
-    // Deletar imagem no Cloudinary se existir
+    // Deletar imagem (Cloudinary ou local uploads)
     if (local.imageUrl) {
       try {
-        await deleteFromCloudinary(local.imageUrl);
+        if (typeof local.imageUrl === 'string' && local.imageUrl.includes('cloudinary.com')) {
+          await deleteFromCloudinary(local.imageUrl);
+        } else if (typeof local.imageUrl === 'string' && local.imageUrl.startsWith('/uploads/')) {
+          const rel = local.imageUrl.replace(/^\//, '');
+          const candidatePath = path.join(process.cwd(), rel);
+          if (fs.existsSync(candidatePath)) {
+            fs.unlinkSync(candidatePath);
+          }
+        }
       } catch (imageError) {
-        console.warn('Falha ao remover imagem antiga do Cloudinary:', imageError?.message || imageError);
+        console.warn('Falha ao remover imagem do local:', imageError?.message || imageError);
       }
     }
 

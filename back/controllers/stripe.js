@@ -1864,11 +1864,19 @@ export const deletarLocal = async (req, res) => {
 
     // apagar local no banco
     try {
-      // tentar remover imagem associada no Cloudinary, se houver
+      // tentar remover imagem associada
       try {
-        if (local?.imageUrl) await deleteFromCloudinary(local.imageUrl);
+        if (local?.imageUrl) {
+          if (typeof local.imageUrl === 'string' && local.imageUrl.includes('cloudinary.com')) {
+            await deleteFromCloudinary(local.imageUrl);
+          } else if (typeof local.imageUrl === 'string' && local.imageUrl.startsWith('/uploads/')) {
+            const rel = local.imageUrl.replace(/^\//, '');
+            const full = path.join(process.cwd(), rel);
+            try { const exists = await fs.promises.stat(full).then(() => true).catch(() => false); if (exists) await fs.promises.unlink(full); } catch (_) {}
+          }
+        }
       } catch (imgDelErr) {
-        console.warn('deletarLocal: falha ao remover imagem do Cloudinary (não crítico):', imgDelErr?.message || imgDelErr);
+        console.warn('deletarLocal: falha ao remover imagem associada (não crítico):', imgDelErr?.message || imgDelErr);
       }
 
       if (local._id) {
