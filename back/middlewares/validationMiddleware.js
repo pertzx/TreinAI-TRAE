@@ -133,3 +133,37 @@ export const validateSignup = validate(signupSchema);
 export const validateDashboard = validate(dashboardSchema);
 export const validateUpdateProfile = validate(updateProfileSchema);
 export { sanitizeInput };
+
+// =======================
+// Validação para criação de locais
+// =======================
+const createLocalSchema = Joi.object({
+  localName: Joi.string().min(3).max(100).required(),
+  localDescricao: Joi.string().min(10).max(500).required(),
+  link: Joi.string().uri({ scheme: [/https?/] }).required(),
+  localType: Joi.string().valid(
+    'academia',
+    'consultorio-do-nutricionista',
+    'clinica-de-fisioterapia',
+    'loja',
+    'outro'
+  ).required(),
+  country: Joi.string().min(2).max(100).required(),
+  countryCode: Joi.string().length(2).uppercase().required(),
+  state: Joi.string().min(2).max(100).required(),
+  city: Joi.string().min(2).max(100).required(),
+});
+
+export const validateCreateLocal = (req, res, next) => {
+  const { error } = createLocalSchema.validate(req.body, { abortEarly: false });
+
+  if (error) {
+    const errors = error.details.map(detail => ({
+      field: detail.path.join('.'),
+      message: detail.message
+    }));
+    return res.status(400).json({ success: false, message: 'Dados inválidos para criação de local', errors });
+  }
+
+  next();
+};

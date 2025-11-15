@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { login, dashboard, signup, changeTheme, changeLoginSeguro, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser, loginNaoAutorizado } from '../controllers/authController.js';
 import { verificarToken } from '../middlewares/authMiddleware.js';
-import { validateLogin, validateSignup, validateDashboard, validateUpdateProfile } from '../middlewares/validationMiddleware.js';
+import { validateLogin, validateSignup, validateDashboard, validateUpdateProfile, validateCreateLocal } from '../middlewares/validationMiddleware.js';
 import { validateEmailReal, validateEmailBasic } from '../middlewares/emailValidation.js';
 import { loginRateLimit, signupRateLimit, uploadRateLimit, passwordResetRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { validateCSRF, validateCSRFAuth, getCSRFToken, provideCSRFToken } from '../middlewares/csrfMiddleware.js';
@@ -213,7 +213,8 @@ router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
 router.post('/criar-local-direto', 
   verificarToken,
   uploadSecurityHeaders, 
-  uploadImage.single('image'), 
+  upload.single('image'), 
+  validateCreateLocal,
   criarLocalDireto
 ); // Criar local sem pagamento imediato
 router.post('/ativar-local/:localId', 
@@ -234,7 +235,7 @@ router.post('/criar-sessao-pagamento-local',
   uploadSecurityHeaders, 
   CriarSessaoPagamentoLocal
 ); // Criar sessão de pagamento para local
-router.post('/editar-local', verificarToken, uploadSecurityHeaders, uploadImage.single('image'), editarLocal);
+router.post('/editar-local', verificarToken, uploadSecurityHeaders, upload.single('image'), editarLocal);
 router.get('/locais', buscarLocais);
 router.post('/deletar-local', verificarToken, deletarLocal);
 
