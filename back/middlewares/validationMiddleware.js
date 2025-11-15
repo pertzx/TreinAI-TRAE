@@ -152,6 +152,7 @@ const createLocalSchema = Joi.object({
   countryCode: Joi.string().length(2).uppercase().required(),
   state: Joi.string().min(2).max(100).required(),
   city: Joi.string().min(2).max(100).required(),
+  userId: Joi.string().regex(/^[a-fA-F0-9]{24}$/).required()
 });
 
 export const validateCreateLocal = (req, res, next) => {
