@@ -23,6 +23,8 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
   const [img, setImg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [fallbackCandidates, setFallbackCandidates] = useState([]);
+  const [fallbackIdx, setFallbackIdx] = useState(0);
 
   // report states
   const [showReport, setShowReport] = useState(false);
@@ -46,22 +48,24 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
   }, []);
 
   useEffect(() => {
-
     // reset state on new query
     setImg(null);
     setError(null);
 
-    if (!query || String(query).trim() === '') {
+    const q = query ? String(query).trim() : '';
+    if (!q) {
       setLoading(false);
       return;
     }
 
     // abort previous
     if (abortRef.current) {
-      abortRef.current.abort();
+      try { abortRef.current.abort(); } catch (_) { }
+      abortRef.current = null;
     }
     const ctl = new AbortController();
     abortRef.current = ctl;
+
     setLoading(true);
     setError(null);
 
@@ -71,7 +75,7 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
         console.warn('[BuscarImagem] Google API keys not configured, skipping Google Search');
         return null;
       }
-      
+
       try {
         // tentar por domínio permitido individualmente para melhorar relevância
         for (const domain of ALLOWED_IMAGE_DOMAINS) {
@@ -79,7 +83,7 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
             params: {
               key: API_KEY,
               cx: CX,
-              q: query,
+              q,
               searchType: 'image',
               fileType: imgType,
               rights: 'cc_publicdomain,cc_attribute,cc_sharealike',
@@ -88,7 +92,17 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
               siteSearchFilter: 'i',
             },
             signal,
+            // permitir inspecionar 4xx sem lançar, tratamos manualmente
+            validateStatus: (s) => s >= 200 && s < 500,
           });
+
+          if (res?.status === 403) {
+            console.warn('[BuscarImagem] Google API 403 — quota/key problem:', res.data);
+            continue;
+          } else if (res?.status === 400) {
+            console.warn('[BuscarImagem] Google API 400 — bad request:', res.data);
+            continue;
+          }
 
           const items = res?.data?.items;
           if (Array.isArray(items) && items.length > 0) {
@@ -108,10 +122,11 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
         }
         return null;
       } catch (err) {
-        if (axios.isCancel(err)) {
+        // tratar cancelamento de requisição
+        if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || (axios.isCancel && axios.isCancel(err))) {
           return null;
         }
-        
+
         // Log mais detalhado do erro
         if (err?.response?.status === 403) {
           console.warn('[BuscarImagem] Google API quota exceeded or invalid key:', err?.response?.data);
@@ -130,7 +145,7 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
         if (chatTreino && email) {
           try {
             const res = await api.get('/procurar-exercicio', {
-              params: { exercicioName: query, email },
+              params: { exercicioName: q, email },
               signal: ctl.signal,
             });
             if (res?.data?.found && res?.data?.exercicio?.imageUrl) {
@@ -140,7 +155,7 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
               return;
             }
           } catch (err) {
-            if (err.name === 'CanceledError' || err.message === 'canceled') {
+            if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || (axios.isCancel && axios.isCancel(err))) {
               return;
             }
             console.warn('[BuscarImagem] local DB lookup failed (will continue to online):', err?.response?.data || err?.message || err);
@@ -152,50 +167,61 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
         if (googleUrl) {
           if (!mountedRef.current) return;
           setImg(googleUrl);
-          // try save to server (best-effort)
+
           if (chatTreino && email) {
-            api.post('/adicionar-exercicio', { exercicioName: query, imageUrl: googleUrl, email })
+            // fire-and-forget, não bloqueia UI
+            api.post('/adicionar-exercicio', { exercicioName: q, imageUrl: googleUrl, email })
+              .catch(e => console.warn('[BuscarImagem] failed to persist image to local DB:', e?.message || e));
           }
+
           setLoading(false);
           return;
         }
 
-        // 3) fallback to multiple sources
+        // 2b) outras fontes restritas a domínios permitidos (sem API key)
+        // como exemplo, mantemos Unsplash com variações específicas mais adiante
+
+        // 3) fallback com lista de candidatos por categoria
         console.log('[BuscarImagem] Google API failed, using fallback sources');
-        
-        // Try different fallback sources based on query type
-        let fallbackUrl = null;
-        
-        // For profile/user related images
-        if (query.toLowerCase().includes('perfil') || query.toLowerCase().includes('usuario') || query.toLowerCase().includes('user')) {
-          fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(query)}&background=random&size=400`;
-        }
-        // For exercise/fitness related images
-        else if (query.toLowerCase().includes('exercicio') || query.toLowerCase().includes('treino') || query.toLowerCase().includes('fitness')) {
-          // tente uma sequência de consultas para aumentar chance de resultado
-          const candidates = [
-            `https://source.unsplash.com/400x400/?fitness,exercise,${encodeURIComponent(query)}`,
-            `https://source.unsplash.com/400x400/?workout,${encodeURIComponent(query)}`,
-            `https://source.unsplash.com/400x400/?gym,${encodeURIComponent(query)}`,
+
+        const qLower = q.toLowerCase();
+        const candidates = [];
+
+        if (qLower.includes('perfil') || qLower.includes('usuario') || qLower.includes('user')) {
+          candidates.push(`https://ui-avatars.com/api/?name=${encodeURIComponent(q)}&background=random&size=400`);
+        } else if (qLower.includes('exercicio') || qLower.includes('treino') || qLower.includes('fitness') || qLower.includes('gym')) {
+          candidates.push(
+            `https://source.unsplash.com/400x400/?fitness,exercise,${encodeURIComponent(q)}`,
+            `https://source.unsplash.com/400x400/?workout,${encodeURIComponent(q)}`,
+            `https://source.unsplash.com/400x400/?gym,${encodeURIComponent(q)}`,
             `https://source.unsplash.com/400x400/?fitness`
-          ];
-          fallbackUrl = candidates[0];
-          // opcional: poderíamos testar carregamento, mas aqui adotamos o primeiro candidato
+          );
+        } else if (qLower.includes('comida') || qLower.includes('alimento') || qLower.includes('receita')) {
+          candidates.push(
+            `https://source.unsplash.com/400x400/?food,healthy,${encodeURIComponent(q)}`,
+            `https://source.unsplash.com/400x400/?food,${encodeURIComponent(q)}`,
+            `https://source.unsplash.com/400x400/?healthy`
+          );
+        } else {
+          candidates.push(
+            `https://source.unsplash.com/400x400/?${encodeURIComponent(q)}`,
+            `https://source.unsplash.com/400x400/?random`
+          );
         }
-        // For food/nutrition related images
-        else if (query.toLowerCase().includes('comida') || query.toLowerCase().includes('alimento') || query.toLowerCase().includes('receita')) {
-          fallbackUrl = `https://source.unsplash.com/400x400/?food,healthy,${encodeURIComponent(query)}`;
-        }
-        // Generic fallback
-        else {
-          fallbackUrl = `https://source.unsplash.com/400x400/?${encodeURIComponent(query)}`;
-        }
-        
+
+        // candidatos finais genéricos
+        candidates.push(
+          `https://source.unsplash.com/random/400x400/?fitness`,
+          `https://source.unsplash.com/random/400x400/?exercise`
+        );
+
         if (!mountedRef.current) return;
-        setImg(fallbackUrl);
+        setFallbackCandidates(candidates);
+        setFallbackIdx(0);
+        setImg(candidates[0]);
         setLoading(false);
       } catch (err) {
-        if (err.name === 'CanceledError' || err.message === 'canceled') {
+        if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || (axios.isCancel && axios.isCancel(err))) {
           return;
         }
         console.error('[BuscarImagem] unexpected error in tryLoad:', err);
@@ -208,9 +234,11 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
     tryLoad();
 
     return () => {
-      ctl.abort();
+      try { ctl.abort(); } catch (_) { }
+      if (abortRef.current === ctl) abortRef.current = null;
     };
   }, [query, chatTreino, email, imgType]);
+
 
   // close popover on outside click
   useEffect(() => {
@@ -276,7 +304,7 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
     <div ref={wrapperRef} className={`relative inline-block ${className || ''}`}>
 
       {
-        img.length !== 0 || img !== null ? (
+        img ? (
           <img
             src={img}
             alt={alt || query}
@@ -285,10 +313,21 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
             onKeyDown={(e) => e.key === 'Enter' && handleImageClick(e)}
             role="button"
             tabIndex={0}
+            referrerPolicy="no-referrer"
+            onError={() => {
+              const nextIdx = fallbackIdx + 1;
+              if (fallbackCandidates[nextIdx]) {
+                setFallbackIdx(nextIdx);
+                setImg(fallbackCandidates[nextIdx]);
+              } else {
+                setImg(null);
+                setError('Imagem não encontrada');
+              }
+            }}
           />
         ) : (
           <img
-            src={'https://source.unsplash.com/800x600/?placeholder'}
+            src={'https://ui-avatars.com/api/?name=Imagem+Indisponível&background=random&size=400'}
             alt={alt || query}
             className={`cursor-pointer ${className || ''}`}
             onClick={handleImageClick}
