@@ -1108,7 +1108,7 @@ const LocaisDashboard = ({ tema, user }) => {
                               ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                               : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
                             }`}>
-                            {selectedLocal.ativo ? 'Ativo' : 'Inativo'}
+                            {selectedLocal.status == 'ativo' ? 'Ativo' : 'Inativo'}
                           </span>
                         </p>
                       </div>

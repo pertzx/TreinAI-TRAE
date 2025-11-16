@@ -168,3 +168,24 @@ export const validateCreateLocal = (req, res, next) => {
 
   next();
 };
+
+const editLocalSchema = Joi.object({
+  localId: Joi.string().regex(/^[a-fA-F0-9\-]{10,}$/).required(),
+  localName: Joi.string().min(3).max(100).optional(),
+  localDescricao: Joi.string().min(10).max(500).optional(),
+  link: Joi.string().uri({ scheme: [/https?/] }).optional(),
+  country: Joi.string().min(2).max(100).optional(),
+  countryCode: Joi.string().length(2).uppercase().optional(),
+  state: Joi.string().min(2).max(100).optional(),
+  city: Joi.string().min(2).max(100).optional(),
+  localType: Joi.forbidden()
+});
+
+export const validateEditLocal = (req, res, next) => {
+  const { error } = editLocalSchema.validate(req.body, { abortEarly: false });
+  if (error) {
+    const errors = error.details.map(detail => ({ field: detail.path.join('.'), message: detail.message }));
+    return res.status(400).json({ success: false, message: 'Dados inválidos para edição de local', errors });
+  }
+  next();
+};
