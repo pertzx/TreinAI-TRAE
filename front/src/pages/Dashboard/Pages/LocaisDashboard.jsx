@@ -603,7 +603,7 @@ const LocaisDashboard = ({ tema, user }) => {
                             <motion.button
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
-                              onClick={() => deletarLocal(local._id)}
+                              onClick={() => deletarLocal(local.localId)}
                               disabled={actionLoading[`delete_${local._id}`]}
                               className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
                               title="Deletar Local"
@@ -1104,7 +1104,7 @@ const LocaisDashboard = ({ tema, user }) => {
                         </p>
                         <p className={currentTheme.textSecondary}>
                           <strong>Status:</strong>
-                          <span className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs ${selectedLocal.ativo
+                          <span className={`ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs ${selectedLocal.status == 'ativo'
                               ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                               : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
                             }`}>

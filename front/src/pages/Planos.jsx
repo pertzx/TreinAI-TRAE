@@ -26,13 +26,13 @@ function Planos({ setPlano, setNeedToPay }) {
             name: 'Free',
             price: 'Grátis',
             period: 'Para sempre',
-            originalPrice: 0,
+            originalPrice: null,
             description: 'Perfeito para começar sua jornada fitness',
             subtitle: 'Experimente a plataforma com funcionalidades básicas',
             icon: <FiZap className="w-8 h-8" />,
             color: 'from-gray-500 to-gray-600',
-            bgClass: 'bg-white border-gray-200',
-            textClass: 'text-gray-800',
+            bgClass: 'bg-gray-900 border-gray-700',
+            textClass: 'text-gray-100',
             features: [
                 { text: 'Treinos gerados por IA', icon: <FiTarget className="w-4 h-4" />, highlight: true },
                 { text: 'Exibição de anúncios no dashboard', icon: <FiCpu className="w-4 h-4" /> },
@@ -60,13 +60,13 @@ function Planos({ setPlano, setNeedToPay }) {
             name: 'Pro',
             price: 'R$ 39,99',
             period: '/mês',
-            originalPrice: null,
+            originalPrice: 89.99,
             description: 'Treino inteligente e personalizado',
             subtitle: 'Todos os benefícios do Free, mas com melhorias',
             icon: <FiTrendingUp className="w-8 h-8" />,
             color: 'from-blue-500 to-blue-600',
-            bgClass: 'bg-white border-blue-500 border-2',
-            textClass: 'text-blue-800',
+            bgClass: 'bg-gray-900 border-blue-700 border-2',
+            textClass: 'text-blue-200',
             features: [
                 { text: 'Todos os benefícios do Free', icon: <FiCheck className="w-4 h-4" /> },
                 { text: 'Limite de 20.000 tokens por dia', icon: <FiTarget className="w-4 h-4" /> },
@@ -94,13 +94,13 @@ function Planos({ setPlano, setNeedToPay }) {
             name: 'Max',
             price: 'R$ 79,99',
             period: '/mês',
-            originalPrice: null,
+            originalPrice: 199.99,
             description: 'Corpo e mente em harmonia',
             subtitle: 'Todos os benefícios do Pro + NutriAI',
             icon: <FiHeart className="w-8 h-8" />,
             color: 'from-purple-500 to-purple-600',
-            bgClass: 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-500 border-2',
-            textClass: 'text-purple-800',
+            bgClass: 'bg-gray-900 border-purple-700 border-2',
+            textClass: 'text-purple-200',
             features: [
                 { text: 'Todos os benefícios do Pro', icon: <FiCheck className="w-4 h-4" /> },
                 { text: 'Acesso ao NutriAI', icon: <FiHeart className="w-4 h-4" /> },
@@ -126,13 +126,13 @@ function Planos({ setPlano, setNeedToPay }) {
             name: 'Coach',
             price: 'R$ 149,99',
             period: '/mês',
-            originalPrice: null,
+            originalPrice: 799.99,
             description: 'Para Personal Trainers profissionais',
             subtitle: 'Todos os benefícios do Max + ferramentas profissionais',
             icon: <FiUsers className="w-8 h-8" />,
             color: 'from-emerald-500 to-emerald-600',
-            bgClass: 'bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-500 border-2',
-            textClass: 'text-emerald-800',
+            bgClass: 'bg-gray-900 border-emerald-700 border-2',
+            textClass: 'text-emerald-200',
             features: [
                 { text: 'Todos os benefícios do Max', icon: <FiCheck className="w-4 h-4" /> },
                 { text: 'Limite de 200.000 tokens para gerenciar múltiplos alunos', icon: <FiUsers className="w-4 h-4" /> },
@@ -180,10 +180,10 @@ function Planos({ setPlano, setNeedToPay }) {
                 </p>
             </div>
 
-            <div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 w-full max-w-7xl' id='planos'>
+            <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-9 gap-6 w-full max-w-7xl' id='planos'>
 
                 {plans.map((plan) => (
-                    <div key={plan.id} className={`${plan.bgClass} rounded-2xl shadow-lg p-6 hover:scale-[1.02] transition-all duration-300 relative overflow-hidden`}>
+                    <div key={plan.id} className={`${plan.popular ? 'col-span-3' : 'col-span-2'} justify-between flex flex-col rounded-3xl border border-gray-800 bg-gradient-to-br from-gray-900 to-gray-950 shadow-xl hover:shadow-2xl p-6 sm:p-7 hover:scale-[1.02] transition-all duration-300 relative overflow-hidden ${plan.popular ? 'ring-2 ring-amber-500/60' : ''}`}>
                         {/* Badge Popular */}
                         {plan.popular && (
                             <div className="absolute top-2 right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold">
@@ -201,14 +201,14 @@ function Planos({ setPlano, setNeedToPay }) {
 
                         {/* Header */}
                         <div className="flex items-center gap-3 mb-4">
-                            <div className={`p-3 rounded-xl bg-gradient-to-r ${plan.color} text-white`}>
+                            <div className={`p-3 rounded-xl bg-gradient-to-r ${plan.color} text-white shadow-md shadow-black/30`}>
                                 {plan.icon}
                             </div>
                             <div>
-                                <h2 className={`text-xl font-bold ${plan.textClass} mb-1`}>
+                                <h2 className={`text-xl font-bold text-white mb-1`}>
                                     {plan.name}
                                 </h2>
-                                <p className={`text-sm ${plan.textClass} opacity-70`}>
+                                <p className={`text-sm text-gray-300`}>
                                     {plan.subtitle}
                                 </p>
                             </div>
@@ -217,10 +217,10 @@ function Planos({ setPlano, setNeedToPay }) {
                         {/* Pricing */}
                         <div className="mb-4">
                             <div className="flex items-baseline gap-2">
-                                <span className={`text-2xl font-bold ${plan.textClass}`}>
+                                <span className={`text-2xl font-bold text-white`}>
                                     {plan.price}
                                 </span>
-                                <span className={`text-sm ${plan.textClass} opacity-70`}>
+                                <span className={`text-sm text-gray-400`}>
                                     {plan.period}
                                 </span>
                             </div>
@@ -229,28 +229,30 @@ function Planos({ setPlano, setNeedToPay }) {
                                     De {plan.originalPrice}
                                 </div>
                             )}
-                            <p className={`text-sm ${plan.textClass} opacity-80 mt-1`}>
+                            <p className={`text-sm text-gray-300 mt-1`}>
                                 {plan.description}
                             </p>
                         </div>
 
                         {/* Features */}
                         <div className="mb-6">
-                            <h4 className={`text-sm font-semibold ${plan.textClass} mb-3 flex items-center gap-2`}>
+                            <h4 className={`text-sm font-semibold text-white mb-3 flex items-center gap-2`}>
                                 <FiCheck className="w-4 h-4" />
                                 Funcionalidades incluídas:
                             </h4>
                             <ul className="space-y-2">
                                 {plan.features.slice(0, 4).map((feature, idx) => (
-                                    <li key={idx} className={`flex items-center gap-2 text-sm ${plan.textClass} opacity-90`}>
-                                        {feature.icon}
-                                        <span className={feature.highlight ? 'text-red-500 font-semibold' : ''}>
+                                    <li key={idx} className={`flex items-center gap-2 text-sm text-gray-200`}>
+                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-gray-800 border border-gray-700">
+                                            {feature.icon}
+                                        </span>
+                                        <span className={`${feature.highlight ? 'text-emerald-400 font-semibold' : 'text-gray-300'}`}>
                                             {feature.text}
                                         </span>
                                     </li>
                                 ))}
                                 {plan.features.length > 4 && (
-                                    <li className={`text-xs ${plan.textClass} opacity-70`}>
+                                    <li className={`text-xs text-gray-400`}>
                                         + {plan.features.length - 4} funcionalidades adicionais
                                     </li>
                                 )}
