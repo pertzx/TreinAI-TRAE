@@ -285,8 +285,8 @@ const LocaisDashboard = ({ tema, user }) => {
 
     try {
       const response = await api.post('/deletar-local', { localId, userId: user._id });
-
-      if (response.data.success) {
+      console.log(response)
+      if (response.status == 200) {
         showSuccess('Local deletado com sucesso!');
         carregarLocais(false);
       } else {
