@@ -42,6 +42,7 @@ import { FaUserShield } from 'react-icons/fa6';
 import { LuActivity, LuTarget, LuZap } from 'react-icons/lu';
 import axios from 'axios';
 import { buildImageUrl } from '../../utils/imageUtils.js';
+import NotFound from './Pages/NotFound.jsx';
 
 const Dashboard = ({ needToPay, plano }) => {
   const [user, setUser] = useState(null);
@@ -936,6 +937,7 @@ const Dashboard = ({ needToPay, plano }) => {
               <Route path="/anuncios" element={<AnunciosDash user={user} tema={tema} />} />
               <Route path="/locais" element={<LocaisDashboard tema={tema} user={user} />} />
               <Route path="" element={db} />
+              <Route path="*" element={<NotFound tema={tema} user={user}/>} />
             </Routes>
             {user && <Footer tema={tema} user={user} />}
           </div>

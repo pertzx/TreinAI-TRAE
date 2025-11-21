@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import Logo from '../../../components/Logo';
 import { LuMenu, LuX } from 'react-icons/lu';
@@ -10,6 +10,15 @@ import AdBanner from './AdBanner';
 
 const Header = ({ user, tema }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bannerVisible, setBannerVisible] = useState(true);
+  const [bannerProgress, setBannerProgress] = useState(1);
+  const [atTop, setAtTop] = useState(true);
+  const [userWantsVisible, setUserWantsVisible] = useState(true);
+  const scrollDebounceRef = useRef(null);
+  const lastScrollYRef = useRef(typeof window !== 'undefined' ? window.scrollY : 0);
+  const [viewportW, setViewportW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const bannerContentRef = useRef(null);
+  const [bannerHeight, setBannerHeight] = useState(0);
 
   // Hook para detectar chats não lidos
   const { hasUnreadChats } = useUnreadChats(user?.userId || user?._id || user?.id);
@@ -46,8 +55,61 @@ const Header = ({ user, tema }) => {
       buttonBg: 'bg-green-600 hover:bg-green-700 text-white'
     };
 
+  // Scroll detector with 100ms debounce (progressive resize)
+  useEffect(() => {
+    const handler = () => {
+      if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
+      const currentY = window.scrollY || 0;
+      lastScrollYRef.current = currentY;
+      scrollDebounceRef.current = setTimeout(() => {
+        const TOP_T = 100;
+        const isTop = currentY <= TOP_T;
+        setAtTop(isTop);
+        setBannerVisible(isTop);
+        setBannerProgress(isTop ? 1 : 0);
+      }, 50);
+    };
+    window.addEventListener('scroll', handler, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handler);
+      if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
+    };
+  }, [viewportW]);
+
+  useEffect(() => {
+    let resizeTimer = null;
+    const onResize = () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        setViewportW(window.innerWidth);
+        if (bannerContentRef.current) {
+          const measured = bannerContentRef.current.offsetHeight || 0;
+          if (measured) setBannerHeight(measured);
+        }
+      }, 100);
+    };
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (resizeTimer) clearTimeout(resizeTimer);
+    };
+  }, []);
+
+  
+
+  useEffect(() => {
+    if (bannerContentRef.current && bannerHeight === 0) {
+      const measured = bannerContentRef.current.offsetHeight || 0;
+      setBannerHeight(measured || (viewportW < 640 ? 96 : 120));
+    }
+  }, [viewportW, bannerHeight]);
+
+  const baseHeight = bannerHeight || (viewportW < 640 ? 96 : 120);
+
   return (
-    <header className={`${themeClasses.headerBg} p-3 flex flex-col gap-4 mb-3`}>
+    <header
+      className={`${themeClasses.headerBg} backdrop-blur-sm sticky top-0 z-50 p-3 flex flex-col gap-4 mb-3`}
+    >
       <div className="flex justify-between flex-col gap-2 sm:flex-row sm:gap-0 items-center">
         {/* Logo e nome */}
         <NavLink to="/dashboard" className="flex items-center gap-2">
@@ -105,6 +167,8 @@ const Header = ({ user, tema }) => {
             }}
           ></NavLink>
 
+
+
           {/* Botão mobile para abrir menu */}
           <AnimatePresence>
             <motion.button
@@ -144,12 +208,37 @@ const Header = ({ user, tema }) => {
               ))}
             </nav>
           </motion.div>
+
+          {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && (
+            <motion.div
+              className="rounded-xl overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1, ease: 'easeInOut' }}
+            >
+              <div ref={bannerContentRef} className="w-full">
+                <AdBanner tema={tema} user={user} showPlaceholder={true} className="w-full" />
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       )}
 
-      {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && <AdBanner tema={tema} user={user} showPlaceholder={true} className="rounded-2xl mt-5 h-1/5" />}
+      {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && (
+        <motion.div
+          className={`${!bannerVisible ? 'hidden' : ''} rounded-xl overflow-hidden`}
+          initial={{ height: baseHeight, opacity: 1 }}
+          animate={{ height: bannerVisible ? baseHeight : 0, opacity: bannerVisible ? 1 : 0 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+        >
+          <div ref={bannerContentRef} className="w-full">
+            <AdBanner tema={tema} user={user} showPlaceholder={true} className="w-full" />
+          </div>
+        </motion.div>
+      )}
     </header>
   );
 };
+
 
 export default Header;

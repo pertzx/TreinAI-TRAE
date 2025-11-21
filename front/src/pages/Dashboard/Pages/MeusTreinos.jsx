@@ -574,7 +574,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
                             imgType={'gif'}
                             chatTreino={true}
                             email={user?.email}
-                            query={ex.imagem || ex.nome}
+                            query={ex.nome}
                             className="w-full h-[280px] md:h-[360px] object-cover"
                             alt={`Imagem do exercício ${ex.nome}`}
                           />

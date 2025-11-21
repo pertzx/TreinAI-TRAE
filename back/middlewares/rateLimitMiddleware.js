@@ -78,3 +78,27 @@ export const adminRateLimit = rateLimit({
         retryAfter: 15 * 60
     }
 });
+
+// Rate limiting para geração de imagens (estrito)
+export const imageGenerateRateLimit = rateLimit({
+    ...baseRateLimitConfig,
+    windowMs: parseInt(process.env.IMAGE_RATE_WINDOW_MS || `${5 * 60 * 1000}`), // 5 minutos por padrão
+    max: parseInt(process.env.IMAGE_RATE_MAX || '3'), // máximo 3 por IP na janela
+    keyGenerator: (req) => (String(req.userEmail || '').toLowerCase() || req.ip || 'unknown'),
+    message: {
+        error: "Muitas requisições de geração de imagens. Tente novamente mais tarde.",
+        retryAfter: parseInt(process.env.IMAGE_RATE_WINDOW_MS || `${5 * 60 * 1000}`) / 1000
+    }
+});
+
+// Rate limiting para busca de imagens (estrito)
+export const imageFindRateLimit = rateLimit({
+    ...baseRateLimitConfig,
+    windowMs: parseInt(process.env.IMAGE_FIND_RATE_WINDOW_MS || `${5 * 60 * 1000}`), // 5 minutos por padrão
+    max: parseInt(process.env.IMAGE_FIND_RATE_MAX || '100'), // máximo 100 por IP na janela
+    keyGenerator: (req) => (req.ip || 'unknown'),
+    message: {
+        error: "Muitas requisições de busca de imagens. Tente novamente mais tarde.",
+        retryAfter: parseInt(process.env.IMAGE_FIND_RATE_WINDOW_MS || `${5 * 60 * 1000}`) / 1000
+    }
+});

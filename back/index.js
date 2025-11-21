@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes.js';
+import imageRoutes from './routes/imageRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import tokenRoutes from './routes/tokenRoutes.js';
@@ -194,6 +195,7 @@ connectRedis();
 
 // Rotas da API
 app.use('/', apiSecurityHeaders, authRoutes);
+app.use('/images', apiSecurityHeaders, imageRoutes);
 app.use('/reports', apiSecurityHeaders, reportRoutes);
 app.use('/', apiSecurityHeaders, userRoutes);
 app.use('/tokens', apiSecurityHeaders, tokenRoutes);

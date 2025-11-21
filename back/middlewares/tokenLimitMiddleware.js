@@ -17,7 +17,9 @@ const TOKEN_LIMITS = {
  */
 export const checkTokenLimit = async (req, res, next) => {
   try {
-    const { email, profissionalId } = req.body;
+    const bodyEmail = req.body?.email;
+    const email = bodyEmail || req.userEmail;
+    const { profissionalId } = req.body;
     let targetUser, planType;
     
     // Se profissionalId for fornecido, verificar tokens do usuário do profissional
