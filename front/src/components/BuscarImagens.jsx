@@ -73,7 +73,12 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
     const generateNew = async (signal) => {
       try {
         setAnimating(true)
-        const csrf = (document.cookie.match(new RegExp('(^| )csrfToken=([^;]+)'))?.[2]) || (document.cookie.match(new RegExp('(^| )csrf_token=([^;]+)'))?.[2]) || ''
+        const csrfRes = await api.get('/csrf-token', { signal });
+        const csrf = csrfRes?.data?.csrfToken || '';
+        if (csrf) {
+          try { document.cookie = `csrfToken=${csrf}; path=/`; } catch (_) {}
+          try { document.cookie = `csrf_token=${csrf}; path=/`; } catch (_) {}
+        }
         console.log('[BuscarImagem] generate start', { q, csrf: Boolean(csrf) });
         const res = await api.post('/images/generate', { query: q }, { signal, headers: { 'X-CSRF-Token': csrf } })
         setAnimating(false)
