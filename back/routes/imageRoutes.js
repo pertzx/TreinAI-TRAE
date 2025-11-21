@@ -9,6 +9,6 @@ import { checkTokenLimit } from '../middlewares/tokenLimitMiddleware.js'
 const router = express.Router()
 
 router.get('/find', imageFindRateLimit, apiSecurityHeaders, findImageByQuery)
-router.post('/generate', imageGenerateRateLimit, checkTokenLimit, apiSecurityHeaders, verificarToken, imageAuthGuard, generateImage)
+router.post('/generate', imageGenerateRateLimit, apiSecurityHeaders, verificarToken, imageAuthGuard, checkTokenLimit, generateImage)
 
 export default router
