@@ -36,11 +36,7 @@ export const generateImage = async (req, res) => {
     if (user?.ban?.banned) return res.status(403).json({ success: false, message: 'Usuário banido' })
     if (user?.planInfos?.status === 'inativo') return res.status(403).json({ success: false, message: 'Plano inativo' })
 
-    const saldo = parseInt(user.saldoDeImpressoes || 0)
-    const estimateMax = parseInt(process.env.IMAGE_COST_ESTIMATE_MAX || '100')
-    if (saldo < estimateMax) {
-      return res.status(402).json({ success: false, message: 'Saldo de tokens insuficiente (pré-checagem)', required: estimateMax, available: saldo })
-    }
+    
 
     const ai = await openai.images.generate({ model: 'gpt-image-1', prompt: original, size: '1024x1024', quality: 'high', response_format: 'b64_json' })
     const b64 = ai?.data?.[0]?.b64_json
@@ -50,9 +46,7 @@ export const generateImage = async (req, res) => {
       (ai?.data?.[0]?.cost) ||
       (process.env.IMAGE_TOKEN_COST || '50')
     )
-    if (saldo < returnedCost) {
-      return res.status(402).json({ success: false, message: 'Saldo de tokens insuficiente', required: returnedCost, available: saldo })
-    }
+    
     const buffer = Buffer.from(b64, 'base64')
 
     const name = `${q.replace(/[^a-z0-9]+/g, '-')}-${crypto.randomUUID()}`
