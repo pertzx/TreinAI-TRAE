@@ -7,12 +7,6 @@ export const imageAuthGuard = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Usuário não autenticado (cookie ausente)' })
     }
 
-    const csrfHeader = req.headers['x-csrf-token']
-    const csrfCookie = req.cookies?.csrfToken || req.cookies?.csrf_token
-    if (!csrfHeader || !csrfCookie || String(csrfHeader) !== String(csrfCookie)) {
-      return res.status(403).json({ success: false, message: 'Falha na validação CSRF' })
-    }
-
     const email = String(req.userEmail || '').toLowerCase()
     if (!email) {
       return res.status(401).json({ success: false, message: 'Token inválido ou ausente' })
