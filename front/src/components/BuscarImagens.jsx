@@ -1,48 +1,6 @@
 // components/BuscarImagens.jsx
 import { useEffect, useState, useRef } from 'react';
-import axios from 'axios';
 import api from '../Api';
-
-const API_KEY = import.meta.env.VITE_API_GOOGLE_SEARCH_IMAGES;
-const CX = import.meta.env.VITE_CX;
-const TRANSLATE_URL = import.meta.env.VITE_TRANSLATE_API_URL;
-const TRANSLATE_KEY = import.meta.env.VITE_TRANSLATE_API_KEY;
-const PEXELS_KEY = import.meta.env.VITE_API_PEXELS_KEY;
-const ALLOWED_IMAGE_DOMAINS = [
-  'unsplash.com',
-  'images.unsplash.com',
-  'source.unsplash.com',
-  'pexels.com',
-  'images.pexels.com',
-  'pixabay.com',
-  'cdn.pixabay.com',
-  'ui-avatars.com'
-];
-
-const PT_EN = {
-  agachamento: 'squat',
-  supino: 'bench press',
-  remada: 'row',
-  biceps: 'biceps curl',
-  triceps: 'triceps extension',
-  ombro: 'shoulder press',
-  abdomen: 'abs crunch',
-  abdominal: 'abs crunch',
-  panturrilha: 'calf raise',
-  gluteo: 'glute bridge',
-  flexao: 'push up',
-  barra: 'pull up',
-  costas: 'back workout',
-  peitoral: 'chest workout',
-  pernas: 'leg workout'
-};
-
-const buildSearchQuery = (s) => {
-  const base = String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const words = base.toLowerCase().split(/\s+/).filter(Boolean);
-  const mapped = words.map(w => PT_EN[w] || '').filter(Boolean);
-  return `${base} ${mapped.join(' ')}`.trim();
-};
 
 /**
  * BuscarImagem (com console.logs)
@@ -51,8 +9,6 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
   const [img, setImg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [fallbackCandidates, setFallbackCandidates] = useState([]);
-  const [fallbackIdx, setFallbackIdx] = useState(0);
   const [animating, setAnimating] = useState(false);
 
   // report states
@@ -100,10 +56,16 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
 
     const fetchExisting = async (signal) => {
       try {
+        console.log('[BuscarImagem] find start', { q });
         const res = await api.get('/images/find', { params: { query: q }, signal })
-        if (res?.data?.success && res?.data?.found) return res.data.url
+        if (res?.data?.success && res?.data?.found) {
+          console.log('[BuscarImagem] find hit', { url: res.data.url, publicId: res.data.publicId });
+          return res.data.url
+        }
+        console.log('[BuscarImagem] find miss');
         return null
       } catch (_) {
+        console.log('[BuscarImagem] find error', _?.response?.data || _?.message || _);
         return null
       }
     }
@@ -112,118 +74,27 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
       try {
         setAnimating(true)
         const csrf = (document.cookie.match(new RegExp('(^| )csrfToken=([^;]+)'))?.[2]) || (document.cookie.match(new RegExp('(^| )csrf_token=([^;]+)'))?.[2]) || ''
+        console.log('[BuscarImagem] generate start', { q, csrf: Boolean(csrf) });
         const res = await api.post('/images/generate', { query: q }, { signal, headers: { 'X-CSRF-Token': csrf } })
         setAnimating(false)
-        if (res?.data?.success && res?.data?.url) return res.data.url
+        if (res?.data?.success && res?.data?.url) {
+          console.log('[BuscarImagem] generate success', { url: res.data.url, publicId: res.data.publicId });
+          return res.data.url
+        }
+        console.log('[BuscarImagem] generate failed', res?.data);
         return null
       } catch (e) {
         setAnimating(false)
+        console.log('[BuscarImagem] generate error', e?.response?.data || e?.message || e);
         return null
       }
     }
 
-    const fetchImageFromGoogle = async (signal) => {
-      // Verificar se as chaves da API estão configuradas
-      if (!API_KEY || !CX) {
-        console.warn('[BuscarImagem] Google API keys not configured, skipping Google Search');
-        return null;
-      }
-
-      try {
-        // tentar por domínio permitido individualmente para melhorar relevância
-        const qEff = await getEffectiveQuery(q, signal);
-        for (const domain of ALLOWED_IMAGE_DOMAINS) {
-          const params = {
-            key: API_KEY,
-            cx: CX,
-            q: qEff,
-            searchType: 'image',
-            rights: 'cc_publicdomain,cc_attribute,cc_sharealike',
-            num: 4,
-            siteSearch: domain,
-            siteSearchFilter: 'i',
-          }
-          if (imgType === 'gif') params.fileType = 'gif'
-          const res = await axios.get('https://www.googleapis.com/customsearch/v1', {
-            params,
-            signal,
-            validateStatus: (s) => s >= 200 && s < 500,
-          });
-
-          if (res?.status === 403) {
-            console.warn('[BuscarImagem] Google API 403 — quota/key problem:', res.data);
-            continue;
-          } else if (res?.status === 400) {
-            console.warn('[BuscarImagem] Google API 400 — bad request:', res.data);
-            continue;
-          }
-
-          const items = res?.data?.items;
-          if (Array.isArray(items) && items.length > 0) {
-            const filtered = items.filter(it => {
-              const lnk = it?.link;
-              if (!lnk) return false;
-              try {
-                const host = new URL(lnk).hostname.toLowerCase();
-                return ALLOWED_IMAGE_DOMAINS.some(d => host === d || host.endsWith(`.${d}`));
-              } catch (_) {
-                return false;
-              }
-            });
-            const link = (filtered[0]?.link) || (items[0]?.link) || null;
-            if (link) return link;
-          }
-        }
-        return null;
-      } catch (err) {
-        // tratar cancelamento de requisição
-        if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || (axios.isCancel && axios.isCancel(err))) {
-          return null;
-        }
-
-        // Log mais detalhado do erro
-        if (err?.response?.status === 403) {
-          console.warn('[BuscarImagem] Google API quota exceeded or invalid key:', err?.response?.data);
-        } else if (err?.response?.status === 400) {
-          console.warn('[BuscarImagem] Google API bad request:', err?.response?.data);
-        } else {
-          console.warn('[BuscarImagem] Google Search error (will fallback):', err?.response?.data || err?.message || err);
-        }
-        return null;
-      }
-    };
-
-    const fetchImageFromPexels = async (signal) => {
-      if (!PEXELS_KEY) {
-        console.log("!PEXELS_KEY");
-        return null
-      };
-
-      try {
-        const qEff = await getEffectiveQuery(q, signal);
-        const res = await axios.get('https://api.pexels.com/v1/search', {
-          params: { query: qEff, per_page: 12 },
-          headers: { Authorization: PEXELS_KEY },
-          signal,
-          validateStatus: (s) => s >= 200 && s < 500,
-        });
-        if (res?.status >= 400) return null;
-        const photos = res?.data?.photos || [];
-        if (photos.length) {
-          const p = photos[0];
-          const link = p?.src?.large2x || p?.src?.large || p?.src?.original || p?.src?.medium || null;
-          return link || null;
-        }
-        console.log("[BuscarImagem] Nenhuma imagem via pexels")
-        return null;
-      } catch (_) {
-        console.log(_);
-        return null;
-      }
-    };
+    
 
     const tryLoad = async () => {
       try {
+        console.log('[BuscarImagem] tryLoad start');
         // 1) when chatTreino try local DB first
         if (chatTreino && email) {
           try {
@@ -233,12 +104,13 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
             });
             if (res?.data?.found && res?.data?.exercicio?.imageUrl) {
               if (!mountedRef.current) return;
+              console.log('[BuscarImagem] local DB hit', { url: res.data.exercicio.imageUrl });
               setImg(res.data.exercicio.imageUrl);
               setLoading(false);
               return;
             }
           } catch (err) {
-            if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || (axios.isCancel && axios.isCancel(err))) {
+            if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
               return;
             }
             console.warn('[BuscarImagem] local DB lookup failed (will continue to online):', err?.response?.data || err?.message || err);
@@ -261,51 +133,12 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
           return
         }
 
-        // 2b) outras fontes restritas a domínios permitidos (sem API key)
-        // como exemplo, mantemos Unsplash com variações específicas mais adiante
-
-        // 3) fallback com lista de candidatos por categoria
-        console.log('[BuscarImagem] Google API failed, using fallback sources');
-
-        const qLower = q.toLowerCase();
-        const enLower = await getEffectiveQuery(q, ctl.signal);
-        const candidates = [];
-
-        if (qLower.includes('perfil') || qLower.includes('usuario') || qLower.includes('user')) {
-          candidates.push(`https://ui-avatars.com/api/?name=${encodeURIComponent(q)}&background=random&size=400`);
-        } else if (qLower.includes('exercicio') || qLower.includes('treino') || qLower.includes('fitness') || qLower.includes('gym')) {
-          candidates.push(
-            `https://source.unsplash.com/400x400/?fitness,exercise,${encodeURIComponent(enLower)}`,
-            `https://source.unsplash.com/400x400/?workout,${encodeURIComponent(enLower)}`,
-            `https://source.unsplash.com/400x400/?gym,${encodeURIComponent(enLower)}`,
-            `https://source.unsplash.com/400x400/?fitness`
-          );
-        } else if (qLower.includes('comida') || qLower.includes('alimento') || qLower.includes('receita')) {
-          candidates.push(
-            `https://source.unsplash.com/400x400/?food,healthy,${encodeURIComponent(q)}`,
-            `https://source.unsplash.com/400x400/?food,${encodeURIComponent(q)}`,
-            `https://source.unsplash.com/400x400/?healthy`
-          );
-        } else {
-          candidates.push(
-            `https://source.unsplash.com/400x400/?${encodeURIComponent(q)}`,
-            `https://source.unsplash.com/400x400/?random`
-          );
-        }
-
-        // candidatos finais genéricos
-        candidates.push(
-          `https://source.unsplash.com/random/400x400/?fitness`,
-          `https://source.unsplash.com/random/400x400/?exercise`
-        );
-
         if (!mountedRef.current) return;
-        setFallbackCandidates(candidates);
-        setFallbackIdx(0);
-        setImg(candidates[0]);
+        console.log('[BuscarImagem] no image available after own API');
+        setImg(null);
         setLoading(false);
       } catch (err) {
-        if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || (axios.isCancel && axios.isCancel(err))) {
+        if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
           return;
         }
         console.error('[BuscarImagem] unexpected error in tryLoad:', err);
@@ -410,14 +243,9 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
             tabIndex={0}
             referrerPolicy="no-referrer"
             onError={() => {
-              const nextIdx = fallbackIdx + 1;
-              if (fallbackCandidates[nextIdx]) {
-                setFallbackIdx(nextIdx);
-                setImg(fallbackCandidates[nextIdx]);
-              } else {
-                setImg(null);
-                setError('Imagem não encontrada');
-              }
+              console.log('[BuscarImagem] image tag onError');
+              setImg(null);
+              setError('Imagem não encontrada');
             }}
           />
         ) : (
@@ -491,20 +319,4 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
     </div>
   );
 };
-
-const getEffectiveQuery = async (s, signal) => {
-  const base = String(s || '').trim();
-  if (!base) return '';
-  try {
-    if (TRANSLATE_URL) {
-      const payload = { q: base, source: 'auto', target: 'en', format: 'text' };
-      const headers = TRANSLATE_KEY ? { Authorization: `Bearer ${TRANSLATE_KEY}` } : undefined;
-      const res = await axios.post(TRANSLATE_URL, payload, { signal, headers, validateStatus: (st) => st >= 200 && st < 500 });
-      const translated = res?.data?.translatedText || res?.data?.data || res?.data?.translation || '';
-      if (translated && typeof translated === 'string') return `${base} ${translated}`.trim();
-    }
-  } catch (_) {}
-  return buildSearchQuery(base);
-};
-
   export default BuscarImagem;
