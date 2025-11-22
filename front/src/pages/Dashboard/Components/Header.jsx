@@ -10,15 +10,16 @@ import AdBanner from './AdBanner';
 
 const Header = ({ user, tema }) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bannerVisible, setBannerVisible] = useState(true);
-  const [bannerProgress, setBannerProgress] = useState(1);
+  const [bannerHidden, setBannerHidden] = useState(false);
   const [atTop, setAtTop] = useState(true);
   const [userWantsVisible, setUserWantsVisible] = useState(true);
   const scrollDebounceRef = useRef(null);
   const lastScrollYRef = useRef(typeof window !== 'undefined' ? window.scrollY : 0);
+  const lastToggleAtRef = useRef(0);
   const [viewportW, setViewportW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   const bannerContentRef = useRef(null);
   const [bannerHeight, setBannerHeight] = useState(0);
+  
 
   // Hook para detectar chats não lidos
   const { hasUnreadChats } = useUnreadChats(user?.userId || user?._id || user?.id);
@@ -43,7 +44,7 @@ const Header = ({ user, tema }) => {
   // Classes do tema
   const themeClasses = tema === 'dark'
     ? {
-      headerBg: 'text-white border-b border-blue-600',
+      headerBg: 'text-white border-b  border-blue-600',
       logoText: 'text-blue-600',
       linkHover: 'hover:text-blue-400',
       buttonBg: 'bg-green-500 hover:bg-green-600 text-white'
@@ -55,26 +56,32 @@ const Header = ({ user, tema }) => {
       buttonBg: 'bg-green-600 hover:bg-green-700 text-white'
     };
 
-  // Scroll detector with 100ms debounce (progressive resize)
   useEffect(() => {
     const handler = () => {
       if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
       const currentY = window.scrollY || 0;
       lastScrollYRef.current = currentY;
       scrollDebounceRef.current = setTimeout(() => {
-        const TOP_T = 100;
-        const isTop = currentY <= TOP_T;
-        setAtTop(isTop);
-        setBannerVisible(isTop);
-        setBannerProgress(isTop ? 1 : 0);
-      }, 50);
+        const IN_Y = 10;  // entrar quando menor que IN_Y
+        const OUT_Y = 110; // sair quando maior que OUT_Y
+        const now = Date.now();
+        let nextTop = atTop;
+        if (!atTop && currentY <= IN_Y) nextTop = true;
+        else if (atTop && currentY >= OUT_Y) nextTop = false;
+        console.log('[Header] scroll', { currentY, atTop, nextTop, IN_Y, OUT_Y });
+        if (nextTop !== atTop && (now - lastToggleAtRef.current) >= 250) {
+          lastToggleAtRef.current = now;
+          setAtTop(nextTop);
+          console.log('[Header] toggle atTop', { nextTop, at: now });
+        }
+      }, 100);
     };
     window.addEventListener('scroll', handler, { passive: true });
     return () => {
       window.removeEventListener('scroll', handler);
       if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
     };
-  }, [viewportW]);
+  }, [viewportW, atTop]);
 
   useEffect(() => {
     let resizeTimer = null;
@@ -100,15 +107,63 @@ const Header = ({ user, tema }) => {
   useEffect(() => {
     if (bannerContentRef.current && bannerHeight === 0) {
       const measured = bannerContentRef.current.offsetHeight || 0;
+      console.log("measured: ", measured)
       setBannerHeight(measured || (viewportW < 640 ? 96 : 120));
     }
   }, [viewportW, bannerHeight]);
 
   const baseHeight = bannerHeight || (viewportW < 640 ? 96 : 120);
+  useEffect(() => {
+    console.log('[Header] state', { atTop, bannerHidden, bannerHeight, baseHeight, viewportW });
+  }, [atTop, bannerHidden, bannerHeight, viewportW]);
+  const bannerAnim = {
+    enter: { height: baseHeight, opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' },
+    exit: { height: 0, opacity: 0, y: -12, scale: 0.98, filter: 'blur(2px)' }
+  };
+
+  const freezeScroll = () => {
+    try {
+      lockedScrollYRef.current = window.scrollY || 0;
+      const body = document.body;
+      body.style.position = 'fixed';
+      body.style.top = `-${lockedScrollYRef.current}px`;
+      body.style.width = '100%';
+      console.log('[Header] freezeScroll', { y: lockedScrollYRef.current });
+    } catch (e) {
+      console.log('[Header] freezeScroll error', e?.message || e);
+    }
+  };
+
+  const unfreezeScroll = () => {
+    try {
+      const body = document.body;
+      const y = -parseInt(body.style.top || '0', 10) || lockedScrollYRef.current;
+      body.style.position = '';
+      body.style.top = '';
+      body.style.width = '';
+      window.scrollTo(0, y);
+      console.log('[Header] unfreezeScroll', { y });
+    } catch (e) {
+      console.log('[Header] unfreezeScroll error', e?.message || e);
+    }
+  };
+  useEffect(() => {
+    const isFreePlan = !!(user && user.planInfos && user.planInfos.planType && user.planInfos.planType === 'free');
+    if (isFreePlan) {
+      if (atTop) {
+        setBannerHidden(false);
+        console.log('[Header] show banner');
+      } else {
+        console.log('[Header] hide banner (animate then hidden)');
+      }
+    }
+  }, [atTop, user]);
+
+  
 
   return (
     <header
-      className={`${themeClasses.headerBg} backdrop-blur-sm sticky top-0 z-50 p-3 flex flex-col gap-4 mb-3`}
+      className={`${themeClasses.headerBg} backdrop-blur-sm m-2 rounded-2xl sticky top-2 z-50 p-3 flex flex-col gap-4 mb-3`}
     >
       <div className="flex justify-between flex-col gap-2 sm:flex-row sm:gap-0 items-center">
         {/* Logo e nome */}
@@ -209,7 +264,7 @@ const Header = ({ user, tema }) => {
             </nav>
           </motion.div>
 
-          {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && (
+          {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && bannerHidden && (
             <motion.div
               className="rounded-xl overflow-hidden"
               initial={{ opacity: 0 }}
@@ -225,16 +280,29 @@ const Header = ({ user, tema }) => {
       )}
 
       {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && (
-        <motion.div
-          className={`${!bannerVisible ? 'hidden' : ''} rounded-xl overflow-hidden`}
-          initial={{ height: baseHeight, opacity: 1 }}
-          animate={{ height: bannerVisible ? baseHeight : 0, opacity: bannerVisible ? 1 : 0 }}
-          transition={{ duration: 0.15, ease: 'easeOut' }}
-        >
-          <div ref={bannerContentRef} className="w-full">
-            <AdBanner tema={tema} user={user} showPlaceholder={true} className="w-full" />
-          </div>
-        </motion.div>
+        bannerHidden ? (
+          <div className="hidden" />
+        ) : (
+          <motion.div
+            className="rounded-xl overflow-hidden"
+            variants={bannerAnim}
+            initial={atTop ? 'enter' : 'exit'}
+            animate={atTop ? 'enter' : 'exit'}
+            transition={{
+              height: { duration: 0.3, ease: 'easeOut' },
+              opacity: { duration: 0.25, ease: 'easeOut' },
+              y: { duration: 0.25, ease: 'easeOut' },
+              scale: { duration: 0.25, ease: 'easeOut' }
+            }}
+            onAnimationComplete={() => {
+              if (!atTop) setBannerHidden(true);
+            }}
+          >
+            <div ref={bannerContentRef} className="w-full">
+              <AdBanner tema={tema} user={user} showPlaceholder={true} className="w-full" />
+            </div>
+          </motion.div>
+        )
       )}
     </header>
   );

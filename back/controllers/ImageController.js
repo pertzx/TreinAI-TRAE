@@ -57,7 +57,7 @@ export const generateImage = async (req, res) => {
 
     const name = `${q.replace(/[^a-z0-9]+/g, '-')}-${crypto.randomUUID()}`
     const uploaded = await uploadToCloudinary(buffer, 'gptImages', 'image')
-    console.log('[images/generate] cloudinary', { publicId: uploaded?.public_id })
+    console.log('[images/generate] cloudinary', uploaded)
     const asset = await ImageAsset.create({ originalQuery: original, normalizedQuery: q, cloudinaryUrl: uploaded.secure_url, cloudinaryPublicId: uploaded.public_id })
     console.log('[images/generate] db saved', { id: asset?._id })
 
