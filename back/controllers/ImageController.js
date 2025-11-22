@@ -42,7 +42,7 @@ export const generateImage = async (req, res) => {
 
     console.log('[images/generate] user ok', { email, plan: user?.planInfos?.planType })
 
-    const ai = await openai.images.generate({ model: 'gpt-image-1', prompt: original, size: '1024x1024', quality: 'high', response_format: 'b64_json' })
+    const ai = await openai.images.generate({ model: 'gpt-image-1', prompt: original, size: '1024x1024' })
     console.log('[images/generate] openai done', { items: Array.isArray(ai?.data) ? ai.data.length : 0 })
     const b64 = ai?.data?.[0]?.b64_json
     if (!b64) return res.status(502).json({ success: false, message: 'Falha na geração de imagem' })
@@ -52,7 +52,7 @@ export const generateImage = async (req, res) => {
       (process.env.IMAGE_TOKEN_COST || '50')
     )
     console.log('[images/generate] cost', { returnedCost })
-    
+
     const buffer = Buffer.from(b64, 'base64')
 
     const name = `${q.replace(/[^a-z0-9]+/g, '-')}-${crypto.randomUUID()}`
@@ -60,17 +60,17 @@ export const generateImage = async (req, res) => {
     console.log('[images/generate] cloudinary', { publicId: uploaded?.public_id })
     const asset = await ImageAsset.create({ originalQuery: original, normalizedQuery: q, cloudinaryUrl: uploaded.secure_url, cloudinaryPublicId: uploaded.public_id })
     console.log('[images/generate] db saved', { id: asset?._id })
-    
+
     const regOk = await registerTokenUsage(email, returnedCost, req.body?.profissionalId || null)
     console.log('[images/generate] registerTokenUsage', { ok: regOk, returnedCost })
-    try { if (redisCache?.isConnected) await redisCache.delete(`imggen:lock:${q}`) } catch (_) {}
+    try { if (redisCache?.isConnected) await redisCache.delete(`imggen:lock:${q}`) } catch (_) { }
     return res.json({ success: true, url: asset.cloudinaryUrl, publicId: asset.cloudinaryPublicId })
   } catch (e) {
     console.error('[images/generate] error', e?.response?.data || e?.message || e)
     try {
       const q = normalize(req.body.query || '')
       if (q && redisCache?.isConnected) await redisCache.delete(`imggen:lock:${q}`)
-    } catch (_) {}
+    } catch (_) { }
     return res.status(500).json({ success: false, message: 'Erro ao gerar imagem' })
   }
 }
