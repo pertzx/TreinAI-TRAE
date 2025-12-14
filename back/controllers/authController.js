@@ -160,6 +160,8 @@ export const login = async (req, res) => {
       location
     } = req.body;
 
+     console.log(`email: ${email}, password: ${password}`)
+
     if (!email || !password) {
       return res.status(400).json({ msg: "Email e senha são obrigatórios!" });
     }
@@ -521,6 +523,8 @@ Observações:
 export const signup = async (req, res) => {
   try {
     const { email, password, username } = req.body;
+
+    console.log(`email: ${email}, password: ${password}`)
 
     // Usar 'name' se disponível, senão usar 'username' para compatibilidade
     const userName = username;

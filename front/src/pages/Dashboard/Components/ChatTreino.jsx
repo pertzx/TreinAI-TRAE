@@ -468,7 +468,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
                 <div className={`w-full h-full ${isDark ? "bg-gradient-to-t from-black/40 via-transparent to-transparent" : "bg-gradient-to-t from-white/60 via-transparent to-transparent"}`} />
               </div>
               <div className="relative">
-                <BuscarImagem imgType={'gif'} chatTreino={true} email={user?.email} query={ex.imagem || ex.nome} className="w-full h-[320px] md:h-[420px] object-cover transition-transform duration-600 transform hover:scale-105" alt={`Imagem do exercício ${ex.nome}`} />
+                <BuscarImagem imgType={'gif'} chatTreino={true} email={user?.email} query={ex.imagem || ex.nome} className="w-full h-[240px] md:h-[320px] object-cover transition-transform duration-600 transform hover:scale-105" alt={`Imagem do exercício ${ex.nome}`} />
                 <div className="absolute left-4 bottom-4 flex items-center gap-3">
                   <div className="flex items-center gap-2 bg-black/60 text-white text-xs md:text-sm rounded-full px-3 py-1 backdrop-blur-sm shadow">
                     <span className="font-semibold">{ex.nome}</span>
@@ -482,9 +482,9 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
           <div className="md:w-1/2 w-full flex flex-col justify-between">
             <div>
-              <h3 className={`text-lg md:text-2xl font-bold leading-tight ${isDark ? "text-white" : "text-gray-900"}`}>{ex.nome}</h3>
-              <p className={`mt-3 text-sm md:text-base leading-relaxed ${isDark ? "text-gray-300" : "text-gray-700"}`}>{ex.instrucoes}</p>
-              <div className={`mt-5 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${isDark ? "bg-gray-800/60" : "bg-gray-100"}`}>
+              <h3 className={`text-base md:text-xl font-bold leading-tight ${isDark ? "text-white" : "text-gray-900"}`}>{ex.nome}</h3>
+              <p className={`mt-2 text-xs md:text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-700"}`}>{ex.instrucoes}</p>
+              <div className={`mt-4 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${isDark ? "bg-gray-800/60" : "bg-gray-100"}`}>
                 <div>{typeof ex.pse !== "undefined" && <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>PSE: <strong>{ex.pse}/10</strong></p>}</div>
               </div>
 
@@ -531,14 +531,14 @@ const ChatTreino = ({ tema = "dark", user }) => {
   // Typing dots component
   const TypingDots = () => (
     <div className={`flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-      <div className="mr-2 text-sm opacity-90">IA está digitando</div>
+      <div className="mr-2 text-xs opacity-90">IA está digitando</div>
       <div className="flex items-center gap-1">
         {[0, 1, 2].map(i => (
           <motion.span key={i}
             initial={{ y: 0, opacity: 0.6 }}
-            animate={{ y: [0, -6, 0], opacity: [0.6, 1, 0.6] }}
+            animate={{ y: [0, -5, 0], opacity: [0.6, 1, 0.6] }}
             transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.12 }}
-            className={`block w-2 h-2 rounded-full ${isDark ? 'bg-gray-400' : 'bg-gray-500'}`}
+            className={`block w-1.5 h-1.5 rounded-full ${isDark ? 'bg-gray-400' : 'bg-gray-500'}`}
           />
         ))}
       </div>
@@ -824,10 +824,10 @@ const ChatTreino = ({ tema = "dark", user }) => {
           </div>
 
           {/* mensagens (chat + exibição) */}
-          <div ref={mensagensContainerRef} className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto mb-4 px-1">
+          <div ref={mensagensContainerRef} className="flex flex-col gap-3 max-h-[80vh] overflow-y-auto mb-4 px-1">
             <AnimatePresence>
               {mensagens.map((msg) => (
-                <motion.div key={msg.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }} className={`p-3 sm:p-4 rounded-2xl shadow-md ${msg.tipo === "bot" ? (isDark ? "bg-gray-800 text-gray-100 rounded-bl-none self-start" : "bg-gray-100 text-black rounded-bl-none self-start") : "bg-blue-600 text-white rounded-br-none self-end"} max-w-[90%] sm:max-w-[85%] md:max-w-[80%] text-sm sm:text-base`}>
+                <motion.div key={msg.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }} className={`p-2 sm:p-3 rounded-2xl shadow-md ${msg.tipo === "bot" ? (isDark ? "bg-gray-800 text-gray-100 rounded-bl-none self-start" : "bg-gray-100 text-black rounded-bl-none self-start") : "bg-blue-600 text-white rounded-br-none self-end"} max-w-[90%] sm:max-w-[85%] md:max-w-[80%] text-xs sm:text-sm`}>
                   {msg.conteudo}
                 </motion.div>
               ))}
@@ -836,7 +836,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
           </div>
 
           {/* controles específicos do exercício */}
-          <div className="p-3 sm:p-4 rounded-xl mb-2 bg-gray-50/5">
+          <div className="p-2 sm:p-3 rounded-xl mb-2 bg-gray-50/5">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
               <div className="text-sm font-medium truncate flex-1">{currentEx.nome}</div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -848,11 +848,11 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="flex gap-2 flex-1">
-                <button onClick={handleStartSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-2xl text-sm ${isDark ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"} ${setStarted ? "opacity-70 pointer-events-none" : ""}`}>Iniciar set</button>
-                <button onClick={handleEndSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-2xl text-sm ${isDark ? "bg-yellow-500 hover:bg-yellow-600 text-black" : "bg-yellow-500 hover:bg-yellow-600 text-black"} ${!setStarted ? "opacity-60 pointer-events-none" : ""}`}>Terminar set</button>
+                <button onClick={handleStartSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-xl text-xs ${isDark ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"} ${setStarted ? "opacity-70 pointer-events-none" : ""}`}>Iniciar set</button>
+                <button onClick={handleEndSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-xl text-xs ${isDark ? "bg-yellow-500 hover:bg-yellow-600 text-black" : "bg-yellow-500 hover:bg-yellow-600 text-black"} ${!setStarted ? "opacity-60 pointer-events-none" : ""}`}>Terminar set</button>
               </div>
 
-              <button onClick={handleProximo} disabled={finalizandoTreino} className={`px-3 sm:px-4 py-2 rounded-2xl text-sm ${exerciseComplete && !finalizandoTreino ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-400 text-white opacity-60 pointer-events-none"}`}>{finalizandoTreino ? "Finalizando..." : (indiceAtual < totalExercicios - 1 ? "Próximo Exercício" : "Finalizar Treino")}</button>
+              <button onClick={handleProximo} disabled={finalizandoTreino} className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs ${exerciseComplete && !finalizandoTreino ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-400 text-white opacity-60 pointer-events-none"}`}>{finalizandoTreino ? "Finalizando..." : (indiceAtual < totalExercicios - 1 ? "Próximo Exercício" : "Finalizar Treino")}</button>
             </div>
 
             {(setTimingsByExercise[indiceAtual] && setTimingsByExercise[indiceAtual].length > 0) && (
@@ -865,9 +865,9 @@ const ChatTreino = ({ tema = "dark", user }) => {
           </div>
 
           {/* campo e botões */}
-          <div className="flex flex-col sm:flex-row gap-2 mb-4">
-            <input type="text" placeholder="Pergunte alguma coisa" value={inputValue} onChange={(e) => setInputValue(e.target.value)} className={`flex-1 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl border outline-none text-sm sm:text-base ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-100 border-gray-300 text-black"}`} />
-            <button onClick={handleEnviarMensagem} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 sm:py-3 rounded-2xl transition-colors flex items-center justify-center min-h-[44px]"><FaLocationArrow className="text-sm sm:text-base" /></button>
+          <div className="flex flex-col sm:flex-row gap-2 mb-3">
+            <input type="text" placeholder="Pergunte alguma coisa" value={inputValue} onChange={(e) => setInputValue(e.target.value)} className={`flex-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border outline-none text-xs sm:text-sm ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-100 border-gray-300 text-black"}`} />
+            <button onClick={handleEnviarMensagem} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 sm:py-2 rounded-xl transition-colors flex items-center justify-center min-h-[36px]"><FaLocationArrow className="text-xs sm:text-sm" /></button>
           </div>
         </>
       )}
