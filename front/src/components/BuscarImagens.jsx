@@ -10,6 +10,8 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [animating, setAnimating] = useState(false);
+  const [backendStatus, setBackendStatus] = useState(null);
+  const [backendRetryAfterMs, setBackendRetryAfterMs] = useState(null);
 
   // report states
   const [showReport, setShowReport] = useState(false);
@@ -21,11 +23,17 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
   const abortRef = useRef(null);
   const wrapperRef = useRef(null);
   const mountedRef = useRef(true);
+  const retryTimerRef = useRef(null);
+  const retryCountRef = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
       if (abortRef.current) {
         abortRef.current.abort();
       }
@@ -36,6 +44,14 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
     // reset state on new query
     setImg(null);
     setError(null);
+    setBackendStatus(null);
+    setBackendRetryAfterMs(null);
+    retryCountRef.current = 0;
+
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
 
     const q = query ? String(query).trim() : '';
     if (!q) {
@@ -58,15 +74,19 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
       try {
         console.log('[BuscarImagem] find start', { q });
         const res = await api.get('/images/find', { params: { query: q }, signal })
-        if (res?.data?.success && res?.data?.found) {
-          console.log('[BuscarImagem] find hit', { url: res.data.url, publicId: res.data.publicId });
-          return res.data.url
+        const data = res?.data || {}
+        if (data?.success && data?.status === 'generating') {
+          return { kind: 'generating', retryAfterMs: data.retryAfterMs }
+        }
+        if (data?.success && data?.found && data?.url) {
+          console.log('[BuscarImagem] find hit', { url: data.url, publicId: data.publicId });
+          return { kind: 'ready', url: data.url }
         }
         console.log('[BuscarImagem] find miss');
-        return null
+        return { kind: 'missing' }
       } catch (_) {
         console.log('[BuscarImagem] find error', _?.response?.data || _?.message || _);
-        return null
+        return { kind: 'error' }
       }
     }
 
@@ -82,16 +102,20 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
         console.log('[BuscarImagem] generate start', { q, csrf: Boolean(csrf) });
         const res = await api.post('/images/generate', { query: q }, { signal, headers: { 'X-CSRF-Token': csrf } })
         setAnimating(false)
-        if (res?.data?.success && res?.data?.url) {
-          console.log('[BuscarImagem] generate success', { url: res.data.url, publicId: res.data.publicId });
-          return res.data.url
+        const data = res?.data || {}
+        if (data?.success && data?.status === 'generating') {
+          return { kind: 'generating', retryAfterMs: data.retryAfterMs }
         }
-        console.log('[BuscarImagem] generate failed', res?.data);
-        return null
+        if (data?.success && data?.url) {
+          console.log('[BuscarImagem] generate success', { url: data.url, publicId: data.publicId });
+          return { kind: 'ready', url: data.url }
+        }
+        console.log('[BuscarImagem] generate failed', data);
+        return { kind: 'failed' }
       } catch (e) {
         setAnimating(false)
         console.log('[BuscarImagem] generate error', e?.response?.data || e?.message || e);
-        return null
+        return { kind: 'error' }
       }
     }
 
@@ -122,19 +146,69 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
           }
         }
 
-        const existingUrl = await fetchExisting(ctl.signal)
-        if (existingUrl) {
-          if (!mountedRef.current) return;
-          setImg(existingUrl)
+        const scheduleRetry = (ms) => {
+          const retryMs = Math.max(500, Math.min(15000, Number(ms || 2000)))
+          setBackendRetryAfterMs(retryMs)
+          if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+          retryTimerRef.current = setTimeout(async () => {
+            if (!mountedRef.current) return
+            if (ctl.signal.aborted) return
+            retryCountRef.current += 1
+            if (retryCountRef.current > 8) {
+              setAnimating(false)
+              setLoading(false)
+              setError('Imagem ainda está sendo gerada. Tente novamente em instantes.')
+              return
+            }
+            const polled = await fetchExisting(ctl.signal)
+            if (!mountedRef.current) return
+            if (polled?.kind === 'ready' && polled?.url) {
+              setBackendStatus('ready')
+              setBackendRetryAfterMs(null)
+              setImg(polled.url)
+              setLoading(false)
+              return
+            }
+            if (polled?.kind === 'generating') {
+              setBackendStatus('generating')
+              scheduleRetry(polled.retryAfterMs)
+              return
+            }
+            setBackendStatus(null)
+            setBackendRetryAfterMs(null)
+            setLoading(false)
+          }, retryMs)
+        }
+
+        const existing = await fetchExisting(ctl.signal)
+        if (!mountedRef.current) return
+        if (existing?.kind === 'ready' && existing?.url) {
+          setBackendStatus('ready')
+          setBackendRetryAfterMs(null)
+          setImg(existing.url)
           setLoading(false)
           return
         }
+        if (existing?.kind === 'generating') {
+          setBackendStatus('generating')
+          setLoading(true)
+          scheduleRetry(existing.retryAfterMs)
+          return
+        }
 
-        const createdUrl = await generateNew(ctl.signal)
-        if (createdUrl) {
-          if (!mountedRef.current) return;
-          setImg(createdUrl)
+        const created = await generateNew(ctl.signal)
+        if (!mountedRef.current) return
+        if (created?.kind === 'ready' && created?.url) {
+          setBackendStatus('ready')
+          setBackendRetryAfterMs(null)
+          setImg(created.url)
           setLoading(false)
+          return
+        }
+        if (created?.kind === 'generating') {
+          setBackendStatus('generating')
+          setLoading(true)
+          scheduleRetry(created.retryAfterMs)
           return
         }
 
@@ -158,6 +232,10 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
     return () => {
       try { ctl.abort(); } catch (_) { }
       if (abortRef.current === ctl) abortRef.current = null;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
     };
   }, [query, chatTreino, email, imgType]);
 
@@ -213,14 +291,20 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
 
   // render states
   if (loading) {
+    const showGenerating = animating || backendStatus === 'generating'
+    const retrySec = backendRetryAfterMs ? Math.ceil(backendRetryAfterMs / 1000) : null
     return (
       <div className={`relative ${className || ''}`}>
         <div className="w-full h-48 flex items-center justify-center">
           <div className="w-16 h-16 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
         </div>
-        {animating && (
+        {showGenerating && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-sm px-3 py-1 rounded-full bg-blue-600 text-white">Gerando imagem...</div>
+            <div className="text-sm px-3 py-1 rounded-full bg-blue-600 text-white">
+              {backendStatus === 'generating'
+                ? `Imagem em geração${retrySec ? ` — tentando em ${retrySec}s` : ''}...`
+                : 'Gerando imagem...'}
+            </div>
           </div>
         )}
       </div>

@@ -8,6 +8,11 @@ const ImageAssetSchema = new mongoose.Schema({
   inlineBase64: { type: String, default: null },
   inlineMimeType: { type: String, default: 'image/png' },
   storage: { type: String, enum: ['cloudinary', 'inline'], default: 'inline', index: true },
+  status: { type: String, enum: ['ready', 'generating', 'failed'], default: 'ready', index: true },
+  lockId: { type: String, default: null },
+  lockUntil: { type: Date, default: null, index: true },
+  lastError: { type: String, default: null },
+  updatedAt: { type: Date, default: Date.now, index: true },
   createdAt: { type: Date, default: Date.now, index: true }
 })
 
