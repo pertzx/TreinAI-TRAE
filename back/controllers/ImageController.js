@@ -1,10 +1,8 @@
-import { uploadToCloudinary } from '../config/cloudinaryConfig.js'
 import redisCache from '../config/redis.js'
 import ImageAsset from '../models/ImageAsset.js'
 import User from '../models/User.js'
 import { registerTokenUsage } from '../middlewares/tokenLimitMiddleware.js'
 import OpenAI from 'openai'
-import crypto from 'crypto'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -16,7 +14,20 @@ export const findImageByQuery = async (req, res) => {
     if (!q) return res.status(400).json({ success: false, message: 'Query inválida' })
     const asset = await ImageAsset.findOne({ normalizedQuery: q }).lean()
     if (!asset) return res.status(404).json({ success: false, found: false })
-    return res.json({ success: true, found: true, url: asset.cloudinaryUrl, publicId: asset.cloudinaryPublicId })
+
+    const url = asset.inlineBase64
+      ? `data:${asset.inlineMimeType || 'image/png'};base64,${asset.inlineBase64}`
+      : asset.cloudinaryUrl
+
+    if (!url) return res.status(404).json({ success: false, found: false })
+
+    return res.json({
+      success: true,
+      found: true,
+      url,
+      publicId: asset.cloudinaryPublicId,
+      storage: asset.storage || (asset.inlineBase64 ? 'inline' : 'cloudinary')
+    })
   } catch (e) {
     return res.status(500).json({ success: false, message: 'Erro ao consultar imagem' })
   }
@@ -24,14 +35,18 @@ export const findImageByQuery = async (req, res) => {
 
 export const generateImage = async (req, res) => {
   try {
-    const original = String(req.body.query || '')
+    const original = String(req.body.query || '') + ": Realistico, Demonstrativo com destaque no musculo"
     const q = normalize(original)
     console.log('[images/generate] start', { original, q })
     if (!q) return res.status(400).json({ success: false, message: 'Query inválida' })
     const existing = await ImageAsset.findOne({ normalizedQuery: q }).lean()
     if (existing) {
-      console.log('[images/generate] cache hit', { publicId: existing.cloudinaryPublicId })
-      return res.json({ success: true, url: existing.cloudinaryUrl, publicId: existing.cloudinaryPublicId, cached: true })
+      console.log('[images/generate] cache hit', { publicId: existing.cloudinaryPublicId, storage: existing.storage })
+      const url = existing.inlineBase64
+        ? `data:${existing.inlineMimeType || 'image/png'};base64,${existing.inlineBase64}`
+        : existing.cloudinaryUrl
+      if (!url) return res.status(500).json({ success: false, message: 'Cache inconsistente' })
+      return res.json({ success: true, url, publicId: existing.cloudinaryPublicId, cached: true, storage: existing.storage })
     }
 
     const email = String(req.userEmail || '').toLowerCase()
@@ -53,18 +68,20 @@ export const generateImage = async (req, res) => {
     )
     console.log('[images/generate] cost', { returnedCost })
 
-    const buffer = Buffer.from(b64, 'base64')
-
-    const name = `${q.replace(/[^a-z0-9]+/g, '-')}-${crypto.randomUUID()}`
-    const uploaded = await uploadToCloudinary(buffer, 'gptImages', 'image')
-    console.log('[images/generate] cloudinary', uploaded)
-    const asset = await ImageAsset.create({ originalQuery: original, normalizedQuery: q, cloudinaryUrl: uploaded.secure_url, cloudinaryPublicId: uploaded.public_id })
+    const asset = await ImageAsset.create({
+      originalQuery: original,
+      normalizedQuery: q,
+      inlineBase64: b64,
+      inlineMimeType: 'image/png',
+      storage: 'inline'
+    })
     console.log('[images/generate] db saved', { id: asset?._id })
 
     const regOk = await registerTokenUsage(email, returnedCost, req.body?.profissionalId || null)
     console.log('[images/generate] registerTokenUsage', { ok: regOk, returnedCost })
     try { if (redisCache?.isConnected) await redisCache.delete(`imggen:lock:${q}`) } catch (_) { }
-    return res.json({ success: true, url: asset.cloudinaryUrl, publicId: asset.cloudinaryPublicId })
+    const url = `data:${asset.inlineMimeType || 'image/png'};base64,${asset.inlineBase64}`
+    return res.json({ success: true, url, publicId: asset.cloudinaryPublicId, storage: asset.storage })
   } catch (e) {
     console.error('[images/generate] error', e?.response?.data || e?.message || e)
     try {

@@ -233,6 +233,8 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
     return <p className={className || ''}>Imagem não encontrada</p>;
   }
 
+  const isDataUrl = typeof img === 'string' && img.startsWith('data:');
+
   return (
     <div ref={wrapperRef} className={`relative inline-block ${className || ''}`}>
 
@@ -290,7 +292,11 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
           <div className="text-xs mb-2">
             <p className="mb-1">A ferramenta de busca de imagens pode falhar; relatar é essencial para manter a plataforma segura.</p>
             <p>
-              Fonte: <a href={img} target="_blank" rel="noopener noreferrer" className="underline break-all">{img}</a>
+              Fonte: {isDataUrl ? (
+                <span>Gerada por IA</span>
+              ) : (
+                <a href={img} target="_blank" rel="noopener noreferrer" className="underline break-all">{img}</a>
+              )}
             </p>
           </div>
 
@@ -319,7 +325,11 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
       )}
 
       <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400 break-all">
-        Fonte: <a href={img} target="_blank" rel="noopener noreferrer" className="underline">{img}</a>
+        Fonte: {isDataUrl ? (
+          <span>Gerada por IA</span>
+        ) : (
+          <a href={img} target="_blank" rel="noopener noreferrer" className="underline">{img}</a>
+        )}
       </div>
     </div>
   );
