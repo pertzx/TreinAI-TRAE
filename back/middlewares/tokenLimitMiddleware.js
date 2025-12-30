@@ -178,13 +178,17 @@ export const registerTokenUsage = async (email, tokens, profissionalId = null) =
       targetUser.stats.tokens = [];
     }
 
-    // Obter data atual no formato YYYY-MM-DD
-    const today = new Date(getBrazilDate()).toISOString().split('T')[0];
+    // Obter data atual no formato YYYY-MM-DD usando wall clock (Brasil)
+    const nowBrazil = new Date(DateTime.now().setZone('America/Sao_Paulo').toMillis());
+    const today = nowBrazil.toLocaleDateString('en-CA'); // Retorna YYYY-MM-DD
 
-    // Verificar se já existe um registro para hoje
-    const existingTokenRecord = targetUser.stats.tokens.find(token => 
-      token.data && token.data.toISOString().split('T')[0] === today
-    );
+    const existingTokenRecord = targetUser.stats.tokens.find(token => {
+      if (!token.data) return false;
+      const recordDate = new Date(token.data);
+      // Comparar usando o fuso do Brasil para garantir consistência
+      const recordDay = DateTime.fromJSDate(recordDate).setZone('America/Sao_Paulo').toFormat('yyyy-MM-dd');
+      return recordDay === today;
+    });
 
     if (existingTokenRecord) {
       // Se existe registro para hoje, adicionar ao valor existente
@@ -193,7 +197,7 @@ export const registerTokenUsage = async (email, tokens, profissionalId = null) =
       // Se não existe, criar novo registro
       const tokenUsage = {
         valor: tokens,
-        data: new Date(getBrazilDate())
+        data: nowBrazil // Usar o objeto Date do Brasil
       };
       targetUser.stats.tokens.push(tokenUsage);
     }
