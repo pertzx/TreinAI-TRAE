@@ -70,6 +70,17 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
     setLoading(true);
     setError(null);
 
+    const getApiErrorInfo = (e) => {
+      const status = e?.response?.status || null
+      const data = e?.response?.data || null
+      const message =
+        (data && (data.message || data.msg || data.error)) ||
+        e?.message ||
+        'Erro ao comunicar com o servidor'
+
+      return { status, data, message }
+    }
+
     const fetchExisting = async (signal) => {
       try {
         console.log('[BuscarImagem] find start', { q });
@@ -84,9 +95,13 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
         }
         console.log('[BuscarImagem] find miss');
         return { kind: 'missing' }
-      } catch (_) {
-        console.log('[BuscarImagem] find error', _?.response?.data || _?.message || _);
-        return { kind: 'error' }
+      } catch (e) {
+        const info = getApiErrorInfo(e)
+        console.log('[BuscarImagem] find error', info?.data || info?.message || info);
+        if (info?.status === 429) {
+          return { kind: 'rate_limited', message: info.message }
+        }
+        return { kind: 'error', message: info.message }
       }
     }
 
@@ -111,11 +126,35 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
           return { kind: 'ready', url: data.url }
         }
         console.log('[BuscarImagem] generate failed', data);
-        return { kind: 'failed' }
+        return { kind: 'failed', message: data?.message || data?.msg || 'Falha ao gerar imagem' }
       } catch (e) {
         setAnimating(false)
-        console.log('[BuscarImagem] generate error', e?.response?.data || e?.message || e);
-        return { kind: 'error' }
+        const info = getApiErrorInfo(e)
+        console.log('[BuscarImagem] generate error', info?.data || info?.message || info);
+
+        if (info?.status === 401) {
+          return {
+            kind: 'blocked',
+            status: 401,
+            message: info.message || 'Você precisa estar logado para gerar imagens.'
+          }
+        }
+        if (info?.status === 403) {
+          return {
+            kind: 'blocked',
+            status: 403,
+            message: info.message || 'Acesso negado para gerar imagens.'
+          }
+        }
+        if (info?.status === 429) {
+          return {
+            kind: 'rate_limited',
+            status: 429,
+            message: info.message || 'Muitas requisições. Tente novamente mais tarde.'
+          }
+        }
+
+        return { kind: 'error', message: info.message }
       }
     }
 
@@ -162,6 +201,22 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
             }
             const polled = await fetchExisting(ctl.signal)
             if (!mountedRef.current) return
+            if (polled?.kind === 'rate_limited') {
+              setAnimating(false)
+              setBackendStatus(null)
+              setBackendRetryAfterMs(null)
+              setLoading(false)
+              setError(polled?.message || 'Muitas requisições. Tente novamente mais tarde.')
+              return
+            }
+            if (polled?.kind === 'error') {
+              setAnimating(false)
+              setBackendStatus(null)
+              setBackendRetryAfterMs(null)
+              setLoading(false)
+              setError(polled?.message || 'Erro ao consultar status da imagem')
+              return
+            }
             if (polled?.kind === 'ready' && polled?.url) {
               setBackendStatus('ready')
               setBackendRetryAfterMs(null)
@@ -182,6 +237,20 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
 
         const existing = await fetchExisting(ctl.signal)
         if (!mountedRef.current) return
+        if (existing?.kind === 'rate_limited') {
+          setBackendStatus(null)
+          setBackendRetryAfterMs(null)
+          setLoading(false)
+          setError(existing?.message || 'Muitas requisições. Tente novamente mais tarde.')
+          return
+        }
+        if (existing?.kind === 'error') {
+          setBackendStatus(null)
+          setBackendRetryAfterMs(null)
+          setLoading(false)
+          setError(existing?.message || 'Erro ao consultar imagem')
+          return
+        }
         if (existing?.kind === 'ready' && existing?.url) {
           setBackendStatus('ready')
           setBackendRetryAfterMs(null)
@@ -198,6 +267,34 @@ const BuscarImagem = ({ query, className, imgType = 'svg', chatTreino = false, e
 
         const created = await generateNew(ctl.signal)
         if (!mountedRef.current) return
+        if (created?.kind === 'blocked') {
+          setBackendStatus(null)
+          setBackendRetryAfterMs(null)
+          setLoading(false)
+          setError(created?.message || 'Acesso negado')
+          return
+        }
+        if (created?.kind === 'rate_limited') {
+          setBackendStatus(null)
+          setBackendRetryAfterMs(null)
+          setLoading(false)
+          setError(created?.message || 'Muitas requisições. Tente novamente mais tarde.')
+          return
+        }
+        if (created?.kind === 'failed') {
+          setBackendStatus('failed')
+          setBackendRetryAfterMs(null)
+          setLoading(false)
+          setError(created?.message || 'Não foi possível gerar a imagem agora.')
+          return
+        }
+        if (created?.kind === 'error') {
+          setBackendStatus(null)
+          setBackendRetryAfterMs(null)
+          setLoading(false)
+          setError(created?.message || 'Erro ao gerar imagem')
+          return
+        }
         if (created?.kind === 'ready' && created?.url) {
           setBackendStatus('ready')
           setBackendRetryAfterMs(null)

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../Api.js';
-import { Link, Route, Routes, useNavigate } from 'react-router-dom';
+import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Header from './Components/Header.jsx';
 import AdBanner from './Components/AdBanner.jsx';
 import MeusTreinos from './Pages/MeusTreinos.jsx';
@@ -54,6 +54,7 @@ const Dashboard = ({ needToPay, plano }) => {
   const [userGamification, setUserGamification] = useState(null);
   const [dispositivoBloqueado, setDispositivoBloqueado] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { showError, showInfo, showWarning, showSuccess } = useToast();
   
   // Ref para controlar execução única do useEffect principal
@@ -273,6 +274,30 @@ const Dashboard = ({ needToPay, plano }) => {
       setLoading(false);
     }
   };
+
+  const isBanned = !!user?.ban?.banned;
+  const isSupportPath = typeof location?.pathname === 'string' && (location.pathname === '/dashboard/ajuda' || location.pathname.startsWith('/dashboard/ajuda/'));
+
+  useEffect(() => {
+    if (!isBanned) return;
+    if (isSupportPath) return;
+    navigate('/dashboard/ajuda', { replace: true });
+  }, [isBanned, isSupportPath, navigate]);
+
+  if (isBanned && !isSupportPath) {
+    return null;
+  }
+
+  if (isBanned && isSupportPath) {
+    const bannedThemeClasses = tema === 'dark'
+      ? 'min-h-screen bg-gray-900 text-white'
+      : 'min-h-screen bg-gray-50 text-gray-900';
+    return (
+      <div className={bannedThemeClasses}>
+        <SupportPage user={user} tema={tema} />
+      </div>
+    );
+  }
 
   if (loading) {
     return (

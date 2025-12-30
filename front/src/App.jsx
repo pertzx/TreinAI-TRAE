@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import "../src/App.css";
 import Menu from './components/Menu';
@@ -7,6 +7,7 @@ import Planos from './pages/Planos';
 import Login from './pages/Login';
 import LoginNaoAutorizado from './pages/LoginNaoAutorizado';
 import Dashboard from './pages/Dashboard/Dashboard';
+import SupportPage from './pages/Dashboard/Pages/SupportPage.jsx';
 import Success from './pages/Stripe/Success';
 import Cancel from './pages/Stripe/Cancel';
 import PagamentoSucesso from './pages/PagamentoSucesso';
@@ -17,10 +18,37 @@ import PoliticaPrivacidade from './pages/PoliticaPrivacidade';
 import { ToastProvider, GlobalToastContainer } from './components/Toast.jsx';
 import CookieConsent from './components/CookieConsent';
 import Logo from './components/Logo.jsx';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 function App() {
   const [plano, setPlano] = useState('free');
+
+  const BannedGuard = ({ children }) => {
+    const { user, isAuthenticated, isLoading } = useAuth();
+    const loc = useLocation();
+    const pathname = loc?.pathname || '/';
+
+    const isBanned = !!user?.ban?.banned;
+    const isSupportRoute = pathname === '/suporte' || pathname.startsWith('/suporte/') || pathname === '/dashboard/ajuda' || pathname.startsWith('/dashboard/ajuda/');
+    const isLoginRoute = pathname === '/login' || pathname.startsWith('/login') || pathname === '/login-nao-autorizado';
+
+    if (!isLoading && isAuthenticated && isBanned && !isSupportRoute && !isLoginRoute) {
+      return <Navigate to="/suporte" replace />;
+    }
+
+    return children;
+  };
+
+  const SupportRoute = () => {
+    const { user } = useAuth();
+    const tema = localStorage.getItem('theme') || localStorage.getItem('tema') || 'light';
+    if (!user) return <LoginNaoAutorizado />;
+    return (
+      <div className={tema === 'dark' ? 'min-h-screen bg-gray-900 text-white' : 'min-h-screen bg-gray-50 text-gray-900'}>
+        <SupportPage tema={tema} user={user} />
+      </div>
+    );
+  };
 
   const RouteSEO = () => {
     const loc = useLocation();
@@ -107,22 +135,25 @@ function App() {
       <BrowserRouter>
         <RouteSEO />
         {/* <Menu /> */}
-        
-        <Routes>
-          <Route path='/' element={<Home />} />
-          <Route path='/planos' element={<Planos setPlano={setPlano} />} />
-          <Route path='/login' element={<Login plano={plano} />} />
-          <Route path='/login-nao-autorizado' element={<LoginNaoAutorizado />} />
-          <Route path='/dashboard/*' element={<Dashboard plano={plano} />} />
-          <Route path='/success?' element={<Success />} />
-          <Route path='/cancel' element={<Cancel />} />
-          <Route path='/pagamento-sucesso' element={<PagamentoSucesso />} />
-          <Route path='/pagamento-cancelado' element={<PagamentoCancelado />} />
-          <Route path='/sobre' element={<Sobre />} />
-          <Route path='/termos' element={<Termos />} />
-          <Route path='/politica-de-privacidade' element={<PoliticaPrivacidade />} />
-          <Route path='*' element={<p className='font-bold p-5 w-full text-2xl'><Logo scale={1}/>404 Pagina não encontrada. \: <a href="/login" className='text-blue-300'>Ir para Login</a></p>} />
-        </Routes>
+
+        <BannedGuard>
+          <Routes>
+            <Route path='/' element={<Home />} />
+            <Route path='/planos' element={<Planos setPlano={setPlano} />} />
+            <Route path='/login' element={<Login plano={plano} />} />
+            <Route path='/login-nao-autorizado' element={<LoginNaoAutorizado />} />
+            <Route path='/suporte' element={<SupportRoute />} />
+            <Route path='/dashboard/*' element={<Dashboard plano={plano} />} />
+            <Route path='/success?' element={<Success />} />
+            <Route path='/cancel' element={<Cancel />} />
+            <Route path='/pagamento-sucesso' element={<PagamentoSucesso />} />
+            <Route path='/pagamento-cancelado' element={<PagamentoCancelado />} />
+            <Route path='/sobre' element={<Sobre />} />
+            <Route path='/termos' element={<Termos />} />
+            <Route path='/politica-de-privacidade' element={<PoliticaPrivacidade />} />
+            <Route path='*' element={<p className='font-bold p-5 w-full text-2xl'><Logo scale={1}/>404 Pagina não encontrada. \: <a href="/login" className='text-blue-300'>Ir para Login</a></p>} />
+          </Routes>
+        </BannedGuard>
         
         <GlobalToastContainer position="top-right" />
         <CookieConsent />
