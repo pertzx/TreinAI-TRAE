@@ -274,42 +274,31 @@ const useChatOptimized = (user, selectedChatId) => {
         console.log('📨 WebSocket recebeu:', data);
         
         if (data.type === 'new_message' && data.chatId === selectedChatId) {
-          console.log('🆕 Nova mensagem via WebSocket:', data.message);
-          console.log('🔍 Dados completos da mensagem:', {
-            messageId: data.message.mensagemId,
-            messageUserId: data.message.userId,
-            messageUserIdType: typeof data.message.userId,
-            currentUserId: userId,
-            currentUserIdType: typeof userId,
-            content: data.message.conteudo
+          const incomingId = String(data.message?.mensagemId || data.message?._id || data.message?.id || '');
+          if (!incomingId) return;
+
+          setMessages(prev => {
+            const exists = prev.some(m => String(m.mensagemId || m._id || m.id) === incomingId);
+            if (exists) return prev;
+            return [...prev, data.message];
           });
-          
-          // Verificar se é uma mensagem que acabamos de enviar
-          const isOurMessage = String(data.message.userId) === String(userId);
-          console.log('🤔 É nossa mensagem?', isOurMessage, {
-            messageUserId: data.message.userId,
-            currentUserId: userId,
-            comparison: `"${String(data.message.userId)}" === "${String(userId)}"`
-          });
-          
-          // Adicionar apenas mensagens de outros usuários via WebSocket
-          // Nossas mensagens são atualizadas via fetch após envio
-          if (!isOurMessage) {
-            console.log('➕ Adicionando mensagem de outro usuário via WebSocket');
-            setMessages(prev => [...prev, data.message]);
-          } else {
-            console.log('🚫 Ignorando nossa mensagem - será atualizada via fetch');
-          }
           
           // Atualizar chats para refletir última mensagem
           fetchChats();
         } else if (data.type === 'message_update' && data.chatId === selectedChatId) {
-          // Atualizar mensagem existente
-          setMessages(prev => 
-            prev.map(msg => 
-              msg._id === data.message._id ? data.message : msg
-            )
-          );
+          const updatedId = String(data.message?.mensagemId || data.message?._id || data.message?.id || '');
+          if (!updatedId) return;
+
+          setMessages(prev => prev.map(m => (
+            String(m.mensagemId || m._id || m.id) === updatedId ? data.message : m
+          )));
+        } else if (data.type === 'message_delete' && data.chatId === selectedChatId) {
+          const deletedId = String(data.mensagemId || '');
+          if (!deletedId) return;
+          setMessages(prev => prev.filter(m => String(m.mensagemId || m._id || m.id) !== deletedId));
+        } else if (data.type === 'chat_deleted' && String(data.chatId) === String(selectedChatId)) {
+          setMessages([]);
+          fetchChats();
         } else if (data.type === 'messages_seen' && data.chatId === selectedChatId) {
           // Atualizar status de visto das mensagens
           setMessages(prev => 

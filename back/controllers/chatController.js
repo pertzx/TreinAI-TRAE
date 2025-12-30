@@ -395,7 +395,7 @@ export const deletarMensagem = async (req, res) => {
 
   try {
     // busca chat e mensagem
-    const chat = await Chat.findOne({ ChatId: String(ChatId) }).select('ChatId mensagens').lean();
+    const chat = await Chat.findOne({ ChatId: String(ChatId) }).select('ChatId mensagens membros').lean();
     if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
 
     const msg = (chat.mensagens || []).find(m => String(m.mensagemId) === String(mensagemId));
@@ -411,7 +411,17 @@ export const deletarMensagem = async (req, res) => {
       { ChatId: String(ChatId) },
       { $pull: { mensagens: { mensagemId: String(mensagemId) } } },
       { new: true }
-    ).select('ChatId mensagens').lean();
+    ).select('ChatId mensagens membros').lean();
+
+    try {
+      chatWebSocketServer.notifyMessageDelete(String(ChatId), String(mensagemId), String(userId || msg.userId));
+      const membros = updated?.membros || [];
+      membros.forEach(membro => {
+        chatWebSocketServer.notifyChatUpdate(String(membro.userId), updated);
+      });
+    } catch (wsError) {
+      console.warn('Erro ao enviar notificação WebSocket:', wsError);
+    }
 
     return res.status(200).json({ msg: 'Mensagem deletada', mensagens: updated ? updated.mensagens : [] });
   } catch (error) {
@@ -578,23 +588,124 @@ export const editarMensagem = async (req, res) => {
       return res.status(403).json({ error: 'Apenas o autor pode editar a mensagem' });
     }
 
+    const conteudoAnterior = String(mensagem.conteudo || '');
+    const editadoEm = typeof getBrazilDate === 'function' ? getBrazilDate() : new Date();
+
     const updated = await Chat.findOneAndUpdate(
       { ChatId: String(ChatId), 'mensagens.mensagemId': String(mensagemId) },
       { 
         $set: { 
           'mensagens.$.conteudo': String(novoConteudo),
           'mensagens.$.editado': true,
-          'mensagens.$.editadoEm': typeof getBrazilDate === 'function' ? getBrazilDate() : new Date()
+          'mensagens.$.editadoEm': editadoEm
+        },
+        $push: {
+          'mensagens.$.historicoEdicoes': { conteudo: conteudoAnterior, editadoEm, userId: String(userId) }
         }
       },
       { new: true }
     ).lean();
 
     const mensagemEditada = updated.mensagens.find(m => String(m.mensagemId) === String(mensagemId));
+
+    try {
+      chatWebSocketServer.notifyMessageUpdate(String(ChatId), mensagemEditada, String(userId));
+      const membros = updated?.membros || [];
+      membros.forEach(membro => {
+        chatWebSocketServer.notifyChatUpdate(String(membro.userId), updated);
+      });
+    } catch (wsError) {
+      console.warn('Erro ao enviar notificação WebSocket:', wsError);
+    }
+
     return res.status(200).json({ success: true, mensagem: mensagemEditada });
   } catch (error) {
     console.error('editarMensagem error:', error);
     return res.status(500).json({ error: 'Erro ao editar mensagem' });
+  }
+};
+
+export const deletarChat = async (req, res) => {
+  const { ChatId } = req.query || {};
+  const { userId } = req.body || {};
+
+  if (!ChatId) return res.status(400).json({ error: 'ChatId é obrigatório' });
+  if (!userId) return res.status(400).json({ error: 'userId é obrigatório' });
+
+  try {
+    const chat = await Chat.findOne({ ChatId: String(ChatId) }).select('ChatId membros').lean();
+    if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
+
+    const isMember = Array.isArray(chat.membros) && chat.membros.some(m => String(m.userId) === String(userId));
+    if (!isMember) return res.status(403).json({ error: 'Sem permissão para deletar este chat' });
+
+    await Chat.deleteOne({ ChatId: String(ChatId) });
+
+    try {
+      (chat.membros || []).forEach(m => {
+        chatWebSocketServer.notifyChatDeleted(String(m.userId), String(ChatId));
+      });
+    } catch (wsError) {
+      console.warn('Erro ao enviar notificação WebSocket:', wsError);
+    }
+
+    return res.status(200).json({ success: true, msg: 'Chat deletado' });
+  } catch (error) {
+    console.error('deletarChat error:', error);
+    return res.status(500).json({ error: 'Erro ao deletar chat' });
+  }
+};
+
+export const exportarHistoricoChat = async (req, res) => {
+  const { ChatId } = req.query || {};
+  const { limit = 5000, antes } = req.query || {};
+
+  if (!ChatId) return res.status(400).json({ error: 'ChatId é obrigatório' });
+
+  try {
+    const chat = await Chat.findOne({ ChatId: String(ChatId) }).lean();
+    if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
+
+    const membros = Array.isArray(chat.membros) ? chat.membros : [];
+    const byUserId = Object.fromEntries(
+      membros.map(m => [String(m.userId), { userId: String(m.userId), username: String(m.username || 'Usuário') }])
+    );
+
+    let mensagens = Array.isArray(chat.mensagens) ? chat.mensagens : [];
+    if (antes) {
+      const antesDate = new Date(antes);
+      mensagens = mensagens.filter(m => new Date(m.publicadoEm) < antesDate);
+    }
+
+    mensagens.sort((a, b) => new Date(a.publicadoEm) - new Date(b.publicadoEm));
+
+    const limitNum = Math.min(parseInt(limit) || 5000, 20000);
+    mensagens = mensagens.slice(Math.max(0, mensagens.length - limitNum));
+
+    return res.status(200).json({
+      success: true,
+      exportedAt: new Date().toISOString(),
+      chat: {
+        ChatId: String(chat.ChatId),
+        ChatName: chat.ChatName,
+        ChatDesc: chat.ChatDesc,
+        criadoEm: chat.criadoEm,
+        membros
+      },
+      mensagens: mensagens.map(m => ({
+        mensagemId: m.mensagemId,
+        userId: m.userId,
+        sender: byUserId[String(m.userId)] || { userId: String(m.userId), username: 'Usuário' },
+        conteudo: m.conteudo,
+        publicadoEm: m.publicadoEm,
+        editado: !!m.editado,
+        editadoEm: m.editadoEm,
+        historicoEdicoes: Array.isArray(m.historicoEdicoes) ? m.historicoEdicoes : []
+      }))
+    });
+  } catch (error) {
+    console.error('exportarHistoricoChat error:', error);
+    return res.status(500).json({ error: 'Erro ao exportar histórico' });
   }
 };
 

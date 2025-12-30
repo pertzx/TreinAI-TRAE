@@ -96,6 +96,8 @@ const ChatsOptimized = ({ user, tema }) => {
   const [newMessage, setNewMessage] = useState('');
   const [editingMessage, setEditingMessage] = useState(null);
   const [editContent, setEditContent] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState({ open: false, type: null, payload: null });
   const [replyingTo, setReplyingTo] = useState(null);
   const [showChatSettings, setShowChatSettings] = useState(false);
   const [chatSettings, setChatSettings] = useState({
@@ -192,10 +194,12 @@ const ChatsOptimized = ({ user, tema }) => {
 
   // Handlers
   const handleSendMessage = async () => {
-    if (!selectedChat || !newMessage.trim()) return;
+    if (!selectedChat || !newMessage.trim() || isSending) return;
 
     const chatId = getChatId(selectedChat);
+    setIsSending(true);
     const success = await sendMessage(chatId, newMessage);
+    setIsSending(false);
 
     if (success) {
       setNewMessage('');
@@ -204,6 +208,71 @@ const ChatsOptimized = ({ user, tema }) => {
       showSuccess('Mensagem enviada!');
     } else {
       showError('Erro ao enviar mensagem');
+    }
+  };
+
+  const requestDeleteMessage = (message) => {
+    setConfirmDelete({ open: true, type: 'message', payload: { message } });
+  };
+
+  const requestDeleteChat = (chat) => {
+    setConfirmDelete({ open: true, type: 'chat', payload: { chat } });
+  };
+
+  const confirmDeleteAction = async () => {
+    const type = confirmDelete.type;
+    const payload = confirmDelete.payload;
+
+    setConfirmDelete({ open: false, type: null, payload: null });
+
+    if (!type || !payload) return;
+
+    if (type === 'message') {
+      const chatId = getChatId(selectedChat);
+      const mensagemId = payload.message?.mensagemId || payload.message?._id || null;
+      if (!chatId || !mensagemId) return;
+      try {
+        await api.post('/deletar-mensagem', { userId }, { params: { ChatId: chatId, mensagemId } });
+        showSuccess('Mensagem deletada');
+      } catch (error) {
+        console.error('Erro ao deletar mensagem:', error);
+        showError('Erro ao deletar mensagem');
+      }
+      return;
+    }
+
+    if (type === 'chat') {
+      const chatId = getChatId(payload.chat);
+      if (!chatId) return;
+
+      try {
+        await api.post('/deletar-chat', { userId }, { params: { ChatId: chatId } });
+        showSuccess('Conversa deletada');
+        setSelectedChat(null);
+        fetchChats();
+      } catch (error) {
+        console.error('Erro ao deletar conversa:', error);
+        showError('Erro ao deletar conversa');
+      }
+    }
+  };
+
+  const exportChatJson = async () => {
+    const chatId = getChatId(selectedChat);
+    if (!chatId) return;
+    try {
+      const res = await api.get('/exportar-historico-chat', { params: { ChatId: chatId } });
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chat-${chatId}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showSuccess('Exportação gerada');
+    } catch (error) {
+      console.error('Erro ao exportar conversa:', error);
+      showError('Erro ao exportar conversa');
     }
   };
 
@@ -218,6 +287,7 @@ const ChatsOptimized = ({ user, tema }) => {
     setSelectedChat(chat);
     setEditingMessage(null);
     setReplyingTo(null);
+    setShowChatSettings(false);
   };
 
   const formatTime = (timestamp) => {
@@ -259,7 +329,33 @@ const ChatsOptimized = ({ user, tema }) => {
   const hoverClass = isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50';
 
   return (
-    <div className={`flex rounded-lg overflow-hidden ${bgClass} ${textClass}`}>
+    <div className={`flex rounded-lg overflow-hidden ${bgClass} ${textClass} relative`}>
+      {confirmDelete.open && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className={`w-full max-w-sm rounded-xl border ${borderClass} ${isDark ? 'bg-gray-900' : 'bg-white'} p-4`}>
+            <div className="text-sm font-semibold">
+              {confirmDelete.type === 'chat' ? 'Deletar conversa?' : 'Deletar mensagem?'}
+            </div>
+            <div className="mt-2 text-sm text-gray-500">
+              Essa ação não pode ser desfeita.
+            </div>
+            <div className="mt-4 flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirmDelete({ open: false, type: null, payload: null })}
+                className={`px-3 py-2 rounded-lg text-sm ${isDark ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeleteAction}
+                className="px-3 py-2 rounded-lg text-sm bg-red-600 hover:bg-red-700 text-white"
+              >
+                Deletar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Sidebar de Chats */}
       <div className={`w-full sm:w-80 md:w-96 border-r ${borderClass} flex flex-col ${selectedChat ? 'hidden sm:flex' : 'flex'}`}>
         {/* Header */}
@@ -478,6 +574,25 @@ const ChatsOptimized = ({ user, tema }) => {
               </button>
             </div>
 
+            {showChatSettings && (
+              <div className={`border-b ${borderClass} p-3 sm:p-4`}>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={exportChatJson}
+                    className={`px-3 py-2 rounded-lg text-sm ${isDark ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`}
+                  >
+                    Exportar JSON
+                  </button>
+                  <button
+                    onClick={() => requestDeleteChat(selectedChat)}
+                    className="px-3 py-2 rounded-lg text-sm bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Deletar conversa
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Mensagens */}
             <div
               ref={messagesContainerRef}
@@ -540,7 +655,51 @@ const ChatsOptimized = ({ user, tema }) => {
                           {isUnseenMessage && (
                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
                           )}
-                          <p className="text-sm">{message.conteudo}</p>
+                          {editingMessage === (message.mensagemId || message._id) ? (
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className={`w-full px-3 py-2 rounded-lg border text-sm ${isDark ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'}`}
+                                placeholder="Edite sua mensagem..."
+                                autoFocus
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={async () => {
+                                    const chatId = getChatId(selectedChat);
+                                    const mensagemId = message.mensagemId || message._id;
+                                    const novoConteudo = editContent;
+                                    if (!chatId || !mensagemId || !novoConteudo?.trim()) return;
+                                    try {
+                                      await api.post('/editar-mensagem', { userId, novoConteudo: novoConteudo.trim() }, { params: { ChatId: chatId, mensagemId } });
+                                      setEditingMessage(null);
+                                      setEditContent('');
+                                      showSuccess('Mensagem editada');
+                                    } catch (error) {
+                                      console.error('Erro ao editar mensagem:', error);
+                                      showError('Erro ao editar mensagem');
+                                    }
+                                  }}
+                                  className="px-3 py-2 rounded-lg text-xs bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                  Salvar
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingMessage(null);
+                                    setEditContent('');
+                                  }}
+                                  className={`px-3 py-2 rounded-lg text-xs ${isDark ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`}
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm whitespace-pre-wrap break-words">{message.conteudo}</p>
+                          )}
                           <div className={`text-xs mt-1 gap-2 flex items-center justify-between ${isOwn ? 'text-blue-100' : isUnseenMessage ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-500'
                             }`}>
                             <span>{formatTime(message.publicadoEm)}</span>
@@ -557,6 +716,30 @@ const ChatsOptimized = ({ user, tema }) => {
                               </div>
                             )}
                           </div>
+                          {message.editado && editingMessage !== (message.mensagemId || message._id) && (
+                            <div className={`mt-1 text-[11px] ${isOwn ? 'text-blue-100/90' : isUnseenMessage ? 'text-yellow-700 dark:text-yellow-200' : 'text-gray-500'}`}>
+                              Editado
+                            </div>
+                          )}
+                          {isOwn && editingMessage !== (message.mensagemId || message._id) && (
+                            <div className="mt-2 flex gap-2 justify-end">
+                              <button
+                                onClick={() => {
+                                  setEditingMessage(message.mensagemId || message._id);
+                                  setEditContent(message.conteudo || '');
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs ${isDark ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-black/5 hover:bg-black/10 text-gray-900'}`}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => requestDeleteMessage(message)}
+                                className="px-3 py-1.5 rounded-lg text-xs bg-red-600 hover:bg-red-700 text-white"
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -597,10 +780,10 @@ const ChatsOptimized = ({ user, tema }) => {
                 </div>
                 <button
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
-                  className="px-4 sm:px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base min-h-[44px]"
+                  disabled={!newMessage.trim() || isSending}
+                  className="px-4 sm:px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base min-h-[44px] flex items-center justify-center"
                 >
-                  Enviar
+                  {isSending ? 'Enviando…' : 'Enviar'}
                 </button>
               </div>
 

@@ -30,7 +30,7 @@ import { uploadProfile, uploadImage, uploadMidiaAnuncio } from '../controllers/m
 import { aceitarAluno, editarProfissional, profissionais, publicarProfissional, queroSerAluno, removerAluno } from '../controllers/profissionais.js';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
-import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVistas, pegarChat, pegarChats, removerUsuario, editarMensagem, responderMensagem, marcarMensagensVistasV2, configurarChat, buscarHistorico, iniciarChatPorUserId } from '../controllers/chatController.js';
+import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVistas, pegarChat, pegarChats, removerUsuario, editarMensagem, responderMensagem, marcarMensagensVistasV2, configurarChat, buscarHistorico, iniciarChatPorUserId, deletarChat, exportarHistoricoChat } from '../controllers/chatController.js';
 import { conversarNutri } from '../controllers/NutriAI.js';
 import { editarLocal, criarLocalDireto, deletarLocalPorId, ativarLocal, buscarLocais, meusLocais, upload, avaliarLocal, listarAvaliacoesLocal, listarAvaliacoesPendentes, moderarAvaliacao } from '../controllers/LocalController.js';
 import { criarAnuncio, editarAnuncio, getAnuncios, deletarAnuncio, marcarClique, marcarImpressao } from '../controllers/AnunciosController.js';
@@ -201,10 +201,12 @@ router.post('/iniciar-chat-por-userid', iniciarChatPorUserId);
 
 // Novas funcionalidades de chat
 router.post('/editar-mensagem', editarMensagem);
+router.post('/deletar-chat', deletarChat);
 router.post('/responder-mensagem', responderMensagem);
 router.post('/marcar-mensagens-vistas-v2', marcarMensagensVistasV2);
 router.post('/configurar-chat', configurarChat);
 router.get('/buscar-historico', buscarHistorico);
+router.get('/exportar-historico-chat', exportarHistoricoChat);
 
 // nutri
 router.post('/conversar-nutri', checkTokenLimit, conversarNutri);

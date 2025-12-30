@@ -35,6 +35,11 @@ const ChatSchema = new Schema({
             }],
             editado: { type: Boolean, default: false },
             editadoEm: Date,
+            historicoEdicoes: [{
+                conteudo: { type: String, required: true },
+                editadoEm: { type: Date, default: getBrazilDate },
+                userId: { type: String, required: true }
+            }],
             respondendoA: {
                 mensagemId: String,
                 conteudo: String,

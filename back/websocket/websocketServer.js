@@ -1,5 +1,6 @@
 import { WebSocketServer } from 'ws';
 import jwt from 'jsonwebtoken';
+import Chat from '../models/Chat.js';
 
 /**
  * Servidor WebSocket para comunicação em tempo real do chat
@@ -91,13 +92,13 @@ class ChatWebSocketServer {
    * @param {WebSocket} ws - Conexão WebSocket
    * @param {Buffer} data - Dados recebidos
    */
-  handleMessage(ws, data) {
+  async handleMessage(ws, data) {
     try {
       const message = JSON.parse(data.toString());
       
       switch (message.type) {
         case 'join_chat':
-          this.handleJoinChat(ws, message);
+          await this.handleJoinChat(ws, message);
           break;
         case 'leave_chat':
           this.handleLeaveChat(ws, message);
@@ -147,11 +148,17 @@ class ChatWebSocketServer {
    * @param {WebSocket} ws - Conexão WebSocket
    * @param {Object} message - Mensagem com chatId
    */
-  handleJoinChat(ws, message) {
+  async handleJoinChat(ws, message) {
     const { chatId } = message;
     if (!chatId) return;
 
     const userId = ws.userId;
+
+    const chat = await Chat.findOne({ ChatId: String(chatId) }).select('ChatId membros').lean();
+    const isMember = !!chat && Array.isArray(chat.membros) && chat.membros.some(m => String(m.userId) === String(userId));
+    if (!isMember) {
+      return;
+    }
     
     // Adicionar usuário ao chat room
     if (!this.chatRooms.has(chatId)) {
@@ -287,7 +294,35 @@ class ChatWebSocketServer {
       chatId: chatId,
       message: message,
       timestamp: new Date().toISOString()
-    }, senderUserId);
+    }, null);
+  }
+
+  notifyMessageUpdate(chatId, message, editorUserId) {
+    this.broadcastToChat(chatId, {
+      type: 'message_update',
+      chatId: chatId,
+      message: message,
+      userId: String(editorUserId),
+      timestamp: new Date().toISOString()
+    }, null);
+  }
+
+  notifyMessageDelete(chatId, mensagemId, deleterUserId) {
+    this.broadcastToChat(chatId, {
+      type: 'message_delete',
+      chatId: chatId,
+      mensagemId: String(mensagemId),
+      userId: String(deleterUserId),
+      timestamp: new Date().toISOString()
+    }, null);
+  }
+
+  notifyChatDeleted(userId, chatId) {
+    this.sendToUser(String(userId), {
+      type: 'chat_deleted',
+      chatId: String(chatId),
+      timestamp: new Date().toISOString()
+    });
   }
 
   /**
