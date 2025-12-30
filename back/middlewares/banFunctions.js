@@ -61,67 +61,54 @@ export const verifyBan = async (req, res, next) => {
     // Logs básicos para depuração (sem vazar dados sensíveis)
     console.info(`[verifyBan] Método=${req.method} Rota=${req.originalUrl}`);
 
-    // Coleta de identificadores de usuário na fonte adequada (body para POST/PUT, query para GET), com scan seguro e leve
-    const collectUserIdentifiers = (obj, depth = 0) => {
+    const collectActorIdentifiers = (obj, depth = 0) => {
         const emails = [];
         const ids = [];
         const profissionalIds = [];
 
         if (!obj || typeof obj !== 'object' || depth > 3) {
-            return { emails, ids };
+            return { emails, ids, profissionalIds };
         }
 
         for (const [key, value] of Object.entries(obj)) {
             const k = String(key).toLowerCase();
 
-            // Recursão limitada para objetos/arrays
             if (value && typeof value === 'object') {
-                const nested = collectUserIdentifiers(value, depth + 1);
+                const nested = collectActorIdentifiers(value, depth + 1);
                 emails.push(...nested.emails);
                 ids.push(...nested.ids);
                 profissionalIds.push(...nested.profissionalIds);
                 continue;
             }
 
-            // Normalização de valores possíveis
             const val = value != null ? String(value) : '';
             if (!val) continue;
 
-            // Heurística para capturar emails relacionados a usuário
-            // Ex.: email, userEmail, usuarioEmail
-            if (k.includes('email')) {
-                emails.push(val);
-            }
+            const isActorEmailKey =
+                k === 'email' ||
+                k === 'useremail' ||
+                k === 'user_email';
 
-            // Heurística para capturar ids relacionados a usuário
-            // Ex.: userId, usuarioId, uid, _id, user_id
-            const isUserIdKey = (
-                k.includes('userid') ||
+            const isActorIdKey =
+                k === 'userid' ||
+                k === 'user_id' ||
                 k === 'uid' ||
                 k === '_id' ||
-                k === 'user_id' ||
-                k.includes('usuarioid') ||
-                (k === 'id' /* id genérico: só aceita se o contexto do caminho indicar usuário */)
-            );
+                k === 'adminid' ||
+                k === 'admin_id' ||
+                k === 'creatorid' ||
+                k === 'creator_id';
 
-            if (isUserIdKey || (k.includes('user') && k.includes('id'))) {
-                ids.push(val);
-            }
-
-            // Captura de profissionalId (id do documento na coleção de profissionais)
-            const isProfIdKey = (
+            const isProfIdKey =
                 k === 'profissionalid' ||
                 k === 'professionalid' ||
                 k === 'idprofissional' ||
                 k === 'prof_id' ||
-                k === 'professional_id' ||
-                (k.includes('profissional') && k.includes('id')) ||
-                (k.includes('professional') && k.includes('id'))
-            );
+                k === 'professional_id';
 
-            if (isProfIdKey) {
-                profissionalIds.push(val);
-            }
+            if (isActorEmailKey) emails.push(val);
+            if (isActorIdKey) ids.push(val);
+            if (isProfIdKey) profissionalIds.push(val);
         }
 
         return { emails, ids, profissionalIds };
@@ -129,12 +116,12 @@ export const verifyBan = async (req, res, next) => {
 
     const sourceObj = req.method === 'GET' ? req.query : req.body;
     const sourceLabel = req.method === 'GET' ? 'query' : 'body';
-    const { emails: bodyEmails, ids: bodyIds, profissionalIds } = collectUserIdentifiers(sourceObj);
+    const { emails: bodyEmails, ids: bodyIds, profissionalIds } = collectActorIdentifiers(sourceObj);
     console.info(`[verifyBan] Fonte de identificadores: ${sourceLabel}`);
 
     // Bypass solicitado: se não há nenhum email e nenhum id no payload consultado,
     // então não há verificação a ser feita aqui e podemos seguir para o próximo middleware.
-    if (bodyEmails.length === 0 && bodyIds.length === 0) {
+    if (bodyEmails.length === 0 && bodyIds.length === 0 && (!profissionalIds || profissionalIds.length === 0)) {
         console.info('[verifyBan] Nenhum email e nenhum id encontrados -> bypass verificação, next()');
         return next();
     }

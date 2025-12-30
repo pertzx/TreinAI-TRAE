@@ -19,7 +19,7 @@ import api from '../Api'
 
 const ChatsOptimized = ({ user, tema }) => {
   const { showError, showSuccess } = useToast();
-  const userId = user?.userId || user?._id || user?.id || null;
+  const userId = user?._id || user?.userId || user?.id || null;
   const username = user?.username || user?.name || 'Você';
 
   // Estado para controlar o input de adicionar chat
@@ -29,25 +29,28 @@ const ChatsOptimized = ({ user, tema }) => {
   // Função para iniciar chat por userId
   const iniciarChatPorUserId = async (targetUserId) => {
     try {
+      const trimmed = targetUserId.trim();
+      const isValidObjectId = /^[a-fA-F0-9]{24}$/.test(trimmed);
+      if (!isValidObjectId) {
+        showError('ID inválido. Use um ObjectId (24 caracteres hex).');
+        return;
+      }
+
       const payload = {
-        userId: user._id,
-        targetUserId: targetUserId.trim()
+        userId: userId,
+        targetUserId: trimmed
       }
       const response = await api.post('/iniciar-chat-por-userid', payload)
 
-      const data = await response.json();
-
-      if (response.ok) {
+      const data = response?.data || {};
+      if (data?.chat) {
         showSuccess(data.message || 'Chat iniciado com sucesso!');
-        // Recarregar chats para mostrar o novo chat
         await fetchChats();
-        // Selecionar o chat criado/encontrado
-        if (data.chat) {
-          setSelectedChat(data.chat);
-        }
-      } else {
-        showError(data.error || 'Erro ao iniciar chat');
+        setSelectedChat(data.chat);
+        return;
       }
+
+      showError(data.error || data.msg || 'Erro ao iniciar chat');
     } catch (error) {
       console.error('Erro ao iniciar chat:', error);
       showError('Erro ao conectar com o servidor');
