@@ -12,8 +12,8 @@ import mongoose from "mongoose";
 const __filename = typeof fileURLToPath === "function" ? fileURLToPath(import.meta.url) : "";
 const __dirname = __filename ? path.dirname(__filename) : process.cwd();
 
-// pasta onde o multer deve salvar (ex.: ./uploads/image-profissional)
-const UPLOAD_DIR = path.join(__dirname, "..", "uploads", "image-profissional");
+// pasta onde o multer deve salvar (Desativado - Usando Cloudinary)
+// const UPLOAD_DIR = path.join(__dirname, "..", "uploads", "image-profissional");
 
 /**
  * GET /profissionais?userId=...             -> retorna um profissional específico

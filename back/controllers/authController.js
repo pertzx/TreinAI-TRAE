@@ -70,11 +70,9 @@ function isWithinRadius(lat1, lon1, lat2, lon2, radiusKm) {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// agora você pode usar __dirname normalmente
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads/image-perfil');
-
-// garante que exista
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// Removida lógica de diretório local pois agora usamos Cloudinary
+// const UPLOAD_DIR = path.join(__dirname, '..', 'uploads/image-perfil');
+// if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 // Config OpenAI
 const OPENAI_KEY = process.env.OPENAI_API_KEY;

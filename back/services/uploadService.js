@@ -204,11 +204,15 @@ class LocalProvider extends StorageProvider {
 class StorageFactory {
   static createProvider(type = 'auto') {
     if (type === 'auto') {
-      // Em serverless ou produção, usar Cloudinary se configurado
-      if ((isServerless || !isDevelopment) && process.env.CLOUDINARY_CLOUD_NAME) {
+      // Priorizar Cloudinary em qualquer ambiente se configurado
+      if (process.env.CLOUDINARY_CLOUD_NAME) {
         return new CloudinaryProvider();
       }
-      // Caso contrário, usar local
+      
+      // Se não houver Cloudinary, usar local apenas em desenvolvimento
+      if (!isDevelopment) {
+        throw createError('Cloudinary não configurado em ambiente de produção', 'CLOUDINARY_REQUIRED', 500);
+      }
       return new LocalProvider();
     }
     

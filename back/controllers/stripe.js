@@ -28,67 +28,25 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 const log = (...args) => console.log('[StripeController]', ...args);
 
 // ---------------------------
-// PendingUpload model (novo)
-// Armazena uploads temporários que só viram Local após confirmação de pagamento
+// Paths helpers (Desativados - Usando Cloudinary)
 // ---------------------------
-const PendingUploadSchema = new mongoose.Schema({
-  filename: { type: String, required: true },
-  originalName: { type: String },
-  userId: { type: String },
-  localName: { type: String },
-  localDescricao: { type: String },
-  localType: { type: String },
-  link: { type: String },
-  country: { type: String },
-  countryCode: { type: String },
-  state: { type: String },
-  city: { type: String },
-  createdAt: { type: Date, default: () => new Date() },
-  subscriptionId: { type: String, default: null }, // atualizado no checkout.session.completed
-  metadata: { type: Object, default: {} },
-});
-const PendingUpload = mongoose.models.PendingUpload || mongoose.model('PendingUpload', PendingUploadSchema);
 
-// ---------------------------
-// Paths helpers
-// ---------------------------
-const TMP_DIR = path.join(process.cwd(), 'uploads', 'tmp');
-const FINAL_DIR = path.join(process.cwd(), 'uploads', 'image-local');
-
-async function ensureDir(dir) {
-  try { await fs.promises.mkdir(dir, { recursive: true }); } catch (e) { /* ignore */ }
-}
-async function moveFile(src, dest) {
-  await ensureDir(path.dirname(dest));
-  return fs.promises.rename(src, dest);
-}
 async function unlinkIfExists(fp) {
   try {
+    if (!fp) return;
     const exists = await fs.promises.stat(fp).then(() => true).catch(() => false);
     if (exists) await fs.promises.unlink(fp);
   } catch (e) {
-    console.warn('unlinkIfExists error:', e?.message || e);
+    // console.warn('unlinkIfExists error:', e?.message || e);
   }
 }
 
 /**
- * Remove pending upload: apaga arquivo tmp e documento PendingUpload
+ * Remove pending upload: (Desativado - Usando Cloudinary)
  */
 async function removePendingUpload(pendingId) {
-  if (!pendingId) return;
-  const p = await PendingUpload.findById(pendingId);
-  if (!p) return;
-  try {
-    const tmpPath = path.join(TMP_DIR, p.filename);
-    await unlinkIfExists(tmpPath);
-  } catch (e) {
-    console.warn('removePendingUpload: falha ao apagar arquivo tmp:', e?.message || e);
-  }
-  try {
-    await PendingUpload.findByIdAndDelete(pendingId);
-  } catch (e) {
-    console.warn('removePendingUpload: falha ao apagar documento PendingUpload:', e?.message || e);
-  }
+  // Lógica removida pois agora usamos Cloudinary e memória
+  return;
 }
 
 

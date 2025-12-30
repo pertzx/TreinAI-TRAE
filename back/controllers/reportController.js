@@ -5,6 +5,7 @@ import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
+import { uploadToCloudinary } from '../config/cloudinaryConfig.js';
 
 // Gerar relatório simples para cliente
 export const generateReport = async (req, res) => {
@@ -222,45 +223,60 @@ export const getReportTemplates = async (req, res) => {
   }
 };
 
-// Função auxiliar simplificada para gerar PDF
+// Função auxiliar para gerar PDF e fazer upload para Cloudinary
 const generateSimplePDFReport = async (report) => {
   try {
     const doc = new PDFDocument();
-    const fileName = `report_${report._id}_${getBrazilDate()}.pdf`;
-    const filePath = path.join(process.cwd(), 'uploads', 'reports', fileName);
+    const chunks = [];
 
-    // Criar diretório se não existir
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    const stream = fs.createWriteStream(filePath);
-    doc.pipe(stream);
+    // Coletar os chunks do PDF em memória
+    doc.on('data', (chunk) => chunks.push(chunk));
 
     // Cabeçalho simples
-    doc.fontSize(20).text(report.title, 50, 50);
+    doc.fontSize(20).text(report.title || 'Relatório de Acompanhamento', 50, 50);
     doc.fontSize(12).text(`Gerado em: ${new Date(report.generatedAt).toLocaleDateString('pt-BR')}`, 50, 80);
-    doc.text(`Período: ${new Date(report.dateRange.startDate).toLocaleDateString('pt-BR')} - ${new Date(report.dateRange.endDate).toLocaleDateString('pt-BR')}`, 50, 100);
+    if (report.dateRange) {
+      doc.text(`Período: ${new Date(report.dateRange.startDate).toLocaleDateString('pt-BR')} - ${new Date(report.dateRange.endDate).toLocaleDateString('pt-BR')}`, 50, 100);
+    }
 
     // Informações básicas do cliente
     doc.fontSize(16).text('Informações do Cliente', 50, 140);
     doc.fontSize(12);
-    doc.text(`Nome: ${report.data.client.name}`, 50, 170);
-    doc.text(`Email: ${report.data.client.email}`, 50, 190);
-    doc.text(`Período do relatório: ${report.data.basicStats.totalDays} dias`, 50, 210);
-    doc.text(`Tipo: ${report.data.basicStats.reportType}`, 50, 230);
+    if (report.data && report.data.client) {
+      doc.text(`Nome: ${report.data.client.name}`, 50, 170);
+      doc.text(`Email: ${report.data.client.email}`, 50, 190);
+    }
+    
+    if (report.data && report.data.basicStats) {
+      doc.text(`Período do relatório: ${report.data.basicStats.totalDays} dias`, 50, 210);
+      doc.text(`Tipo: ${report.data.basicStats.reportType}`, 50, 230);
+    }
 
     // Nota sobre simplificação
-    doc.fontSize(10).text('Nota: Este é um relatório simplificado. Funcionalidades avançadas de analytics foram removidas.', 50, 280);
+    doc.fontSize(10).text('Nota: Este é um relatório gerado pelo sistema TreinAI.', 50, 280);
 
     doc.end();
 
     return new Promise((resolve, reject) => {
-      stream.on('finish', () => {
-        resolve(`/uploads/reports/${fileName}`);
+      doc.on('end', async () => {
+        try {
+          const buffer = Buffer.concat(chunks);
+          const fileName = `report_${report._id}_${Date.now()}`;
+          
+          // Upload para Cloudinary como resource_type: 'raw' (para PDFs)
+          const result = await uploadToCloudinary(buffer, 'reports', 'raw');
+          
+          // O Cloudinary retorna a URL segura
+          resolve(result.secure_url || result.path);
+        } catch (uploadError) {
+          console.error('Erro no upload do PDF para Cloudinary:', uploadError);
+          reject(uploadError);
+        }
       });
-      stream.on('error', reject);
+      doc.on('error', (err) => {
+        console.error('Erro na geração do PDF:', err);
+        reject(err);
+      });
     });
 
   } catch (error) {

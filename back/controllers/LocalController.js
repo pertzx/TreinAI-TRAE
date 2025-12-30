@@ -116,32 +116,8 @@ export const excluirLocalPorErro = async (localId) => {
             console.warn('[LocalController] Falha ao remover imagem antiga do Cloudinary:', cloudinaryError);
           }
         } else {
-          // Se é URL local, deletar do sistema de arquivos
-          try {
-            let relPath = null;
-            if (imageUrl.startsWith('/uploads/')) {
-              relPath = imageUrl.replace(/^\//, '');
-            } else {
-              const parsed = imageUrl.split('/').pop();
-              if (!parsed) return;
-              const filename = parsed.split('?')[0].split('#')[0];
-              // tentar em ambos diretórios conhecidos
-              const candidateLocal = path.join(process.cwd(), 'uploads', 'images', filename);
-              const candidateLegacy = path.join(process.cwd(), 'uploads', 'image-local', filename);
-              if (fs.existsSync(candidateLocal)) relPath = path.join('uploads', 'images', filename);
-              else if (fs.existsSync(candidateLegacy)) relPath = path.join('uploads', 'image-local', filename);
-            }
-
-            if (relPath) {
-              const full = path.join(process.cwd(), relPath);
-              if (fs.existsSync(full)) {
-                fs.unlinkSync(full);
-                console.log('[LocalController] Imagem local removida:', full);
-              }
-            }
-          } catch (err) {
-            console.warn('Falha ao remover arquivo local:', err?.message || err);
-          }
+          // Se é URL local, apenas logar (Desativado em produção/serverless)
+          console.log('[LocalController] Imagem local ignorada (Remoção desativada):', imageUrl);
         }
       } catch (err) {
         console.warn('Erro ao tentar apagar imagem:', err);
@@ -262,9 +238,8 @@ export const criarLocalDireto = async (req, res) => {
           imageUrl = cloudinaryResult.secure_url;
           console.log("cloudinaryResult:", cloudinaryResult);
         } else {
-          // Fallback para upload local
-          imageUrl = `/uploads/image-local/${req.file.filename}`;
-          console.log("imageUrl fallback:", imageUrl);
+          // Fallback para upload local (Desativado)
+          console.warn('[LocalController] req.file sem buffer ou URL. Ignorando upload local.');
         }
         console.log('[LocalController] Imagem processada:', imageUrl);
       } catch (uploadError) {

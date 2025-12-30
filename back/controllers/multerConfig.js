@@ -110,7 +110,7 @@ export const createUpload = (type = 'image', options = {}) => {
     }
   });
 
-  // Middleware de processamento
+  // Middleware de processamento - SEMPRE usa Cloudinary e memória em produção/serverless
   const processMiddleware = asyncHandler(async (req, res, next) => {
     if (!req.file && !req.files) return next();
 
@@ -122,90 +122,55 @@ export const createUpload = (type = 'image', options = {}) => {
       const isImage = file.mimetype.startsWith('image/');
       const isVideo = file.mimetype.startsWith('video/');
       
-      if (isServerless()) {
-        // Em ambiente serverless, processar tanto imagens quanto vídeos
-        try {
-          if (isImage && processImages) {
-            // Processar imagem
-            const processed = await processImage(file.buffer, {
-              format: file.mimetype === 'image/avif' ? 'avif' : 'webp'
-            });
-
-            // Upload para Cloudinary
-            const cloudinaryResult = await uploadToCloudinary(
-              processed.buffer, 
-              uploadPath.replace('uploads/', ''),
-              'image'
-            );
-
-            // Atualizar informações do arquivo - salvar apenas o path
-            file.cloudinaryUrl = cloudinaryResult.path; // Path para salvar no banco
-            file.cloudinaryPublicId = cloudinaryResult.public_id;
-            file.path = cloudinaryResult.path; // Path para compatibilidade
-            file.url = cloudinaryResult.path; // Path para o sistema usar
-            
-          } else if (isVideo) {
-            // Para vídeos em ambiente serverless
-            const cloudinaryResult = await uploadToCloudinary(
-              file.buffer, 
-              uploadPath.replace('uploads/', ''),
-              'video'
-            );
-
-            // Atualizar informações do arquivo - salvar apenas o path
-            file.cloudinaryUrl = cloudinaryResult.path; // Path para salvar no banco
-            file.cloudinaryPublicId = cloudinaryResult.public_id;
-            file.path = cloudinaryResult.path; // Path para compatibilidade
-            file.url = cloudinaryResult.path; // Path para o sistema usar
-            
-          } else if (isImage) {
-            // Imagem sem processamento
-            const cloudinaryResult = await uploadToCloudinary(
-              file.buffer, 
-              uploadPath.replace('uploads/', ''),
-              'image'
-            );
-
-            // Atualizar informações do arquivo - salvar apenas o path
-            file.cloudinaryUrl = cloudinaryResult.path; // Path para salvar no banco
-            file.cloudinaryPublicId = cloudinaryResult.public_id;
-            file.path = cloudinaryResult.path; // Path para compatibilidade
-            file.url = cloudinaryResult.path; // Path para o sistema usar
-            
-          }
-          
-        } catch (error) {
-          console.error('Erro no processamento/upload:', error);
-          // Em caso de erro, manter arquivo original
-        }
-      } else if (!isServerless()) {
-        // Em ambiente local, processar apenas imagens
+      // Processar e fazer upload para Cloudinary (Sempre em memória)
+      try {
         if (isImage && processImages) {
-          try {
-            // Em ambiente local, ler arquivo do disco
-            const buffer = fs.readFileSync(file.path);
-            
-            // Processar imagem
-            const processed = await processImage(buffer, {
-              format: file.mimetype === 'image/avif' ? 'avif' : 'webp'
-            });
+          // Processar imagem
+          const processed = await processImage(file.buffer, {
+            format: file.mimetype === 'image/avif' ? 'avif' : 'webp'
+          });
 
-            // Salvar versão processada
-            const processedPath = file.path.replace(/\.[^/.]+$/, '.webp');
-            fs.writeFileSync(processedPath, processed.buffer);
-            
-            // Atualizar path do arquivo
-            file.path = processedPath;
-            file.filename = path.basename(processedPath);
-            
-          } catch (error) {
-            console.error('Erro no processamento de imagem:', error);
-            // Em caso de erro, manter arquivo original
-          }
+          // Upload para Cloudinary
+          const cloudinaryResult = await uploadToCloudinary(
+            processed.buffer, 
+            uploadPath.replace('uploads/', ''),
+            'image'
+          );
+
+          // Atualizar informações do arquivo
+          file.cloudinaryUrl = cloudinaryResult.path;
+          file.cloudinaryPublicId = cloudinaryResult.public_id;
+          file.path = cloudinaryResult.path;
+          file.url = cloudinaryResult.path;
+          
+        } else if (isVideo) {
+          const cloudinaryResult = await uploadToCloudinary(
+            file.buffer, 
+            uploadPath.replace('uploads/', ''),
+            'video'
+          );
+
+          file.cloudinaryUrl = cloudinaryResult.path;
+          file.cloudinaryPublicId = cloudinaryResult.public_id;
+          file.path = cloudinaryResult.path;
+          file.url = cloudinaryResult.path;
+          
+        } else if (isImage) {
+          const cloudinaryResult = await uploadToCloudinary(
+            file.buffer, 
+            uploadPath.replace('uploads/', ''),
+            'image'
+          );
+
+          file.cloudinaryUrl = cloudinaryResult.path;
+          file.cloudinaryPublicId = cloudinaryResult.public_id;
+          file.path = cloudinaryResult.path;
+          file.url = cloudinaryResult.path;
         }
+      } catch (error) {
+        console.error('Erro no processamento/upload Cloudinary:', error);
       }
     }
-
     next();
   });
 

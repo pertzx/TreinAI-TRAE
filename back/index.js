@@ -159,7 +159,9 @@ app.use((req, res, next) => {
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Servir arquivos estáticos (Desativado - Usando Cloudinary)
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Middleware de segurança automático para rotas com userId/profissionalId
 // Mantido antes do registro das rotas para interceptação global
