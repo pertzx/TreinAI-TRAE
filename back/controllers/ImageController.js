@@ -119,7 +119,7 @@ export const generateImage = async (req, res) => {
     const user = await User.findOne({ email })
     if (!user) return res.status(401).json({ success: false, message: 'Usuário não autenticado' })
     if (user?.ban?.banned) return res.status(403).json({ success: false, message: 'Usuário banido' })
-    if (user?.planInfos?.status === 'inativo') return res.status(403).json({ success: false, message: 'Plano inativo' })
+    if (user?.planInfos?.status === 'inativo' && user?.planInfos?.planType !== 'free') return res.status(403).json({ success: false, message: 'Plano inativo' })
 
     console.log('[images/generate] user ok', { email, plan: user?.planInfos?.planType })
 
