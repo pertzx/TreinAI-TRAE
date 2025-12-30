@@ -25,7 +25,7 @@ export const uploadToCloudinary = async (buffer, folder = 'uploads', resourceTyp
         folder: `treinai/${folder}`,
         resource_type: resourceType,
         quality: 'auto:good',
-        fetch_format: 'auto',
+        format: resourceType === 'image' ? 'webp' : undefined,
       };
 
       // Para imagens, adicionar transformações de otimização
@@ -33,7 +33,7 @@ export const uploadToCloudinary = async (buffer, folder = 'uploads', resourceTyp
         uploadOptions.transformation = [
           { width: 2000, height: 2000, crop: 'limit' },
           { quality: 'auto:good' },
-          { fetch_format: 'auto' }
+          { format: 'webp' }
         ];
       }
 

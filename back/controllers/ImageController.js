@@ -2,6 +2,7 @@ import redisCache from '../config/redis.js'
 import ImageAsset from '../models/ImageAsset.js'
 import User from '../models/User.js'
 import { registerTokenUsage } from '../middlewares/tokenLimitMiddleware.js'
+import { uploadToCloudinary } from '../config/cloudinaryConfig.js'
 import OpenAI from 'openai'
 import crypto from 'crypto'
 
@@ -13,8 +14,8 @@ const PROMPT_SUFFIX = ': Realistico, Demonstrativo com destaque no musculo'
 
 const buildAssetUrl = (asset) => {
   if (!asset) return null
-  if (asset.inlineBase64) return `data:${asset.inlineMimeType || 'image/png'};base64,${asset.inlineBase64}`
   if (asset.cloudinaryUrl) return asset.cloudinaryUrl
+  if (asset.inlineBase64) return `data:${asset.inlineMimeType || 'image/png'};base64,${asset.inlineBase64}`
   return null
 }
 
@@ -210,6 +211,28 @@ export const generateImage = async (req, res) => {
         normalizedQuery: q
       })
     }
+
+    // Upload para o Cloudinary (otimizado para WebP pela config)
+    let cloudinaryResult = null
+    try {
+      const buffer = Buffer.from(b64, 'base64')
+      cloudinaryResult = await uploadToCloudinary(buffer, 'generated-assets')
+      console.log('[images/generate] cloudinary upload success', { publicId: cloudinaryResult.public_id })
+    } catch (uploadErr) {
+      console.error('[images/generate] cloudinary upload failed', uploadErr)
+      // Se falhar o upload, ainda tentamos salvar o b64 como fallback temporário ou falhamos?
+      // O usuário quer PARAR de guardar base64, então vamos falhar se o upload falhar.
+      await ImageAsset.updateOne({ normalizedQuery: q, lockId }, {
+        $set: { status: 'failed', lastError: 'Cloudinary upload failed', lockId: null, lockUntil: null }
+      })
+      return res.status(502).json({
+        success: false,
+        status: 'failed',
+        message: 'Falha ao salvar imagem no Cloudinary',
+        normalizedQuery: q
+      })
+    }
+
     const returnedCost = parseInt(
       (ai?.usage && (ai.usage.image_tokens || ai.usage.total_tokens)) ||
       (ai?.data?.[0]?.cost) ||
@@ -222,9 +245,10 @@ export const generateImage = async (req, res) => {
       {
         $set: {
           originalQuery: baseQuery,
-          inlineBase64: b64,
-          inlineMimeType: 'image/png',
-          storage: 'inline',
+          cloudinaryUrl: cloudinaryResult.secure_url,
+          cloudinaryPublicId: cloudinaryResult.public_id,
+          inlineBase64: null, // Garantir que não salva base64
+          storage: 'cloudinary',
           status: 'ready',
           lockId: null,
           lockUntil: null,
