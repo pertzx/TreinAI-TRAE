@@ -22,17 +22,18 @@ const useChatOptimized = (user, selectedChatId) => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState(null);
   const [usersData, setUsersData] = useState({}); // Cache de dados dos usuários
+  const [isWsConnected, setIsWsConnected] = useState(false);
 
   // Refs para controle de estado
   const lastChatsRef = useRef(null);
   const lastMessagesRef = useRef(null);
   const pollingTimeoutRef = useRef(null);
   const lastPollingTimeRef = useRef(0);
+  const recurringPollingRef = useRef(null);
 
-  // Configurações de throttling/debounce
-  const MIN_POLLING_INTERVAL = 5000; // 5 segundos mínimo entre polls
-  const CHAT_POLLING_INTERVAL = 15000; // 15 segundos para chats (menos frequente)
-  const MESSAGE_POLLING_INTERVAL = 8000; // 8 segundos para mensagens
+  // Configurações de throttling/polling
+  const CHAT_POLLING_INTERVAL = 10000; // 10 segundos para lista de chats
+  const MESSAGE_POLLING_INTERVAL = 3000; // 3 segundos para mensagens (mais agressivo quando aberto)
 
   // Função de throttling para evitar muitas requisições
   const throttledApiCall = useCallback((apiCall, minInterval = MIN_POLLING_INTERVAL) => {
@@ -217,15 +218,43 @@ const useChatOptimized = (user, selectedChatId) => {
 
   // Polling fallback otimizado para chats
   const chatPollingFallback = useCallback(() => {
-    throttledApiCall(() => fetchChats(), CHAT_POLLING_INTERVAL);
-  }, [fetchChats, throttledApiCall]);
+    fetchChats();
+  }, [fetchChats]);
 
   // Polling fallback otimizado para mensagens
   const messagePollingFallback = useCallback(() => {
     if (selectedChatId) {
-      throttledApiCall(() => fetchMessages(selectedChatId), MESSAGE_POLLING_INTERVAL);
+      fetchMessages(selectedChatId);
     }
-  }, [selectedChatId, fetchMessages, throttledApiCall]);
+  }, [selectedChatId, fetchMessages]);
+
+  // Efeito para polling recorrente quando o WebSocket não está conectado (Vercel/Serverless)
+  useEffect(() => {
+    if (!userId) return;
+
+    const runPolling = () => {
+      // Só poll se não estiver conectado via WS
+      if (!isWsConnected) {
+        console.log('🔄 Polling ativo (WebSocket indisponível)');
+        fetchChats();
+        if (selectedChatId) {
+          fetchMessages(selectedChatId);
+        }
+      }
+    };
+
+    // Determinar intervalo dinâmico: mais rápido se estiver em um chat específico
+    const intervalTime = selectedChatId ? MESSAGE_POLLING_INTERVAL : CHAT_POLLING_INTERVAL;
+    
+    // Iniciar polling recorrente
+    recurringPollingRef.current = setInterval(runPolling, intervalTime);
+
+    return () => {
+      if (recurringPollingRef.current) {
+        clearInterval(recurringPollingRef.current);
+      }
+    };
+  }, [userId, isWsConnected, selectedChatId, fetchChats, fetchMessages, CHAT_POLLING_INTERVAL, MESSAGE_POLLING_INTERVAL]);
 
   // WebSocket para chats
   useEffect(() => {
@@ -235,6 +264,9 @@ const useChatOptimized = (user, selectedChatId) => {
     const chatWsUrl = `${apiUrl.replace('https://', 'wss://').replace('http://', 'ws://')}/ws`;
     
     const chatWsOptions = {
+      onOpen: () => {
+        setIsWsConnected(true);
+      },
       onMessage: (data) => {
         if (data.type === 'chat_update') {
           // Atualizar chats em tempo real
@@ -243,8 +275,11 @@ const useChatOptimized = (user, selectedChatId) => {
       },
       onError: (error) => {
         console.warn('Erro WebSocket chat:', error);
-        // Fallback para polling
+        setIsWsConnected(false);
         chatPollingFallback();
+      },
+      onClose: () => {
+        setIsWsConnected(false);
       }
     };
 
@@ -264,6 +299,7 @@ const useChatOptimized = (user, selectedChatId) => {
     
     const messageWsOptions = {
       onOpen: (ws) => {
+        setIsWsConnected(true);
         // Entrar no chat específico
         webSocketManager.send(messageWsUrl, {
           type: 'join_chat',
@@ -324,10 +360,12 @@ const useChatOptimized = (user, selectedChatId) => {
       },
       onError: (error) => {
         console.warn('Erro WebSocket mensagens:', error);
+        setIsWsConnected(false);
         // Fallback para polling
         messagePollingFallback();
       },
       onClose: () => {
+        setIsWsConnected(false);
         // Sair do chat ao desconectar
         if (webSocketManager.isConnected(messageWsUrl)) {
           webSocketManager.send(messageWsUrl, {
