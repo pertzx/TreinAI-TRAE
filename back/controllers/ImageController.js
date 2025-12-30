@@ -198,7 +198,7 @@ export const generateImage = async (req, res) => {
 
     const prompt = `${baseQuery}${PROMPT_SUFFIX}`
 
-    const ai = await openai.images.generate({ model: 'gpt-image-1', prompt, size: '1024x1024' })
+    const ai = await openai.images.generate({ model: 'gpt-image-1', prompt, size: '512x512', quality: 'medium' })
     console.log('[images/generate] openai done', { items: Array.isArray(ai?.data) ? ai.data.length : 0 })
     const b64 = ai?.data?.[0]?.b64_json
     if (!b64) {

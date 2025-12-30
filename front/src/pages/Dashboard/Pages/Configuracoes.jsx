@@ -31,11 +31,9 @@ const Switch = ({ checked, onChange, label, tema }) => (
 
 const Configuracoes = ({ setTema, tema, user }) => {
   const navigate = useNavigate();
-  const [lang, setLang] = useState('pt');
   const [loginSeguro, setLoginSeguro] = useState(user?.stats?.loginSeguro || false);
-  const [notificacoes, setNotificacoes] = useState(true);
 
-  const [saving, setSaving] = useState({ theme: false, lang: false, notifications: false });
+  const [saving, setSaving] = useState({ theme: false, loginSeguro: false });
   const [planLoading, setPlanLoading] = useState(false);
   const [globalLoading, setGlobalLoading] = useState(false);
 
@@ -105,22 +103,6 @@ const Configuracoes = ({ setTema, tema, user }) => {
     } else {
       const savedTheme = localStorage.getItem('theme');
       if (savedTheme === 'dark' || savedTheme === 'light') setTema(savedTheme);
-    }
-
-    if (user?.preferences?.language) {
-      setLang(user.preferences.language);
-      localStorage.setItem('lang', user.preferences.language);
-    } else {
-      const savedLang = localStorage.getItem('lang');
-      if (savedLang) setLang(savedLang);
-    }
-
-    if (typeof user?.preferences?.notifications === 'boolean') {
-      setNotificacoes(Boolean(user.preferences.notifications));
-      localStorage.setItem('notifications', String(user.preferences.notifications));
-    } else {
-      const savedNotifications = localStorage.getItem('notifications');
-      if (savedNotifications !== null) setNotificacoes(savedNotifications === 'true');
     }
 
     if (user?.planInfos) {
@@ -276,40 +258,6 @@ const Configuracoes = ({ setTema, tema, user }) => {
     }
   };
 
-  const toggleLang = async () => {
-    const newLang = lang === 'pt' ? 'en' : 'pt';
-    setLang(newLang);
-    localStorage.setItem('lang', newLang);
-
-    setSaving((prev) => ({ ...prev, lang: true }));
-    setGlobalLoading(true);
-    try {
-      await api.post('/change-language', { email: user.email, language: newLang });
-    } catch (err) {
-      console.error('Erro ao salvar idioma no servidor:', err);
-    } finally {
-      setSaving((prev) => ({ ...prev, lang: false }));
-      setGlobalLoading(false);
-    }
-  };
-
-  const toggleNotificacoes = async () => {
-    const newVal = !notificacoes;
-    setNotificacoes(newVal);
-    localStorage.setItem('notifications', String(newVal));
-
-    setSaving((prev) => ({ ...prev, notifications: true }));
-    setGlobalLoading(true);
-    try {
-      await api.post('/change-notifications', { email: user.email, notifications: newVal });
-    } catch (err) {
-      console.error('Erro ao salvar notificações no servidor:', err);
-    } finally {
-      setSaving((prev) => ({ ...prev, notifications: false }));
-      setGlobalLoading(false);
-    }
-  };
-
   // NOVA LÓGICA: bloquear solicitações para mesmo tipo OU mesmo valor
   const askChangePlan = (novoPlano) => {
     const novoPreco = priceMapForDisplay[novoPlano]?.price ?? null;
@@ -451,30 +399,6 @@ const Configuracoes = ({ setTema, tema, user }) => {
         <div className="flex items-center gap-3">
           <span className="text-xs">{tema === 'dark' ? 'Dark' : 'Light'}</span>
           <Switch checked={tema === 'dark'} onChange={toggleTema} label="Alternar tema" tema={tema} />
-        </div>
-      </div>
-
-      {/* Idioma */}
-      <div className={`flex items-center justify-between w-full max-w-2xl p-4 rounded-2xl border ${cardClass}`}>
-        <div>
-          <div className="text-sm font-medium">Idioma</div>
-          <div className="text-xs ">Escolha entre Português (pt) e Inglês (en)</div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs uppercase">{lang}</span>
-          <Switch checked={lang === 'en'} onChange={toggleLang} label="Alternar idioma" tema={tema} />
-        </div>
-      </div>
-
-      {/* Notificações */}
-      <div className={`flex items-center justify-between w-full max-w-2xl p-4 rounded-2xl border ${cardClass}`}>
-        <div>
-          <div className="text-sm font-medium">Notificações</div>
-          <div className="text-xs ">Receber notificações sobre treinos e ofertas</div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs">{notificacoes ? 'Ativas' : 'Desativadas'}</span>
-          <Switch checked={notificacoes} onChange={toggleNotificacoes} label="Alternar notificações" tema={tema} />
         </div>
       </div>
 
