@@ -10,7 +10,19 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const normalize = (s) => String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ')
 
-const PROMPT_SUFFIX = ': Realistico, Demonstrativo com destaque no musculo'
+const PROMPT_SUFFIX = ': Realistico, Demonstrativo com destaque no musculo, sem sensualizar, homem ou mulher usando roupa de academia com o nome TreinAI'
+
+// Lista de termos proibidos para evitar bloqueios óbvios e economizar tokens
+const FORBIDDEN_WORDS = [
+  'nu', 'nua', 'nude', 'sexual', 'sexo', 'porn', 'erotico', 'erotica',
+  'genital', 'pênis', 'vagina', 'seios', 'mamilo', 'bunda', 'ânus',
+  'pelado', 'pelada', 'sensual', 'fetish', 'fetiche'
+]
+
+const isPotentiallyUnsafe = (query) => {
+  const q = normalize(query)
+  return FORBIDDEN_WORDS.some(word => q.includes(word))
+}
 
 const buildAssetUrl = (asset) => {
   if (!asset) return null
@@ -84,6 +96,17 @@ export const generateImage = async (req, res) => {
     const q = normalize(baseQuery)
     console.log('[images/generate] start', { q })
     if (!q) return res.status(400).json({ success: false, message: 'Query inválida' })
+
+    // 1. Verificação rápida local
+    if (isPotentiallyUnsafe(baseQuery)) {
+      console.log('[images/generate] local moderation block', { q })
+      return res.status(400).json({
+        success: false,
+        status: 'failed',
+        message: 'O termo utilizado viola nossas políticas de segurança. Por favor, tente um termo mais técnico ou voltado a exercícios.',
+        normalizedQuery: q
+      })
+    }
 
     const now = nowIsoSafe()
 
@@ -199,6 +222,37 @@ export const generateImage = async (req, res) => {
 
     const prompt = `${baseQuery}${PROMPT_SUFFIX}`
 
+    // 2. Moderação via OpenAI API antes de gerar
+    let moderationTokens = 0
+    try {
+      const moderation = await openai.moderations.create({ input: prompt })
+      
+      // Estimar tokens de moderação (OpenAI não retorna usage em moderation, 
+      // mas consome cota. Usamos aproximação 1 token ~= 4 caracteres para o input)
+      moderationTokens = Math.ceil(prompt.length / 4)
+
+      if (moderation.results[0].flagged) {
+        console.log('[images/generate] openai moderation block', { q, categories: moderation.results[0].categories })
+        
+        // Registrar tokens gastos na moderação mesmo em caso de bloqueio
+        if (moderationTokens > 0) {
+          await registerTokenUsage(email, moderationTokens, req.body?.profissionalId || null)
+        }
+
+        await ImageAsset.updateOne({ normalizedQuery: q, lockId }, {
+          $set: { status: 'failed', lastError: 'Moderation block: ' + JSON.stringify(moderation.results[0].categories), lockId: null, lockUntil: null }
+        })
+        return res.status(400).json({
+          success: false,
+          status: 'failed',
+          message: 'O conteúdo solicitado foi sinalizado pelo sistema de segurança. Por favor, reformule sua busca.',
+          normalizedQuery: q
+        })
+      }
+    } catch (modErr) {
+      console.error('[images/generate] moderation api error', modErr)
+    }
+
     const ai = await openai.images.generate({ model: 'gpt-image-1', prompt, size: '1024x1024', quality: 'medium' })
     console.log('[images/generate] openai done', { items: Array.isArray(ai?.data) ? ai.data.length : 0 })
     const b64 = ai?.data?.[0]?.b64_json
@@ -238,7 +292,10 @@ export const generateImage = async (req, res) => {
       (ai?.data?.[0]?.cost) ||
       (process.env.IMAGE_TOKEN_COST || '50')
     )
-    console.log('[images/generate] cost', { returnedCost })
+    
+    // Somar tokens da moderação ao custo total da geração
+    const totalTokensUsed = returnedCost + moderationTokens
+    console.log('[images/generate] cost', { imageCost: returnedCost, moderationTokens, total: totalTokensUsed })
 
     const updated = await ImageAsset.findOneAndUpdate(
       { normalizedQuery: q, lockId },
@@ -268,8 +325,8 @@ export const generateImage = async (req, res) => {
     }
     console.log('[images/generate] db saved', { id: updated?._id })
 
-    const regOk = await registerTokenUsage(email, returnedCost, req.body?.profissionalId || null)
-    console.log('[images/generate] registerTokenUsage', { ok: regOk, returnedCost })
+    const regOk = await registerTokenUsage(email, totalTokensUsed, req.body?.profissionalId || null)
+    console.log('[images/generate] registerTokenUsage', { ok: regOk, totalTokensUsed })
     try { if (redisCache?.isConnected) await redisCache.delete(`imggen:lock:${q}`) } catch (_) { }
     const url = buildAssetUrl(updated)
     return res.json({
@@ -281,7 +338,14 @@ export const generateImage = async (req, res) => {
       normalizedQuery: q
     })
   } catch (e) {
-    console.error('[images/generate] error', e?.response?.data || e?.message || e)
+    const errorMsg = e?.response?.data?.error?.message || e?.message || ''
+    console.error('[images/generate] error', errorMsg)
+
+    // Se for erro de segurança da própria API do DALL-E (que às vezes passa na moderação mas falha na geração)
+    const isSafetyError = errorMsg.toLowerCase().includes('safety system') || 
+                         errorMsg.toLowerCase().includes('rejected by the safety') ||
+                         errorMsg.toLowerCase().includes('safety_violations')
+
     try {
       const q = normalize(req.body.query || '')
       if (q && redisCache?.isConnected) await redisCache.delete(`imggen:lock:${q}`)
@@ -292,14 +356,24 @@ export const generateImage = async (req, res) => {
       const q = normalize(baseQuery)
       if (q) {
         const lockId = String(req.body?.lockId || '')
-        if (lockId) {
-          await ImageAsset.updateOne(
-            { normalizedQuery: q, lockId },
-            { $set: { status: 'failed', lastError: String(e?.message || 'Erro ao gerar imagem').slice(0, 300), lockUntil: null, lockId: null, updatedAt: nowIsoSafe() } }
-          )
-        }
+        const finalError = isSafetyError 
+          ? 'Conteúdo rejeitado pelo sistema de segurança da IA' 
+          : String(errorMsg || 'Erro ao gerar imagem').slice(0, 300)
+
+        await ImageAsset.updateOne(
+          { normalizedQuery: q },
+          { $set: { status: 'failed', lastError: finalError, lockUntil: null, lockId: null, updatedAt: nowIsoSafe() } }
+        )
       }
     } catch (_) { }
+
+    if (isSafetyError) {
+      return res.status(400).json({ 
+        success: false, 
+        status: 'failed', 
+        message: 'A IA recusou gerar esta imagem por motivos de segurança. Tente usar termos mais técnicos e profissionais.' 
+      })
+    }
 
     return res.status(500).json({ success: false, status: 'failed', message: 'Erro ao gerar imagem' })
   }
