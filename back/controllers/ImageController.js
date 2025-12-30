@@ -294,7 +294,7 @@ export const generateImage = async (req, res) => {
     )
     
     // Somar tokens da moderação ao custo total da geração
-    const totalTokensUsed = returnedCost + moderationTokens
+    const totalTokensUsed = (returnedCost + moderationTokens) * 2
     console.log('[images/generate] cost', { imageCost: returnedCost, moderationTokens, total: totalTokensUsed })
 
     const updated = await ImageAsset.findOneAndUpdate(
@@ -355,15 +355,14 @@ export const generateImage = async (req, res) => {
       const baseQuery = String(req.body.query || '').trim()
       const q = normalize(baseQuery)
       if (q) {
-        const lockId = String(req.body?.lockId || '')
-        const finalError = isSafetyError 
-          ? 'Conteúdo rejeitado pelo sistema de segurança da IA' 
-          : String(errorMsg || 'Erro ao gerar imagem').slice(0, 300)
-
-        await ImageAsset.updateOne(
-          { normalizedQuery: q },
-          { $set: { status: 'failed', lastError: finalError, lockUntil: null, lockId: null, updatedAt: nowIsoSafe() } }
-        )
+        // Se a imagem falhar, deletamos o registro para que o próximo possa tentar do zero
+        // em vez de deixar um registro com status 'failed' que pode bloquear novas tentativas 
+        // ou poluir o banco de dados.
+        await ImageAsset.deleteOne({ normalizedQuery: q, status: 'generating' })
+        
+        // Se já existia e apenas atualizamos para failed (caso queira manter histórico de erros específicos)
+        // mas o pedido do usuário é deletar para dar possibilidade de outro gerar.
+        await ImageAsset.deleteOne({ normalizedQuery: q })
       }
     } catch (_) { }
 
