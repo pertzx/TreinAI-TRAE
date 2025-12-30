@@ -60,7 +60,14 @@ const ChatSchema = new Schema({
         notificacoes: { type: Boolean, default: true },
         arquivado: { type: Boolean, default: false },
         fixado: { type: Boolean, default: false }
-    }
+    },
+    typingStatus: [
+        {
+            userId: { type: String, required: true },
+            username: { type: String },
+            startedAt: { type: Date, default: getBrazilDate }
+        }
+    ]
 });
 
 // índice único parcial para pairId (só aplica quando pairId existe)

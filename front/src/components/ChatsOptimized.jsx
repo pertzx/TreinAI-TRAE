@@ -125,18 +125,33 @@ const ChatsOptimized = ({ user, tema }) => {
     fetchMessages,
     connectionState,
     isConnected,
-    isPolling
+    isPolling,
+    typingUsers,
+    handleTyping
   } = useChatOptimized(user, selectedChat?.ChatId || selectedChat?._id);
 
   // Atualizar input com transcript
   useEffect(() => {
     if (transcript) {
       setNewMessage(transcript);
+      if (selectedChat) {
+        handleTyping(getChatId(selectedChat));
+      }
     }
-  }, [transcript]);
+  }, [transcript, selectedChat, handleTyping]);
 
   // Funções utilitárias
   const getChatId = (chat) => chat?.ChatId || chat?._id || null;
+
+  // Handler para mudança no input de mensagem
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setNewMessage(value);
+    
+    if (selectedChat) {
+      handleTyping(getChatId(selectedChat));
+    }
+  };
 
   // Scroll detection
   useEffect(() => {
@@ -475,18 +490,31 @@ const ChatsOptimized = ({ user, tema }) => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                       {/* Avatar do usuário na lista de chats */}
-                      {chat.isIndividualChat && (() => {
-                        const otherUserId = chat.userIds?.find(id => String(id) !== String(userId));
-                        return otherUserId && usersData[otherUserId] ? (
-                          <UserAvatar
-                            user={usersData[otherUserId]}
-                            size="medium"
-                            className="flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 bg-gray-300 rounded-full flex-shrink-0"></div>
-                        );
-                      })()}
+                      <div className="relative flex-shrink-0">
+                        {chat.isIndividualChat && (() => {
+                          const otherUserId = chat.userIds?.find(id => String(id) !== String(userId));
+                          const otherUser = otherUserId && usersData[otherUserId];
+                          const isOnline = otherUser?.isOnline || chat.membros?.find(m => String(m.userId) === String(otherUserId))?.isOnline;
+                          
+                          return (
+                            <>
+                              {otherUser ? (
+                                <UserAvatar
+                                  user={otherUser}
+                                  size="medium"
+                                  className="flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center text-gray-600 font-bold">
+                                  {otherUserName.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              {/* Indicador Online */}
+                              <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${isDark ? 'border-gray-800' : 'border-white'} ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                            </>
+                          );
+                        })()}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2">
                           <h3 className={`font-medium truncate text-sm sm:text-base ${hasUnread ? 'font-bold text-blue-600 dark:text-blue-400' : ''
@@ -558,10 +586,41 @@ const ChatsOptimized = ({ user, tema }) => {
                 })()}
                 <div>
                   <h3 className="font-semibold text-sm sm:text-base">{getOtherUserName(selectedChat)}</h3>
-                  <p className="text-xs sm:text-sm text-gray-500">
-                    {connectionState.message === 'connected' ? 'Online' :
-                      connectionState.message === 'polling' ? 'Sincronizando...' : 'Offline'}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    {(() => {
+                      const otherUserId = selectedChat.userIds?.find(id => String(id) !== String(userId));
+                      const otherUser = otherUserId && usersData[otherUserId];
+                      const isOnline = otherUser?.isOnline || selectedChat.membros?.find(m => String(m.userId) === String(otherUserId))?.isOnline;
+                      const lastActive = otherUser?.lastActive || selectedChat.membros?.find(m => String(m.userId) === String(otherUserId))?.lastActive;
+
+                      if (isOnline) {
+                        return (
+                          <>
+                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                            <span className="text-xs text-green-500 font-medium">Online</span>
+                          </>
+                        );
+                      } else if (lastActive) {
+                        const date = new Date(lastActive);
+                        const today = new Date();
+                        const isToday = date.toDateString() === today.toDateString();
+                        const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                        const dateStr = date.toLocaleDateString('pt-BR');
+                        
+                        return (
+                          <span className="text-xs text-gray-500">
+                            Visto por último {isToday ? `hoje às ${timeStr}` : `em ${dateStr} às ${timeStr}`}
+                          </span>
+                        );
+                      }
+                      
+                      return (
+                        <span className="text-xs text-gray-500">
+                          {connectionState.message === 'connected' ? 'Conectado' : 'Offline'}
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
               <button
@@ -746,6 +805,23 @@ const ChatsOptimized = ({ user, tema }) => {
                   );
                 })
               )}
+              
+              {/* Indicador de Digitando */}
+              {selectedChat && typingUsers[getChatId(selectedChat)]?.length > 0 && (
+                <div className="flex items-center gap-2 mb-4 animate-fade-in">
+                  <div className={`px-4 py-2 rounded-2xl ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'} flex items-center gap-2`}>
+                    <div className="flex gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"></div>
+                    </div>
+                    <span className="text-xs font-medium">
+                      {typingUsers[getChatId(selectedChat)].join(', ')} está digitando...
+                    </span>
+                  </div>
+                </div>
+              )}
+              
               <div ref={bottomRef} />
             </div>
 
@@ -756,7 +832,7 @@ const ChatsOptimized = ({ user, tema }) => {
                   <input
                     type="text"
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={handleInputChange}
                     onKeyPress={handleKeyPress}
                     placeholder="Digite sua mensagem..."
                     className={`w-full px-3 sm:px-4 py-2 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base ${isDark

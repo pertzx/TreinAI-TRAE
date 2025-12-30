@@ -13,6 +13,9 @@ const UserSchema = new Schema({
   isCoach: { type: Boolean, default: false },
   saldoDeImpressoes: { type: Number, default: 0 },
 
+  isOnline: { type: Boolean, default: false },
+  lastActive: { type: Date, default: getBrazilDate },
+
   planInfos: {
     status: { type: String, enum: ['ativo', 'inativo'], default: 'inativo' },
     planType: { type: String, enum: ['free', 'pro', 'max', 'coach'], default: 'free' },

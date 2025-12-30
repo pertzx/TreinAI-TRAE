@@ -1,6 +1,6 @@
 // routes/authRoutes.js
 import { Router } from 'express';
-import { login, dashboard, signup, changeTheme, changeLoginSeguro, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser, loginNaoAutorizado } from '../controllers/authController.js';
+import { login, dashboard, signup, changeTheme, changeLoginSeguro, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser, loginNaoAutorizado, heartbeat } from '../controllers/authController.js';
 import { verificarToken } from '../middlewares/authMiddleware.js';
 import { validateLogin, validateSignup, validateDashboard, validateUpdateProfile, validateCreateLocal, validateEditLocal } from '../middlewares/validationMiddleware.js';
 import { validateEmailReal, validateEmailBasic } from '../middlewares/emailValidation.js';
@@ -30,7 +30,7 @@ import { uploadProfile, uploadImage, uploadMidiaAnuncio } from '../controllers/m
 import { aceitarAluno, editarProfissional, profissionais, publicarProfissional, queroSerAluno, removerAluno } from '../controllers/profissionais.js';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
-import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVistas, pegarChat, pegarChats, removerUsuario, editarMensagem, responderMensagem, marcarMensagensVistasV2, configurarChat, buscarHistorico, iniciarChatPorUserId, deletarChat, exportarHistoricoChat } from '../controllers/chatController.js';
+import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVistas, pegarChat, pegarChats, removerUsuario, editarMensagem, responderMensagem, marcarMensagensVistasV2, configurarChat, buscarHistorico, iniciarChatPorUserId, deletarChat, exportarHistoricoChat, atualizarStatusDigitando } from '../controllers/chatController.js';
 import { conversarNutri } from '../controllers/NutriAI.js';
 import { editarLocal, criarLocalDireto, deletarLocalPorId, ativarLocal, buscarLocais, meusLocais, upload, avaliarLocal, listarAvaliacoesLocal, listarAvaliacoesPendentes, moderarAvaliacao } from '../controllers/LocalController.js';
 import { criarAnuncio, editarAnuncio, getAnuncios, deletarAnuncio, marcarClique, marcarImpressao } from '../controllers/AnunciosController.js';
@@ -297,5 +297,8 @@ router.post('/logout', (req, res) => {
   res.clearCookie('auth_token', getClearCookieOptions());
   res.json({ msg: 'Logout realizado com sucesso!' });
 });
+
+router.post('/heartbeat', heartbeat);
+router.post('/atualizar-status-digitando', atualizarStatusDigitando);
 
 export default router;

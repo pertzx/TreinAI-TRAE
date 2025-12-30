@@ -26,17 +26,25 @@ export const getUsersBasicData = async (req, res) => {
         { userId: { $in: userIdArray } }
       ]
     })
-    .select('_id userId username avatar email')
+    .select('_id userId username avatar email isOnline lastActive')
     .lean();
 
     // Mapear para formato consistente
-    const usersData = users.map(user => ({
-      userId: user.userId || user._id.toString(),
-      _id: user._id,
-      username: user.username,
-      avatar: user.avatar,
-      email: user.email
-    }));
+    const usersData = users.map(user => {
+      // Considerar online se isOnline é true E lastActive foi há menos de 1 minuto
+      const oneMinuteAgo = new Date(Date.now() - 60000);
+      const isOnline = user.isOnline && user.lastActive > oneMinuteAgo;
+
+      return {
+        userId: user.userId || user._id.toString(),
+        _id: user._id,
+        username: user.username,
+        avatar: user.avatar,
+        email: user.email,
+        isOnline: isOnline,
+        lastActive: user.lastActive
+      };
+    });
 
     return res.status(200).json(usersData);
   } catch (error) {
@@ -62,14 +70,14 @@ export const getUserBasicData = async (req, res) => {
     // Tentar buscar por _id se for ObjectId válido
     if (mongoose.Types.ObjectId.isValid(userId)) {
       user = await User.findById(userId)
-        .select('_id userId username avatar email')
+        .select('_id userId username avatar email isOnline lastActive')
         .lean();
     }
     
     // Se não encontrou, tentar buscar por userId
     if (!user) {
       user = await User.findOne({ userId: String(userId) })
-        .select('_id userId username avatar email')
+        .select('_id userId username avatar email isOnline lastActive')
         .lean();
     }
 
@@ -77,12 +85,18 @@ export const getUserBasicData = async (req, res) => {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
 
+    // Considerar online se isOnline é true E lastActive foi há menos de 1 minuto
+    const oneMinuteAgo = new Date(Date.now() - 60000);
+    const isOnline = user.isOnline && user.lastActive > oneMinuteAgo;
+
     const userData = {
       userId: user.userId || user._id.toString(),
       _id: user._id,
       username: user.username,
       avatar: user.avatar,
-      email: user.email
+      email: user.email,
+      isOnline: isOnline,
+      lastActive: user.lastActive
     };
 
     return res.status(200).json(userData);

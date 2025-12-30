@@ -23,6 +23,8 @@ const useChatOptimized = (user, selectedChatId) => {
   const [error, setError] = useState(null);
   const [usersData, setUsersData] = useState({}); // Cache de dados dos usuários
   const [isWsConnected, setIsWsConnected] = useState(false);
+  const [typingUsers, setTypingUsers] = useState({}); // { chatId: [username1, username2] }
+  const [isTyping, setIsTyping] = useState(false);
 
   // Refs para controle de estado
   const lastChatsRef = useRef(null);
@@ -30,10 +32,61 @@ const useChatOptimized = (user, selectedChatId) => {
   const pollingTimeoutRef = useRef(null);
   const lastPollingTimeRef = useRef(0);
   const recurringPollingRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   // Configurações de throttling/polling
   const CHAT_POLLING_INTERVAL = 10000; // 10 segundos para lista de chats
   const MESSAGE_POLLING_INTERVAL = 3000; // 3 segundos para mensagens (mais agressivo quando aberto)
+
+  // Efeito para Heartbeat (Online/Offline)
+  useEffect(() => {
+    if (!userId) return;
+    
+    const sendHeartbeat = async () => {
+      try {
+        await api.post('/heartbeat', { userId });
+      } catch (err) {
+        // Silencioso em caso de erro
+      }
+    };
+
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 30000); // A cada 30 segundos
+    return () => clearInterval(interval);
+  }, [userId]);
+
+  // Função para atualizar status de digitação no servidor
+  const updateTypingStatus = useCallback(async (chatId, typing) => {
+    if (!chatId || !userId) return;
+    
+    try {
+      await api.post('/atualizar-status-digitando', {
+        ChatId: chatId,
+        userId,
+        username,
+        isTyping: typing
+      });
+    } catch (err) {
+      console.warn('Erro ao atualizar status de digitação');
+    }
+  }, [userId, username]);
+
+  // Função chamada pelo componente ao digitar
+  const handleTyping = useCallback((chatId) => {
+    if (!chatId) return;
+
+    if (!isTyping) {
+      setIsTyping(true);
+      updateTypingStatus(chatId, true);
+    }
+    
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      updateTypingStatus(chatId, false);
+    }, 3000);
+  }, [isTyping, updateTypingStatus]);
 
   // Função de throttling para evitar muitas requisições
   const throttledApiCall = useCallback((apiCall, minInterval = MIN_POLLING_INTERVAL) => {
@@ -82,13 +135,36 @@ const useChatOptimized = (user, selectedChatId) => {
 
       // Comparar com cache para evitar re-renders desnecessários
       const chatsChanged = !lastChatsRef.current || 
-        JSON.stringify(lastChatsRef.current.map(c => ({ id: c.ChatId || c._id, lastMsg: c.lastMessage?.mensagemId || c.lastMessage?._id, unread: c.hasUnread }))) !== 
-        JSON.stringify(annotated.map(c => ({ id: c.ChatId || c._id, lastMsg: c.lastMessage?.mensagemId || c.lastMessage?._id, unread: c.hasUnread })));
+        JSON.stringify(lastChatsRef.current.map(c => ({ 
+          id: c.ChatId || c._id, 
+          lastMsg: c.lastMessage?.mensagemId || c.lastMessage?._id, 
+          unread: c.hasUnread,
+          typing: c.typingStatus,
+          online: c.membros.map(m => m.isOnline)
+        }))) !== 
+        JSON.stringify(annotated.map(c => ({ 
+          id: c.ChatId || c._id, 
+          lastMsg: c.lastMessage?.mensagemId || c.lastMessage?._id, 
+          unread: c.hasUnread,
+          typing: c.typingStatus,
+          online: c.membros.map(m => m.isOnline)
+        })));
 
       if (chatsChanged) {
         lastChatsRef.current = annotated;
         setChats(annotated);
         
+        // Atualizar cache de quem está digitando por chat
+        const newTypingUsers = {};
+        annotated.forEach(c => {
+          if (c.typingStatus && c.typingStatus.length > 0) {
+            newTypingUsers[c.ChatId] = c.typingStatus
+              .filter(t => String(t.userId) !== String(userId))
+              .map(t => t.username || 'Alguém');
+          }
+        });
+        setTypingUsers(newTypingUsers);
+
         // Buscar dados de usuários para chats individuais
         fetchUsersDataForIndividualChats(annotated);
       }
@@ -175,11 +251,21 @@ const useChatOptimized = (user, selectedChatId) => {
       // Comparar com cache
       const messagesChanged = !lastMessagesRef.current || 
         JSON.stringify(lastMessagesRef.current.map(m => ({ id: m.mensagemId || m._id || m.id, content: m.conteudo || m.text || m.mensagem, time: m.publicadoEm || m.createdAt || m.publicadoEm }))) !== 
-        JSON.stringify(messages.map(m => ({ id: m.mensagemId || m._id || m.id, content: m.conteudo || m.text || m.mensagem, time: m.publicadoEm || m.createdAt || m.publicadoEm })));
+        JSON.stringify(messages.map(m => ({ id: m.mensagemId || m._id || m.id, content: m.conteudo || m.text || m.mensagem, time: m.publicadoEm || m.createdAt || m.publicadoEm }))) ||
+        JSON.stringify(chatData?.typingStatus) !== JSON.stringify(typingUsers[chatId]);
 
       if (messagesChanged) {
         lastMessagesRef.current = messages;
         setMessages(messages);
+
+        // Atualizar quem está digitando para este chat específico
+        if (chatData?.typingStatus) {
+          const otherTyping = chatData.typingStatus
+            .filter(t => String(t.userId) !== String(userId))
+            .map(t => t.username || 'Alguém');
+          
+          setTypingUsers(prev => ({ ...prev, [chatId]: otherTyping }));
+        }
 
         // Marcar mensagens como vistas (apenas as não vistas)
         const unseen = messages.filter(m => {
@@ -321,6 +407,13 @@ const useChatOptimized = (user, selectedChatId) => {
           
           // Atualizar chats para refletir última mensagem
           fetchChats();
+        } else if (data.type === 'typing_status') {
+          if (data.chatId === selectedChatId) {
+            const otherTyping = data.typingStatus
+              .filter(t => String(t.userId) !== String(userId))
+              .map(t => t.username || 'Alguém');
+            setTypingUsers(prev => ({ ...prev, [data.chatId]: otherTyping }));
+          }
         } else if (data.type === 'message_update' && data.chatId === selectedChatId) {
           const updatedId = String(data.message?.mensagemId || data.message?._id || data.message?.id || '');
           if (!updatedId) return;
@@ -470,7 +563,9 @@ const useChatOptimized = (user, selectedChatId) => {
       message: webSocketManager.getConnectionState(getWebSocketUrl())
     },
     isConnected: webSocketManager.isConnected(getWebSocketUrl()),
-      isPolling: !webSocketManager.isConnected(getWebSocketUrl())
+    isPolling: !webSocketManager.isConnected(getWebSocketUrl()),
+    typingUsers,
+    handleTyping
   };
 };
 

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import User from "../models/User.js";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import { chatWebSocketServer } from '../index.js';
+import mongoose from "mongoose";
 
 // * pegar todos os chats do usuário (query: ?userId=xxx)
 // GET /pegarChats
@@ -14,6 +15,49 @@ import { chatWebSocketServer } from '../index.js';
 // adicionarUsuario (POST /adicionar-usuario-chat)
 // removerUsuario (POST /remover-usuario-chat)
 // se após remoção não sobrar membros, remove o chat completo
+
+export const atualizarStatusDigitando = async (req, res) => {
+  const { ChatId, userId, isTyping, username } = req.body;
+  if (!ChatId || !userId) return res.status(400).json({ error: 'ChatId e userId são obrigatórios' });
+
+  try {
+    const chat = await Chat.findOne({ ChatId });
+    if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
+
+    // Limpar status antigos (mais de 10 segundos)
+    const tenSecondsAgo = new Date(Date.now() - 10000);
+    chat.typingStatus = (chat.typingStatus || []).filter(t => t.startedAt > tenSecondsAgo);
+
+    if (isTyping) {
+      // Adicionar ou atualizar
+      const index = chat.typingStatus.findIndex(t => String(t.userId) === String(userId));
+      if (index !== -1) {
+        chat.typingStatus[index].startedAt = getBrazilDate();
+      } else {
+        chat.typingStatus.push({ userId, username, startedAt: getBrazilDate() });
+      }
+    } else {
+      // Remover
+      chat.typingStatus = chat.typingStatus.filter(t => String(t.userId) !== String(userId));
+    }
+
+    await chat.save();
+
+    // Notificar via WebSocket se disponível
+    if (chatWebSocketServer && typeof chatWebSocketServer.broadcastToChat === 'function') {
+      chatWebSocketServer.broadcastToChat(ChatId, {
+        type: 'typing_status',
+        chatId: ChatId,
+        typingStatus: chat.typingStatus
+      });
+    }
+
+    return res.status(200).json({ success: true, typingStatus: chat.typingStatus });
+  } catch (error) {
+    console.error('atualizarStatusDigitando error:', error);
+    return res.status(500).json({ error: 'Erro no servidor' });
+  }
+};
 
 // * Iniciar chat por userId - busca usuário e cria chat 1:1
 // POST /iniciar-chat-por-userid
@@ -108,22 +152,45 @@ export const pegarChats = async (req, res) => {
 
   try {
     const chats = await Chat.find({ 'membros.userId': String(userId) })
-      .select('ChatName ChatId ChatDesc criadoEm membros mensagens pairId')
+      .select('ChatName ChatId ChatDesc criadoEm membros mensagens pairId typingStatus')
       .sort({ criadoEm: -1 })
       .lean();
 
-    const chatsShort = chats.map(c => ({
-      ChatId: c.ChatId,
-      ChatName: c.ChatName,
-      ChatDesc: c.ChatDesc,
-      criadoEm: c.criadoEm,
-      membros: c.membros,
-      userIds: (c.membros || []).map(m => String(m.userId)),
-      lastMessage: c.mensagens && c.mensagens.length ? c.mensagens[c.mensagens.length - 1] : null,
-      messagesCount: c.mensagens ? c.mensagens.length : 0,
-      pairId: c.pairId, // Adicionar pairId para identificar chats individuais
-      isIndividualChat: !!c.pairId // Flag para identificar facilmente chats individuais
-    }));
+    // Buscar status online de todos os membros envolvidos nos chats
+    const allMemberIds = [...new Set(chats.flatMap(c => c.membros.map(m => m.userId)))];
+    const onlineUsers = await User.find({ 
+      _id: { $in: allMemberIds.filter(id => mongoose.Types.ObjectId.isValid(id)) } 
+    }).select('_id isOnline lastActive').lean();
+
+    const onlineStatusMap = {};
+    onlineUsers.forEach(u => {
+      // Considerar online se isOnline é true E lastActive foi há menos de 1 minuto
+      const oneMinuteAgo = new Date(Date.now() - 60000);
+      onlineStatusMap[String(u._id)] = u.isOnline && u.lastActive > oneMinuteAgo;
+    });
+
+    const chatsShort = chats.map(c => {
+      // Limpar status de digitação antigos no retorno
+      const tenSecondsAgo = new Date(Date.now() - 10000);
+      const activeTyping = (c.typingStatus || []).filter(t => t.startedAt > tenSecondsAgo);
+
+      return {
+        ChatId: c.ChatId,
+        ChatName: c.ChatName,
+        ChatDesc: c.ChatDesc,
+        criadoEm: c.criadoEm,
+        membros: c.membros.map(m => ({
+          ...m,
+          isOnline: onlineStatusMap[String(m.userId)] || false
+        })),
+        userIds: (c.membros || []).map(m => String(m.userId)),
+        lastMessage: c.mensagens && c.mensagens.length ? c.mensagens[c.mensagens.length - 1] : null,
+        messagesCount: c.mensagens ? c.mensagens.length : 0,
+        pairId: c.pairId,
+        isIndividualChat: !!c.pairId,
+        typingStatus: activeTyping
+      };
+    });
 
     return res.status(200).json(chatsShort);
   } catch (error) {
@@ -154,10 +221,31 @@ export const pegarChat = async (req, res) => {
       const chat = await Chat.findOne({ ChatId: String(ChatId) }).lean();
       if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
 
+      // Buscar status online dos membros
+      const memberIds = (chat.membros || []).map(m => m.userId);
+      const onlineUsers = await User.find({ 
+        _id: { $in: memberIds.filter(id => mongoose.Types.ObjectId.isValid(id)) } 
+      }).select('_id isOnline lastActive').lean();
+
+      const onlineStatusMap = {};
+      onlineUsers.forEach(u => {
+        const oneMinuteAgo = new Date(Date.now() - 60000);
+        onlineStatusMap[String(u._id)] = u.isOnline && u.lastActive > oneMinuteAgo;
+      });
+
+      // Limpar status de digitação antigos
+      const tenSecondsAgo = new Date(Date.now() - 10000);
+      const activeTyping = (chat.typingStatus || []).filter(t => t.startedAt > tenSecondsAgo);
+
       const userIds = (chat.membros || []).map(m => String(m.userId));
       const chatWithFlags = {
         ...chat,
-        isIndividualChat: !!chat.pairId
+        isIndividualChat: !!chat.pairId,
+        membros: chat.membros.map(m => ({
+          ...m,
+          isOnline: onlineStatusMap[String(m.userId)] || false
+        })),
+        typingStatus: activeTyping
       };
       return res.status(200).json({ chat: chatWithFlags, userIds });
     }

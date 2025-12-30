@@ -148,6 +148,21 @@ Retorne apenas o JSON.`;
 // =======================
 // LOGIN
 // =======================
+export const heartbeat = async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ success: false });
+
+  try {
+    await User.findByIdAndUpdate(userId, {
+      isOnline: true,
+      lastActive: getBrazilDate()
+    });
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ success: false });
+  }
+};
+
 export const login = async (req, res) => {
   try {
     const {

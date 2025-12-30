@@ -79,9 +79,15 @@ router.get('/users/basic-no-auth', async (req, res) => {
         { userId: { $in: userIdArray } },
         { _id: { $in: userIdArray.filter(id => mongoose.Types.ObjectId.isValid(id)) } }
       ]
-    }, '_id userId username avatar email');
+    }, '_id userId username avatar email isOnline lastActive').lean();
 
-    res.json(users);
+    const oneMinuteAgo = new Date(Date.now() - 60000);
+    const usersWithStatus = users.map(u => ({
+      ...u,
+      isOnline: u.isOnline && u.lastActive > oneMinuteAgo
+    }));
+
+    res.json(usersWithStatus);
   } catch (error) {
     console.error('Erro ao buscar dados básicos de usuários:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
