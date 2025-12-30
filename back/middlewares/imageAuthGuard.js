@@ -19,7 +19,7 @@ export const imageAuthGuard = async (req, res, next) => {
     if (user?.ban?.banned) {
       return res.status(403).json({ success: false, message: 'Usuário banido' })
     }
-    if (user?.planInfos?.status === 'inativo') {
+    if (user?.planInfos?.status === 'inativo' && user?.planInfos?.planType !== 'free') {
       return res.status(403).json({ success: false, message: 'Plano inativo' })
     }
 
