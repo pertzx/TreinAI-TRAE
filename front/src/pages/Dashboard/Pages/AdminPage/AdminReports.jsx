@@ -49,7 +49,7 @@ const AdminReports = ({ tema, user }) => {
   const fetchDashboard = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await api.post('/admin/ai-dashboard', { adminId: user._id })
+      const res = await api.get('/admin/ai-dashboard', { params: { adminId: user._id } })
       if (res.data?.success) {
         setDashboardData(res.data.data)
         setLastUpdate(new Date())

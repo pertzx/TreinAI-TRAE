@@ -4,7 +4,7 @@ import { verificarToken } from '../middlewares/authMiddleware.js';
 import { adminRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { adminSecurityHeaders } from '../middlewares/securityHeaders.js';
 import { getLocaisAdmin, updateLocalStatus, deleteLocal, editLocal } from '../controllers/AdminLocalController.js';
-import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError, criarRanking, editarRanking, deletarRanking, getRankings } from '../controllers/AdminController.js';
+import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError, criarRanking, editarRanking, deletarRanking, getRankings, getDetailedAIAnalytics } from '../controllers/AdminController.js';
 import {
   getCacheDashboard,
   performCacheMaintenance,
@@ -31,6 +31,7 @@ router.post('/edit-local', adminRateLimit, adminSecurityHeaders, editLocal) // b
 router.get('/ai-dashboard', adminRateLimit, adminSecurityHeaders, getAIDashboard) // query: adminId (obrigatório)
 router.post('/cache-management', adminRateLimit, adminSecurityHeaders, manageCacheRedis) // body: adminId, action, pattern (opcional)
 router.post('/api-performance', adminRateLimit, adminSecurityHeaders, getAPIPerformanceMetrics) // body: adminId, timeRange (opcional)
+router.post('/detailed-analytics', adminRateLimit, adminSecurityHeaders, getDetailedAIAnalytics) // body: adminId, timeRange (opcional)
 router.post('/error-logs', adminRateLimit, adminSecurityHeaders, getAPIErrorLogs)
 router.post('/resolve-error', adminRateLimit, adminSecurityHeaders, resolveAPIError)
 
