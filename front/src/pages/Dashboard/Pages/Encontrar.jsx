@@ -4,117 +4,29 @@ import api from '../../../Api'; // sua instância axios
 import locationsData from '../../../data/locations.json';
 import { buildImageUrl } from '../../../utils/imageUtils';
 
-// Componente de Loading com IA
-const AILoadingAnimation = ({ isVisible, message = "Sua IA está procurando os melhores resultados..." }) => {
-  const [dots, setDots] = useState('');
-  const [searchAngle, setSearchAngle] = useState(0);
-  
-  useEffect(() => {
-    if (!isVisible) return;
-    
-    const dotsInterval = setInterval(() => {
-      setDots(prev => prev.length >= 3 ? '' : prev + '.');
-    }, 500);
-    
-    const searchInterval = setInterval(() => {
-      setSearchAngle(prev => (prev + 30) % 360);
-    }, 200);
-    
-    return () => {
-      clearInterval(dotsInterval);
-      clearInterval(searchInterval);
-    };
-  }, [isVisible]);
-
+// Componente de Loading com IA - Minimalista
+const AILoadingAnimation = ({ isVisible }) => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
-      <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 max-w-md mx-4 border border-white/20 shadow-2xl">
-        <div className="flex flex-col items-center space-y-6">
-          {/* Animação de busca com logo TreinAI */}
-          <div className="relative w-24 h-24">
-            {/* Ondas de radar/busca */}
-            <div className="absolute inset-0 rounded-full border-2 border-blue-400/30 animate-ping"></div>
-            <div className="absolute inset-2 rounded-full border-2 border-cyan-400/40 animate-ping" style={{ animationDelay: '0.5s' }}></div>
-            <div className="absolute inset-4 rounded-full border-2 border-purple-400/50 animate-ping" style={{ animationDelay: '1s' }}></div>
-            
-            {/* Logo TreinAI no centro */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative w-12 h-12 bg-blue-600 rounded-lg shadow-lg">
-                {/* Logo icon baseada no logo-icon.svg */}
-                <div className="absolute inset-2 bg-white rounded-sm"></div>
-                
-                {/* Linha de busca rotativa */}
-                <div 
-                  className="absolute inset-0 flex items-center justify-center"
-                  style={{ transform: `rotate(${searchAngle}deg)` }}
-                >
-                  <div className="w-8 h-0.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent"></div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Pontos de busca orbitando */}
-            <div className="absolute inset-0">
-              <div className="absolute w-2 h-2 bg-blue-400 rounded-full animate-pulse" 
-                   style={{ 
-                     top: '10%', 
-                     left: '50%', 
-                     transform: `rotate(${searchAngle}deg) translateX(30px) rotate(-${searchAngle}deg)`,
-                     transformOrigin: '0 0'
-                   }}>
-              </div>
-              <div className="absolute w-2 h-2 bg-cyan-400 rounded-full animate-pulse" 
-                   style={{ 
-                     top: '50%', 
-                     right: '10%', 
-                     transform: `rotate(${searchAngle + 120}deg) translateX(30px) rotate(-${searchAngle + 120}deg)`,
-                     transformOrigin: '0 0'
-                   }}>
-              </div>
-              <div className="absolute w-2 h-2 bg-purple-400 rounded-full animate-pulse" 
-                   style={{ 
-                     bottom: '10%', 
-                     left: '30%', 
-                     transform: `rotate(${searchAngle + 240}deg) translateX(30px) rotate(-${searchAngle + 240}deg)`,
-                     transformOrigin: '0 0'
-                   }}>
-              </div>
-            </div>
+    <div className="fixed inset-0 bg-gray-900/95 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300">
+      <div className="flex flex-col items-center">
+        {/* Logo com Pulso Suave */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full animate-pulse"></div>
+          <div className="relative w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
+            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
-          
-          {/* Texto animado com ênfase em busca */}
-          <div className="text-center">
-            <h3 className="text-xl font-semibold text-white mb-2 flex items-center justify-center gap-2">
-              <span className="animate-pulse">🔍</span>
-              TreinAI Procurando
-              <span className="animate-pulse">🔍</span>
-            </h3>
-            <p className="text-white/80 text-sm">
-              {message}{dots}
-            </p>
-          </div>
-          
-          {/* Barra de progresso com efeito de busca */}
-          <div className="w-full bg-white/20 rounded-full h-3 overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-cyan-400 to-purple-600 rounded-full animate-pulse"></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent rounded-full animate-ping"></div>
-          </div>
-          
-          {/* Indicadores de busca ativa */}
-          <div className="flex items-center gap-2 text-white/60 text-xs">
-            <div className="flex gap-1">
-              <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce"></div>
-              <div className="w-1 h-1 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-            </div>
-            <span>Analisando dados</span>
-            <div className="flex gap-1">
-              <div className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
-              <div className="w-1 h-1 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-              <div className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.5s' }}></div>
-            </div>
+        </div>
+        
+        <div className="flex flex-col items-center gap-2">
+          <h3 className="text-xl font-bold text-white tracking-wide">TreinAI</h3>
+          <div className="flex gap-1">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
           </div>
         </div>
       </div>
@@ -546,7 +458,7 @@ export default function Encontrar({ user, tema = 'dark' }) {
     const timer = setTimeout(() => {
       setShowInitialLoading(false);
       setIsPageLoaded(true);
-    }, 3500); // 3.5 segundos de animação
+    }, 800); // Reduzido para 0.8s
     
     return () => clearTimeout(timer);
   }, []); // Executa apenas na montagem do componente
@@ -745,55 +657,123 @@ export default function Encontrar({ user, tema = 'dark' }) {
         {/* Profissionais */}
         {tab === TABS.PROFISSIONAIS && (
           <section>
-            <div className="flex items-center justify-between flex-wrap mb-3 gap-4">
-              <h2 className="text-xl font-bold">Profissionais</h2>
+            <div className="flex items-center justify-between flex-wrap mb-6 gap-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500">
+                  Profissionais em Destaque
+                </span>
+                <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{profTotal || 0} encontrados</span>
+              </h2>
               <div className="flex items-center gap-2">
-                <select value={especialidade} onChange={(e) => setEspecialidade(e.target.value)} className={`px-3 py-2 rounded-lg ${themeClass(temaValue, 'border', 'border-gray-600')}`}>
-                  <option className={`text-black`} value="">Todas as especialidades</option>
-                  <option className={`text-black`} value="nutricionista">Nutricionista</option>
-                  <option className={`text-black`} value="personal-trainner">Personal Trainer</option>
-                  <option className={`text-black`} value="fisioterapeuta">Fisioterapeuta</option>
+                <select 
+                  value={especialidade} 
+                  onChange={(e) => setEspecialidade(e.target.value)} 
+                  className={`px-4 py-2.5 rounded-xl transition-all duration-200 focus:ring-2 focus:ring-blue-500 outline-none ${themeClass(temaValue, 'bg-white border border-gray-200', 'bg-gray-800 border border-gray-700 text-white')}`}
+                >
+                  <option className="text-black" value="">Todas as especialidades</option>
+                  <option className="text-black" value="nutricionista">🥗 Nutricionista</option>
+                  <option className="text-black" value="personal-trainner">💪 Personal Trainer</option>
+                  <option className="text-black" value="fisioterapeuta">🩺 Fisioterapeuta</option>
                 </select>
               </div>
             </div>
 
-            {loadingProf ? <div>Carregando profissionais...</div> : (
+            {loadingProf ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} className={`h-64 rounded-2xl ${themeClass(temaValue, 'bg-gray-200', 'bg-gray-800')}`}></div>
+                ))}
+              </div>
+            ) : (
               <div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {profissionais.length ? profissionais.map(p => (
-                    <div key={p.id || p.name} style={{
-                      backgroundImage: `url(${buildImageUrl(p.imageUrl)})`,
-                      backgroundPosition: 'center',
-                      backgroundSize: 'cover',
-                      backgroundRepeat: 'no-repeat'
-                    }} className={`rounded-xl ${themeClass(temaValue, 'bg-white', 'bg-gray-800')} shadow-sm border`}>
-                      <div className="p-2 rounded-xl flex bg-gradient-to-b from-black/80 to-black/0 flex-wrap items-start gap-4">
-                        <div className="w-16 h-16 rounded-full overflow-hidden border flex-shrink-0">
-                          {p.imageUrl ? (
-                  <img src={buildImageUrl(p.imageUrl)} alt={p.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-200 text-black">{(p.name || '—')[0]}</div>
+                    <div 
+                      key={p.id || p.name} 
+                      className={`group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${themeClass(temaValue, 'bg-white shadow-lg border-gray-100', 'bg-gray-800 shadow-xl border-gray-700')} border`}
+                    >
+                      {/* Capa / Imagem de Fundo com Overlay */}
+                      <div className="h-32 bg-gradient-to-r from-blue-600 to-purple-600 relative">
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+                        {p.imageUrl && (
+                          <div 
+                            className="absolute inset-0 bg-cover bg-center opacity-50 mix-blend-overlay"
+                            style={{ backgroundImage: `url(${buildImageUrl(p.imageUrl)})` }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Conteúdo do Card */}
+                      <div className="px-6 pb-6 relative">
+                        {/* Avatar */}
+                        <div className="-mt-12 mb-4 flex justify-between items-end">
+                          <div className="w-24 h-24 rounded-2xl border-4 border-white dark:border-gray-800 overflow-hidden shadow-lg bg-white relative z-10">
+                            {p.imageUrl ? (
+                              <img src={buildImageUrl(p.imageUrl)} alt={p.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-2xl font-bold text-gray-400">
+                                {(p.name || 'U')[0]}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="mb-2">
+                             <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
+                               p.title?.toLowerCase().includes('nutri') ? 'bg-green-100 text-green-700' :
+                               p.title?.toLowerCase().includes('personal') ? 'bg-orange-100 text-orange-700' :
+                               'bg-blue-100 text-blue-700'
+                             }`}>
+                               {p.title?.split(' ')[0] || 'Pro'}
+                             </span>
+                          </div>
+                        </div>
+
+                        {/* Informações */}
+                        <div className="space-y-3">
+                          <div>
+                            <h3 className={`text-xl font-bold truncate ${themeClass(temaValue, 'text-gray-900', 'text-white')}`}>
+                              {p.name}
+                            </h3>
+                            <p className={`text-sm font-medium ${themeClass(temaValue, 'text-gray-500', 'text-gray-400')}`}>
+                              {p.title}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span className="truncate">{[p.cidade, p.estado].filter(Boolean).join(', ') || 'Localização não informada'}</span>
+                          </div>
+
+                          {p.biografia && (
+                            <p className={`text-sm line-clamp-2 ${themeClass(temaValue, 'text-gray-600', 'text-gray-300')}`}>
+                              {p.biografia}
+                            </p>
                           )}
-                        </div>
 
-                        <div className="flex-1">
-                          <div className="font-semibold text-white">{p.name}</div>
-                          <div className="font-normal text-white">{p.biografia}</div>
-                          <div className="text-sm text-gray-200 uppercase">{p.title}</div>
-                          <div className="text-xs text-gray-100 mt-2 uppercase">{p.cidade} — {p.estado} — {p.country || '—'}</div>
-                        </div>
-
-                        <div className="flex flex-col gap-2 items-end">
                           <button
                             onClick={() => goToSolicitacao(p)}
-                            className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm"
+                            className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold shadow-lg shadow-blue-500/30 transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2 group-hover:shadow-blue-500/50"
                           >
-                            Ver Perfil / Solicitar
+                            <span>Ver Perfil Completo</span>
+                            <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
                           </button>
                         </div>
                       </div>
                     </div>
-                  )) : <div className="text-sm text-gray-400">Nenhum profissional encontrado com esses filtros.</div>}
+                  )) : (
+                    <div className="col-span-full py-12 text-center">
+                      <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-4xl">🕵️</span>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-600">Nenhum profissional encontrado</h3>
+                      <p className="text-gray-500 mt-2">Tente ajustar seus filtros de busca</p>
+                    </div>
+                  )}
                 </div>
 
                 <Pagination
@@ -818,53 +798,118 @@ export default function Encontrar({ user, tema = 'dark' }) {
         {/* Academias / Locais */}
         {tab === TABS.ACADEMIAS && (
           <section>
-            <div className="mb-4 flex items-center flex-wrap justify-between gap-4">
-              <h2 className="text-xl font-bold">Locais</h2>
+            <div className="flex items-center justify-between flex-wrap mb-6 gap-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500">
+                  Locais Próximos
+                </span>
+                <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{locaisTotal || 0} locais</span>
+              </h2>
 
-              <div className="flex items-center flex-wrap sm:flex-nowrap gap-2">
-                <label className="text-sm">Tipo:</label>
-                <select value={localTypeFilter} onChange={(e) => setLocalTypeFilter(e.target.value)} className="px-3 py-2 rounded-lg w-full border">
-                  {LOCAL_TYPES.map(t => <option key={t.value} className='text-black' value={t.value}>{t.label}</option>)}
-                </select>
-
-                <button onClick={() => fetchLocais({ localType: localTypeFilter })} className="px-3 py-2 rounded-lg bg-blue-600 text-white">Buscar</button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                  <select 
+                    value={localTypeFilter} 
+                    onChange={(e) => setLocalTypeFilter(e.target.value)} 
+                    className={`w-full px-4 py-2.5 rounded-xl appearance-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 outline-none ${themeClass(temaValue, 'bg-white border border-gray-200', 'bg-gray-800 border border-gray-700 text-white')}`}
+                  >
+                    {LOCAL_TYPES.map(t => <option key={t.value} className='text-black' value={t.value}>{t.label}</option>)}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={() => fetchLocais({ localType: localTypeFilter })} 
+                  className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-lg shadow-blue-500/20"
+                >
+                  Buscar
+                </button>
               </div>
             </div>
 
-            {loadingLocais ? <div>Carregando locais...</div> : (
+            {loadingLocais ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+                {[1,2,3].map(i => (
+                  <div key={i} className={`h-80 rounded-2xl ${themeClass(temaValue, 'bg-gray-200', 'bg-gray-800')}`}></div>
+                ))}
+              </div>
+            ) : (
               <div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {(locais && locais.length) ? locais.map(l => (
                     <div
                       key={l.id || l.localName}
-                      style={{
-                        backgroundImage: `url(${buildImageUrl(l.imageUrl)})`,
-                        backgroundPosition: 'center',
-                        backgroundSize: 'cover',
-                        backgroundRepeat: 'no-repeat',
-                      }}
-                      className={`rounded-2xl shadow-sm border ring ring-blue-600 border-gray-800 text-white`}
+                      className={`group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${themeClass(temaValue, 'bg-white shadow-lg border-gray-100', 'bg-gray-800 shadow-xl border-gray-700')} border h-full flex flex-col`}
                     >
-                      <div className="flex flex-wrap p-4 items-start bg-gradient-to-b rounded-2xl from-black/80 to-black/0 gap-4">
-                        <div className="w-16 h-16 rounded-md overflow-hidden border flex-shrink-0 bg-gray-200">
-                          {l.imageUrl ? <img src={buildImageUrl(l.imageUrl)} alt={l.localName} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-black">LK</div>}
+                      {/* Imagem do Local */}
+                      <div className="relative h-48 overflow-hidden">
+                        <div className="absolute top-3 right-3 z-10">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/90 text-gray-800 shadow-lg backdrop-blur-sm">
+                            {(LOCAL_TYPES.find(t => t.value === l.localType)?.label) || l.localType}
+                          </span>
+                        </div>
+                        
+                        {l.imageUrl ? (
+                          <img 
+                            src={buildImageUrl(l.imageUrl)} 
+                            alt={l.localName} 
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                          />
+                        ) : (
+                          <div className={`w-full h-full flex items-center justify-center ${themeClass(temaValue, 'bg-gray-100', 'bg-gray-700')}`}>
+                            <span className="text-4xl">🏢</span>
+                          </div>
+                        )}
+                        
+                        {/* Gradiente Overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                      </div>
+
+                      {/* Conteúdo */}
+                      <div className="p-5 flex-1 flex flex-col">
+                        <div className="mb-4">
+                          <h3 className={`text-xl font-bold mb-1 ${themeClass(temaValue, 'text-gray-900', 'text-white')}`}>
+                            {l.localName}
+                          </h3>
+                          <div className="flex items-center gap-1 text-sm text-gray-500">
+                            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span className="truncate">{[l.cidade, l.estado, l.country].filter(Boolean).join(', ') || 'Endereço não disponível'}</span>
+                          </div>
                         </div>
 
-                        <div className="flex-1">
-                          <div className="font-semibold">{l.localName}</div>
-                          <div className="text-sm contrast-100">{(LOCAL_TYPES.find(t => t.value === l.localType)?.label) || l.localType}</div>
-                          <div className="text-xs contrast-50 mt-2">{l.cidade} — {l.estado} — {l.country || '—'}</div>
-                          {l.localDescricao ? <div className="text-xs mt-2 contrast-100">{l.localDescricao}</div> : null}
-                        </div>
+                        {l.localDescricao && (
+                          <p className={`text-sm mb-4 line-clamp-2 flex-1 ${themeClass(temaValue, 'text-gray-600', 'text-gray-300')}`}>
+                            {l.localDescricao}
+                          </p>
+                        )}
 
-                        <div className="flex flex-col gap-2">
-                          <button className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm" onClick={() => {
-                            window.open(l.link, '_blank', 'noopener,noreferrer');
-                          }}>Saber mais..</button>
-                        </div>
+                        <button 
+                          onClick={() => window.open(l.link, '_blank', 'noopener,noreferrer')}
+                          className="w-full mt-auto py-2.5 rounded-xl border-2 border-blue-600 text-blue-600 font-semibold hover:bg-blue-600 hover:text-white transition-all duration-300 flex items-center justify-center gap-2 group/btn"
+                        >
+                          <span>Visitar Site / Perfil</span>
+                          <svg className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
-                  )) : <div className="text-sm text-gray-400">Nenhum local encontrado com esses filtros.</div>}
+                  )) : (
+                    <div className="col-span-full py-12 text-center">
+                      <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-4xl">🏙️</span>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-600">Nenhum local encontrado</h3>
+                      <p className="text-gray-500 mt-2">Tente buscar em outra região ou mude o tipo</p>
+                    </div>
+                  )}
                 </div>
 
                 <Pagination

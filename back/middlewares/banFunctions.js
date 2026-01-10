@@ -157,6 +157,16 @@ export const verifyBan = async (req, res, next) => {
         const tokenEmail = decoded?.email || decoded?.userEmail || '';
         const tokenId = String(decoded?.userId || decoded?.id || decoded?._id || '');
 
+        // Define o usuário autenticado na requisição para uso nos controllers
+        req.authUser = { email: tokenEmail || null, userId: tokenId || null };
+
+        // Em requisições GET, parâmetros como userId ou profissionalId são usados para busca/filtro.
+        // Não devemos considerar isso como exploit se não bater com o token.
+        // A autorização de acesso ao dado deve ser feita no controller.
+        if (req.method === 'GET') {
+            return next();
+        }
+
         const norm = (v) => String(v || '').trim().toLowerCase();
 
         // Etapa 1: match padrão usando userEmail/userId do body (exige presença para considerar match)
@@ -167,7 +177,6 @@ export const verifyBan = async (req, res, next) => {
 
         if (emailMatch || idMatch) {
             // Sucesso na etapa 1
-            req.authUser = { email: tokenEmail || null, userId: tokenId || null };
             console.info('[verifyBan] Validação concluída na etapa 1 (body x token)');
             return next();
         }
@@ -204,7 +213,6 @@ export const verifyBan = async (req, res, next) => {
         console.info(`[verifyBan] Resultado etapa 2 - professionalMatch=${professionalMatch}`);
 
         if (professionalMatch) {
-            req.authUser = { email: tokenEmail || null, userId: tokenId || null };
             console.info('[verifyBan] Validação concluída na etapa 2 (profissionalId x token)');
             return next();
         }
