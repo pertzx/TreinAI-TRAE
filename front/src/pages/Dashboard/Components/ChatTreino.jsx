@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { renderToStaticMarkup } from 'react-dom/server';
 import { motion, AnimatePresence } from "framer-motion";
 import BuscarImagem from "../../../components/BuscarImagens";
 import { FaLocationArrow } from "react-icons/fa";
+import { FiMaximize2, FiMinimize2 } from "react-icons/fi";
 import AdBanner from "./AdBanner";
 import { useNavigate } from "react-router-dom";
 import api from "../../../Api";
@@ -144,6 +146,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
   // estado
   const [mensagens, setMensagens] = useState([]);
   const [historico, setHistorico] = useState([]);
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const [treinoIniciado, setTreinoIniciado] = useState(false);
   const [treinoIndex, setTreinoIndex] = useState(() => computeNextIndex(treinosDisponiveis, user?.historico || []));
   const [indiceAtual, setIndiceAtual] = useState(0);
@@ -756,8 +759,28 @@ const ChatTreino = ({ tema = "dark", user }) => {
   const currentEx = treinoAtual?.exercicios?.[indiceAtual] || exerciciosMock[0];
 
   // RENDER
-  return (
-    <div className={`flex w-full flex-col rounded-2xl shadow-md transition-colors duration-300 p-4 ${isDark ? "bg-gray-900 text-white" : "bg-white text-black"}`}>
+  const content = (
+    <motion.div
+      layoutId={isFullScreen ? "chat-fullscreen" : undefined}
+      initial={isFullScreen ? { opacity: 0, scale: 0.95 } : { opacity: 1, scale: 1 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className={`flex flex-col transition-all duration-300 ${isDark ? "bg-gray-900 text-white" : "bg-white text-black"} ${isFullScreen ? "fixed inset-0 z-[9990] h-screen w-screen p-4 sm:p-6 rounded-none overflow-hidden" : "w-full rounded-2xl shadow-md p-4"}`}
+    >
+      <div className={`absolute top-4 right-4 z-10 ${isFullScreen ? "bg-black/20 p-1 rounded-full backdrop-blur-sm" : ""}`}>
+        <button 
+          onClick={() => setIsFullScreen(!isFullScreen)} 
+          className={`p-2 rounded-full transition-colors ${isDark ? "hover:bg-gray-700/50 text-gray-300" : "hover:bg-gray-200/50 text-gray-600"}`}
+          title={isFullScreen ? "Minimizar" : "Tela Cheia"}
+        >
+          {isFullScreen ? <FiMinimize2 size={24} /> : <FiMaximize2 size={20} />}
+        </button>
+      </div>
+
+      {/* Conteúdo centralizado em tela cheia */}
+      <div className={`flex flex-col flex-1 w-full ${isFullScreen ? "max-w-5xl mx-auto h-full" : ""}`}>
+
       {/* Antes de iniciar: se jaFezHoje === true mostra tela informativa */}
       {!treinoIniciado && jaFezHoje ? (
         <div className="flex flex-col items-center justify-center text-center p-6 gap-4">
@@ -824,10 +847,10 @@ const ChatTreino = ({ tema = "dark", user }) => {
           </div>
 
           {/* mensagens (chat + exibição) */}
-          <div ref={mensagensContainerRef} className="flex flex-col gap-3 max-h-[80vh] overflow-y-auto mb-4 px-1">
+          <div ref={mensagensContainerRef} className={`flex flex-col gap-3 overflow-y-auto mb-4 px-1 ${isFullScreen ? "flex-1 px-4" : "max-h-[80vh]"}`}>
             <AnimatePresence>
               {mensagens.map((msg) => (
-                <motion.div key={msg.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }} className={`p-2 sm:p-3 rounded-2xl shadow-md ${msg.tipo === "bot" ? (isDark ? "bg-gray-800 text-gray-100 rounded-bl-none self-start" : "bg-gray-100 text-black rounded-bl-none self-start") : "bg-blue-600 text-white rounded-br-none self-end"} max-w-[90%] sm:max-w-[85%] md:max-w-[80%] text-xs sm:text-sm`}>
+                <motion.div key={msg.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }} className={`p-2 sm:p-3 rounded-2xl shadow-md ${msg.tipo === "bot" ? (isDark ? "bg-gray-800 text-gray-100 rounded-bl-none self-start" : "bg-gray-100 text-black rounded-bl-none self-start") : "bg-blue-600 text-white rounded-br-none self-end"} ${isFullScreen ? "max-w-[70%] text-base sm:text-lg p-4" : "max-w-[90%] sm:max-w-[85%] md:max-w-[80%] text-xs sm:text-sm"}`}>
                   {msg.conteudo}
                 </motion.div>
               ))}
@@ -836,23 +859,23 @@ const ChatTreino = ({ tema = "dark", user }) => {
           </div>
 
           {/* controles específicos do exercício */}
-          <div className="p-2 sm:p-3 rounded-xl mb-2 bg-gray-50/5">
+          <div className={`p-2 sm:p-3 rounded-xl mb-2 bg-gray-50/5 ${isFullScreen ? "p-6" : ""}`}>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
-              <div className="text-sm font-medium truncate flex-1">{currentEx.nome}</div>
+              <div className={`font-medium truncate flex-1 ${isFullScreen ? "text-xl" : "text-sm"}`}>{currentEx.nome}</div>
               <div className="flex items-center gap-2 flex-wrap">
                 <div className={`px-2 sm:px-3 py-1 rounded-full text-xs ${isDark ? "bg-gray-700 text-gray-100" : "bg-gray-200 text-gray-800"}`}>Sets: {setsRequired}</div>
                 <div className="text-xs sm:text-sm text-gray-400">Set atual: {Math.min(currentSetIndex + 1, setsRequired)}</div>
-                <div className="text-xs sm:text-sm">Timer: <strong>{formatSeconds(elapsedSeconds)}</strong></div>
+                <div className={`text-xs sm:text-sm ${isFullScreen ? "text-lg" : ""}`}>Timer: <strong>{formatSeconds(elapsedSeconds)}</strong></div>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="flex gap-2 flex-1">
-                <button onClick={handleStartSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-xl text-xs ${isDark ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"} ${setStarted ? "opacity-70 pointer-events-none" : ""}`}>Iniciar set</button>
-                <button onClick={handleEndSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-xl text-xs ${isDark ? "bg-yellow-500 hover:bg-yellow-600 text-black" : "bg-yellow-500 hover:bg-yellow-600 text-black"} ${!setStarted ? "opacity-60 pointer-events-none" : ""}`}>Terminar set</button>
+                <button onClick={handleStartSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-xl text-xs ${isDark ? "bg-green-600 hover:bg-green-700 text-white" : "bg-green-600 hover:bg-green-700 text-white"} ${setStarted ? "opacity-70 pointer-events-none" : ""} ${isFullScreen ? "py-3 text-base" : ""}`}>Iniciar set</button>
+                <button onClick={handleEndSet} className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-xl text-xs ${isDark ? "bg-yellow-500 hover:bg-yellow-600 text-black" : "bg-yellow-500 hover:bg-yellow-600 text-black"} ${!setStarted ? "opacity-60 pointer-events-none" : ""} ${isFullScreen ? "py-3 text-base" : ""}`}>Terminar set</button>
               </div>
 
-              <button onClick={handleProximo} disabled={finalizandoTreino} className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs ${exerciseComplete && !finalizandoTreino ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-400 text-white opacity-60 pointer-events-none"}`}>{finalizandoTreino ? "Finalizando..." : (indiceAtual < totalExercicios - 1 ? "Próximo Exercício" : "Finalizar Treino")}</button>
+              <button onClick={handleProximo} disabled={finalizandoTreino} className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs ${exerciseComplete && !finalizandoTreino ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-gray-400 text-white opacity-60 pointer-events-none"} ${isFullScreen ? "py-3 text-base px-6" : ""}`}>{finalizandoTreino ? "Finalizando..." : (indiceAtual < totalExercicios - 1 ? "Próximo Exercício" : "Finalizar Treino")}</button>
             </div>
 
             {(setTimingsByExercise[indiceAtual] && setTimingsByExercise[indiceAtual].length > 0) && (
@@ -866,8 +889,8 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
           {/* campo e botões */}
           <div className="flex flex-col sm:flex-row gap-2 mb-3">
-            <input type="text" placeholder="Pergunte alguma coisa" value={inputValue} onChange={(e) => setInputValue(e.target.value)} className={`flex-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border outline-none text-xs sm:text-sm ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-100 border-gray-300 text-black"}`} />
-            <button onClick={handleEnviarMensagem} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 sm:py-2 rounded-xl transition-colors flex items-center justify-center min-h-[36px]"><FaLocationArrow className="text-xs sm:text-sm" /></button>
+            <input type="text" placeholder="Pergunte alguma coisa" value={inputValue} onChange={(e) => setInputValue(e.target.value)} className={`flex-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border outline-none text-xs sm:text-sm ${isDark ? "bg-gray-800 border-gray-700 text-white" : "bg-gray-100 border-gray-300 text-black"} ${isFullScreen ? "py-4 text-base" : ""}`} />
+            <button onClick={handleEnviarMensagem} className={`bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 sm:py-2 rounded-xl transition-colors flex items-center justify-center min-h-[36px] ${isFullScreen ? "w-16" : ""}`}><FaLocationArrow className={`text-xs sm:text-sm ${isFullScreen ? "text-xl" : ""}`} /></button>
           </div>
         </>
       )}
@@ -909,8 +932,17 @@ const ChatTreino = ({ tema = "dark", user }) => {
         onSave={registrarTreinoHistorico}
         userHistorico={user?.historico || []}
       />
-    </div>
+      </div>
+    </motion.div>
   );
+
+  if (isFullScreen) return createPortal(
+    <AnimatePresence mode="wait">
+      {content}
+    </AnimatePresence>, 
+    document.body
+  );
+  return content;
 };
 
 export default ChatTreino;

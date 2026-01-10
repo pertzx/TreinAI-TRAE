@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import { sendNotificationEmail } from '../utils/sendEmail.js';
+import { DateTime } from 'luxon';
 
 // Limites de tokens por plano (tokens/dia)
 const TOKEN_LIMITS = {

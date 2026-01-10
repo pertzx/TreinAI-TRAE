@@ -19,8 +19,7 @@ export default function Footer({
     { label: 'Termos', href: '/termos' }
   ],
   social = [
-    { label: 'Instagram', href: 'https://instagram.com/treinai', icon: <FiInstagram /> },
-    { label: 'Contato', href: 'mailto:pyerremarcio098@gmail.com', icon: <FiMail /> }
+    { label: 'Instagram', href: 'https://instagram.com/treeinai', icon: <FiInstagram /> },
   ],
   copyrightText = null,
   sticky = false,

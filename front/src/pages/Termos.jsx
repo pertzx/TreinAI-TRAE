@@ -559,25 +559,6 @@ const Termos = () => {
                 </div>
               </section>
 
-              <section id="contato" className="mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">15. Contato</h2>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <p className="text-gray-700 leading-relaxed mb-4">
-                    Para dúvidas sobre estes Termos ou nossos Serviços, entre em contato conosco:
-                  </p>
-                  
-                  <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white p-4 rounded-lg">
-                    <h3 className="font-semibold mb-2">Informações de Contato</h3>
-                    <p className="text-sm mb-1"><strong>Razão Social:</strong> TreinAI Tecnologia Ltda.</p>
-                    <p className="text-sm mb-1"><strong>CNPJ:</strong> 00.000.000/0001-00</p>
-                    <p className="text-sm mb-1"><strong>Email:</strong> contato@treinai.com.br</p>
-                    <p className="text-sm mb-1"><strong>Telefone:</strong> (11) 0000-0000</p>
-                    <p className="text-sm mb-1"><strong>Endereço:</strong> Rua Exemplo, 123 - São Paulo/SP - CEP: 00000-000</p>
-                    <p className="text-sm"><strong>Suporte:</strong> pyerremarcio098@gmail.com</p>
-                  </div>
-                </div>
-              </section>
-
             </div>
 
             {/* Last Updated */}
@@ -609,20 +590,13 @@ const Termos = () => {
               </p>
               <div className="flex space-x-4">
                 <a 
-                  href="https://instagram.com/treinai" 
+                  href="https://instagram.com/treeinai" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors"
                   aria-label="Instagram da TreinAI"
                 >
                   <FaInstagram className="w-6 h-6" />
-                </a>
-                <a 
-                  href="mailto:pyerremarcio098@gmail.com" 
-                  className="text-gray-400 hover:text-white transition-colors"
-                  aria-label="Email de contato"
-                >
-                  <FaLinkedin className="w-6 h-6" />
                 </a>
               </div>
             </div>
@@ -636,13 +610,7 @@ const Termos = () => {
                 <li><Link to="/politica-de-privacidade" className="text-gray-400 hover:text-white transition-colors">Privacidade</Link></li>
               </ul>
             </div>
-            <div>
-              <h4 className="text-md font-semibold mb-4">Contato</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>pyerremarcio098@gmail.com</li>
-                <li>Brasil</li>
-              </ul>
-            </div>
+
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
             <p>&copy; {new Date().getFullYear()} TreinAI. Todos os direitos reservados.</p>

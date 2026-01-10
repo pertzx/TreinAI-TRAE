@@ -23,14 +23,14 @@ const Sobre = () => {
 
   const teamMembers = [
     {
-      name: "Pyerre Márcio",
+      name: "Pyerre Ribeiro",
       role: "Fundador & CEO",
-      description: "Desenvolvedor Full Stack apaixonado por tecnologia e fitness",
+      description: "Desenvolvedor Full Stack com foco em back-end, especializado em cibersegurança e hacking ético. Escreve códigos modulares e fáceis de modificar, utiliza inteligência artificial para otimizar processos e também possui experiência em desenvolvimento com Lua.",
       image: "/api/placeholder/150/150",
       social: {
-        instagram: "https://instagram.com/pyerremarcio",
-        linkedin: "https://linkedin.com/in/pyerremarcio",
-        github: "https://github.com/pyerremarcio"
+        instagram: null,
+        linkedin: null,
+        github: "https://github.com/pertzx/"
       }
     }
   ];
@@ -102,18 +102,18 @@ const Sobre = () => {
             Sobre a <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-blue-500">TreinAI</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-            Revolucionando o fitness através da inteligência artificial, oferecendo treinos personalizados 
+            Revolucionando o fitness através da inteligência artificial, oferecendo treinos personalizados
             que se adaptam ao seu estilo de vida e objetivos únicos.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link 
-              to="/login" 
+            <Link
+              to="/login"
               className="px-8 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-full font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200"
             >
               Começar Agora
             </Link>
-            <Link 
-              to="/termos" 
+            <Link
+              to="/termos"
               className="px-8 py-3 border-2 border-gray-300 text-gray-700 rounded-full font-semibold hover:border-gray-400 transition-colors"
             >
               Termos de Uso
@@ -145,12 +145,12 @@ const Sobre = () => {
             <div>
               <h2 className="text-4xl font-bold text-gray-900 mb-6">Nossa Missão</h2>
               <p className="text-lg text-gray-600 mb-6 leading-relaxed">
-                Democratizar o acesso a treinos de qualidade profissional através da tecnologia. 
-                Acreditamos que todos merecem ter um personal trainer virtual que entende suas 
+                Democratizar o acesso a treinos de qualidade profissional através da tecnologia.
+                Acreditamos que todos merecem ter um personal trainer virtual que entende suas
                 necessidades, limitações e objetivos.
               </p>
               <p className="text-lg text-gray-600 leading-relaxed">
-                Nossa plataforma utiliza algoritmos avançados de machine learning para criar 
+                Nossa plataforma utiliza algoritmos avançados de machine learning para criar
                 experiências de treino únicas, adaptativas e motivadoras para cada usuário.
               </p>
             </div>
@@ -159,7 +159,7 @@ const Sobre = () => {
                 <FiAward className="w-16 h-16 mb-4" />
                 <h3 className="text-2xl font-bold mb-4">Excelência em IA</h3>
                 <p className="text-green-100">
-                  Utilizamos as mais avançadas tecnologias de inteligência artificial 
+                  Utilizamos as mais avançadas tecnologias de inteligência artificial
                   para proporcionar a melhor experiência de treino personalizado.
                 </p>
               </div>
@@ -235,27 +235,27 @@ const Sobre = () => {
                 <p className="text-green-600 font-semibold mb-3">{member.role}</p>
                 <p className="text-gray-600 mb-4">{member.description}</p>
                 <div className="flex justify-center space-x-4">
-                  <a 
-                    href={member.social.instagram} 
-                    target="_blank" 
+                  <a
+                    href={member.social.instagram}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-gray-400 hover:text-pink-500 transition-colors"
                     aria-label={`Instagram de ${member.name}`}
                   >
                     <FaInstagram className="w-5 h-5" />
                   </a>
-                  <a 
-                    href={member.social.linkedin} 
-                    target="_blank" 
+                  <a
+                    href={member.social.linkedin}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-gray-400 hover:text-blue-600 transition-colors"
                     aria-label={`LinkedIn de ${member.name}`}
                   >
                     <FaLinkedin className="w-5 h-5" />
                   </a>
-                  <a 
-                    href={member.social.github} 
-                    target="_blank" 
+                  <a
+                    href={member.social.github}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-gray-400 hover:text-gray-900 transition-colors"
                     aria-label={`GitHub de ${member.name}`}
@@ -278,8 +278,8 @@ const Sobre = () => {
           <p className="text-xl text-green-100 mb-8">
             Junte-se a milhares de usuários que já descobriram o poder da IA no fitness
           </p>
-          <Link 
-            to="/login" 
+          <Link
+            to="/login"
             className="inline-block px-8 py-4 bg-white text-green-600 rounded-full font-bold text-lg hover:shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             Começar Minha Jornada
@@ -302,21 +302,14 @@ const Sobre = () => {
                 Muito além do Personal Trainer IA. Transformando vidas através da tecnologia e do fitness.
               </p>
               <div className="flex space-x-4">
-                <a 
-                  href="https://instagram.com/treinai" 
-                  target="_blank" 
+                <a
+                  href="https://instagram.com/treinai"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors"
                   aria-label="Instagram da TreinAI"
                 >
                   <FaInstagram className="w-6 h-6" />
-                </a>
-                <a 
-                  href="mailto:pyerremarcio098@gmail.com" 
-                  className="text-gray-400 hover:text-white transition-colors"
-                  aria-label="Email de contato"
-                >
-                  <FaLinkedin className="w-6 h-6" />
                 </a>
               </div>
             </div>
@@ -328,13 +321,6 @@ const Sobre = () => {
                 <li><Link to="/login" className="text-gray-400 hover:text-white transition-colors">Login</Link></li>
                 <li><Link to="/termos" className="text-gray-400 hover:text-white transition-colors">Termos</Link></li>
                 <li><Link to="/politica-de-privacidade" className="text-gray-400 hover:text-white transition-colors">Privacidade</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Contato</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>pyerremarcio098@gmail.com</li>
-                <li>Brasil</li>
               </ul>
             </div>
           </div>

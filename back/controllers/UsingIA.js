@@ -300,7 +300,7 @@ Retorne apenas JSON puro. Use tipos corretos.
 
 export const conversar = async (req, res) => {
     try {
-        const { email, input, historico, treino } = req.body;
+        const { email, input, historico, treino, profissionalId } = req.body;
 
         if (!email) return res.json({ msg: '!email' });
         if (!input) return res.json({ msg: '!input' });

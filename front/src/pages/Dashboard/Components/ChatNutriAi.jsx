@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FiSend, FiUser, FiCpu, FiClock, FiCheckCircle, FiMessageCircle } from 'react-icons/fi';
+import { createPortal } from 'react-dom';
+import { FiSend, FiUser, FiCpu, FiClock, FiCheckCircle, FiMessageCircle, FiMaximize2, FiMinimize2 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../../Api.js';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
@@ -42,6 +43,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
   let c = -2
   const [nutriInfos, setNutriInfos] = useState(user && user.nutriInfos ? user.nutriInfos : null);
   const [notify, setNotify] = useState(null); // { text, type: 'info'|'error' }
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const bottomRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -266,9 +268,15 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
     if (user && user.nutriInfos) setNutriInfos(user.nutriInfos);
   }, [user]);
 
-  return (
-    <div className={`w-full max-w-6xl mx-auto p-3 sm:p-4 lg:p-6 ${theme.container} backdrop-blur-sm`}>
-      <motion.div className={`w-full max-w-5xl mx-auto p-3 sm:p-4 lg:p-6 ${theme.panel} rounded-2xl sm:rounded-3xl border-2 backdrop-blur-xl shadow-2xl`}>
+  const content = (
+    <motion.div
+      layoutId={isFullScreen ? "chat-nutri-fullscreen" : undefined}
+      initial={isFullScreen ? { opacity: 0, scale: 0.95 } : { opacity: 1, scale: 1 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className={`${isFullScreen ? `fixed inset-0 z-[9990] h-screen w-screen overflow-y-auto p-0 sm:p-6 ${theme.container}` : `w-full max-w-6xl mx-auto p-3 sm:p-4 lg:p-6 ${theme.container} backdrop-blur-sm`}`}
+    >
+      <motion.div className={`w-full ${isFullScreen ? 'max-w-5xl mx-auto min-h-[80vh]' : 'max-w-5xl mx-auto'} p-3 sm:p-4 lg:p-6 ${theme.panel} rounded-2xl sm:rounded-3xl border-2 backdrop-blur-xl shadow-2xl flex flex-col`}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-emerald-400/20 gap-3 sm:gap-0">
           <div className="flex items-center space-x-3">
@@ -283,6 +291,12 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
             </div>
           </div>
           <div className="flex items-center space-x-2 self-start sm:self-auto">
+            <button
+              onClick={() => setIsFullScreen(!isFullScreen)}
+              className={`p-2 rounded-xl transition-all duration-300 ${isDark ? "hover:bg-gray-700 text-white" : "hover:bg-gray-200 text-gray-700"}`}
+            >
+              {isFullScreen ? <FiMinimize2 size={20} /> : <FiMaximize2 size={20} />}
+            </button>
             <div className="w-2 h-2 sm:w-3 sm:h-3 bg-emerald-400 rounded-full animate-pulse shadow-lg shadow-emerald-400/50"></div>
             <span className="text-xs sm:text-sm font-medium opacity-80">Online</span>
           </div>
@@ -291,8 +305,8 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
         {/* Chat Area */}
         <div
           ref={containerRef}
-          className={`${theme.chatArea} rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 mb-4 sm:mb-6 overflow-y-auto`}
-          style={{ height: '300px', minHeight: '250px', maxHeight: '500px' }}
+          className={`${theme.chatArea} rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 mb-4 sm:mb-6 overflow-y-auto ${isFullScreen ? 'flex-1' : ''}`}
+          style={isFullScreen ? { minHeight: '50vh', maxHeight: 'none' } : { height: '300px', minHeight: '250px', maxHeight: '500px' }}
         >
           <AnimatePresence>
             {messages.map((message, index) => (
@@ -306,7 +320,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
                   stiffness: 300,
                   damping: 15
                 }}
-                className={`mb-3 sm:mb-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl max-w-[90%] sm:max-w-[85%] ${message.from === 'user'
+                className={`mb-3 sm:mb-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl ${isFullScreen ? "max-w-[70%] text-base sm:text-lg" : "max-w-[90%] sm:max-w-[85%] text-xs sm:text-sm"} ${message.from === 'user'
                   ? `ml-auto ${theme.userMessage}`
                   : `mr-auto ${theme.aiMessage}`
                   } hover:scale-[1.02] hover:shadow-xl transition-all duration-300`}
@@ -315,17 +329,17 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
                   <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 ${message.from === 'user'
                     ? 'bg-white/20 text-white'
                     : 'bg-emerald-500/20 text-emerald-400'
-                    }`}>
-                    {message.from === 'user' ? <FiUser className="text-xs sm:text-sm" /> : <FiMessageCircle className="text-xs sm:text-sm" />}
+                    } ${isFullScreen ? "w-10 h-10" : ""}`}>
+                    {message.from === 'user' ? <FiUser className={isFullScreen ? "text-lg" : "text-xs sm:text-sm"} /> : <FiMessageCircle className={isFullScreen ? "text-lg" : "text-xs sm:text-sm"} />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs sm:text-sm font-medium mb-1 opacity-80">
+                    <div className={`${isFullScreen ? "text-base" : "text-xs sm:text-sm"} font-medium mb-1 opacity-80`}>
                       {message.from === 'user' ? 'Você' : 'NutriAI'}
                     </div>
-                    <div className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">
+                    <div className={`${isFullScreen ? "text-lg" : "text-xs sm:text-sm"} leading-relaxed whitespace-pre-wrap break-words`}>
                       {message.text}
                     </div>
-                    <div className="text-xs opacity-60 mt-1 sm:mt-2">
+                    <div className={`${isFullScreen ? "text-sm" : "text-xs"} opacity-60 mt-1 sm:mt-2`}>
                       {formatDate(message.createdAt)}
                     </div>
                   </div>
@@ -389,7 +403,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={user ? (allowedToUse() ? '💬 Escreva sua pergunta para a NutriAI...' : '💎 NutriAI disponível apenas para planos MAX/COACH') : '🔐 Faça login para conversar'}
-              className={`w-full p-3 sm:p-4 pr-12 sm:pr-16 ${theme.input} rounded-xl sm:rounded-2xl border-2 border-emerald-400/30 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 resize-none transition-all duration-300 text-sm sm:text-base`}
+              className={`w-full p-3 sm:p-4 pr-12 sm:pr-16 ${theme.input} rounded-xl sm:rounded-2xl border-2 border-emerald-400/30 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 resize-none transition-all duration-300 ${isFullScreen ? "text-lg py-4" : "text-sm sm:text-base"}`}
               rows={2}
               maxLength={500}
               // disabled={!user || !allowedToUse() || isTyping}
@@ -404,7 +418,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
           <motion.button
             onClick={handleSend}
             // disabled={!user || !allowedToUse() || loading || !input.trim()}
-            className={`w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 ${theme.primaryBtn} rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base`}
+            className={`w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 ${theme.primaryBtn} rounded-xl sm:rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${isFullScreen ? "text-lg px-10" : "text-sm sm:text-base"}`}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
@@ -471,6 +485,10 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
 
         {renderPlano()}
       </motion.div>
-    </div >
+    </motion.div>
   );
+
+  if (isFullScreen) return createPortal(<AnimatePresence mode="wait">{content}</AnimatePresence>, document.body);
+
+  return content;
 }

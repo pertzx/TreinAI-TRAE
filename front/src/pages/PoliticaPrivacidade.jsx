@@ -200,6 +200,7 @@ const PoliticaPrivacidade = () => {
                       </h3>
                       <ul className="space-y-1 sm:space-y-2 text-sm sm:text-base text-gray-700">
                         <li>• Peso e altura</li>
+                        <li>• Idade</li>
                         <li>• Índice de Massa Corporal (IMC)</li>
                         <li>• Histórico de treinos</li>
                         <li>• Metas e objetivos</li>
@@ -321,14 +322,6 @@ const PoliticaPrivacidade = () => {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-                    <div className="bg-green-50 rounded-xl p-4 sm:p-6 border border-green-200">
-                      <h4 className="font-semibold text-green-900 mb-2 sm:mb-3 text-sm sm:text-base">Sem Publicidade</h4>
-                      <p className="text-green-800 text-xs sm:text-sm">Não utilizamos rastreadores de terceiros para fins de marketing ou anúncios.</p>
-                    </div>
-                    <div className="bg-blue-50 rounded-xl p-4 sm:p-6 border border-blue-200">
-                      <h4 className="font-semibold text-blue-900 mb-2 sm:mb-3 text-sm sm:text-base">Base Legal</h4>
-                      <p className="text-blue-800 text-xs sm:text-sm">Execução do contrato, legítimo interesse em segurança e cumprimento de obrigações legais.</p>
-                    </div>
                     <div className="bg-yellow-50 rounded-xl p-4 sm:p-6 border border-yellow-200">
                       <h4 className="font-semibold text-yellow-900 mb-2 sm:mb-3 text-sm sm:text-base">Retenção</h4>
                       <p className="text-yellow-800 text-xs sm:text-sm">Registros técnicos são mantidos pelo período necessário para segurança e auditoria.</p>
@@ -510,28 +503,13 @@ const PoliticaPrivacidade = () => {
                       em nossas práticas, tecnologias ou requisitos legais.
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                    <div className="bg-blue-50 rounded-xl p-4 sm:p-6 border border-blue-200">
-                      <h3 className="text-base sm:text-lg font-semibold text-blue-900 mb-2 sm:mb-3">📧 Notificação</h3>
-                      <p className="text-blue-800 text-xs sm:text-sm">
-                        Alterações significativas serão comunicadas por e-mail com 30 dias de antecedência.
-                      </p>
-                    </div>
-                    <div className="bg-green-50 rounded-xl p-4 sm:p-6 border border-green-200">
-                      <h3 className="text-base sm:text-lg font-semibold text-green-900 mb-2 sm:mb-3">📅 Data de Vigência</h3>
-                      <p className="text-green-800 text-xs sm:text-sm">
-                        A nova versão entrará em vigor na data especificada na notificação.
-                      </p>
-                    </div>
-                  </div>
                   <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 sm:p-6">
                     <div className="flex items-start space-x-2 sm:space-x-3">
                       <FiAlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600 mt-1 flex-shrink-0" />
                       <div>
                         <h4 className="font-semibold text-yellow-900 mb-2 text-sm sm:text-base">Seu Controle</h4>
                         <p className="text-yellow-800 text-xs sm:text-sm">
-                          Se não concordar com as alterações, você pode encerrar sua conta antes da data de vigência. 
-                          O uso continuado após a vigência constitui aceitação das mudanças.
+                          Você tem o direito de revisar esta Política a qualquer momento. Caso não concorde com as alterações, poderá solicitar a exclusão de seus dados pessoais e encerrar sua conta através das configurações da plataforma ou entrando em contato com nosso suporte.
                         </p>
                       </div>
                     </div>
@@ -539,59 +517,6 @@ const PoliticaPrivacidade = () => {
                 </div>
               </div>
             </section>
-
-            {/* Contato */}
-            <section id="contato" className="mb-8 sm:mb-12">
-              <div className="bg-gradient-to-br from-green-500 to-blue-500 rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 lg:p-8 text-white">
-                <div className="flex items-center mb-4 sm:mb-6">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-xl flex items-center justify-center mr-3 sm:mr-4">
-                    <FiMail className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  </div>
-                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold">Contato e Dúvidas</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">📧 Entre em Contato</h3>
-                    <div className="space-y-2 sm:space-y-3">
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <FiMail className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                        <span className="text-sm sm:text-base">pyerremarcio098@gmail.com</span>
-                      </div>
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <FiUsers className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                        <span className="text-sm sm:text-base">Pyerre Márcio - Fundador & CEO</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">⚡ Tempo de Resposta</h3>
-                    <div className="space-y-1 sm:space-y-2">
-                      <div className="flex justify-between text-sm sm:text-base">
-                        <span>Dúvidas gerais:</span>
-                        <span className="font-semibold">24-48h</span>
-                      </div>
-                      <div className="flex justify-between text-sm sm:text-base">
-                        <span>Direitos LGPD:</span>
-                        <span className="font-semibold">15 dias úteis</span>
-                      </div>
-                      <div className="flex justify-between text-sm sm:text-base">
-                        <span>Incidentes de segurança:</span>
-                        <span className="font-semibold">72h</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-6 sm:mt-8 bg-white/10 rounded-xl p-4 sm:p-6">
-                  <h4 className="font-semibold mb-2 sm:mb-3 text-sm sm:text-base">🛡️ Encarregado de Proteção de Dados (DPO)</h4>
-                  <p className="opacity-90 text-xs sm:text-sm">
-                    Para questões específicas sobre proteção de dados e LGPD, entre em contato através do 
-                    e-mail principal. Estamos comprometidos em responder todas as solicitações dentro dos 
-                    prazos legais estabelecidos.
-                  </p>
-                </div>
-              </div>
-            </section>
-
           </div>
         </main>
       </div>
@@ -612,20 +537,13 @@ const PoliticaPrivacidade = () => {
               </p>
               <div className="flex space-x-3 sm:space-x-4">
                 <a 
-                  href="https://instagram.com/treinai" 
+                  href="https://instagram.com/treeinai" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors"
                   aria-label="Instagram da TreinAI"
                 >
                   <FaInstagram className="w-5 h-5 sm:w-6 sm:h-6" />
-                </a>
-                <a 
-                  href="mailto:pyerremarcio098@gmail.com" 
-                  className="text-gray-400 hover:text-white transition-colors"
-                  aria-label="Email de contato"
-                >
-                  <FaLinkedin className="w-5 h-5 sm:w-6 sm:h-6" />
                 </a>
               </div>
             </div>
@@ -637,13 +555,6 @@ const PoliticaPrivacidade = () => {
                 <li><Link to="/login" className="text-gray-400 hover:text-white transition-colors text-sm sm:text-base">Login</Link></li>
                 <li><Link to="/termos" className="text-gray-400 hover:text-white transition-colors text-sm sm:text-base">Termos</Link></li>
                 <li><Link to="/politica-de-privacidade" className="text-gray-400 hover:text-white transition-colors text-sm sm:text-base">Privacidade</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Contato</h4>
-              <ul className="space-y-1 sm:space-y-2 text-gray-400">
-                <li className="text-sm sm:text-base">pyerremarcio098@gmail.com</li>
-                <li className="text-sm sm:text-base">Brasil</li>
               </ul>
             </div>
           </div>
