@@ -12,6 +12,10 @@ const profissionalSchema = new Schema({
   userId: { type: String, required: true, unique: true, index: true },
   especialidade: { type: String, enum: ['personal-trainner', 'fisioterapeuta', 'nutricionista'], required: true },
   criadoEm: { type: Date, default: getBrazilDate },
+  estatisticas: {
+    impressoes: { type: Number, default: 0 },
+    cliques: { type: Number, default: 0 },
+  },
   saldoDeImpressoes: { type: Number, default: 0 },
 
   // localização humana (país/estado/cidade) — strings simples

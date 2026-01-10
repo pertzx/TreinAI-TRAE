@@ -100,6 +100,9 @@ export default function Encontrar({ user, tema = 'dark' }) {
   const [loadingLocais, setLoadingLocais] = useState(false);
   const [error, setError] = useState(null);
 
+  // ordenação
+  const [sort, setSort] = useState('recente'); // recente, antiguidade, cliques, impressoes
+
   // filtro localType para aba academias
   const [localTypeFilter, setLocalTypeFilter] = useState(null);
 
@@ -120,6 +123,40 @@ export default function Encontrar({ user, tema = 'dark' }) {
     state: selectedState,
     city: selectedCity,
   });
+
+  // Função de registro de métricas (impressão/clique)
+  const registerInteraction = async (targetId, type, targetModel) => {
+    try {
+      if (!targetId) return;
+      // Chamada fire-and-forget para não bloquear UI
+      api.post('/metrics/interact', { targetId, type, targetModel }).catch(err => console.error('Erro métrica:', err));
+    } catch (err) {
+      console.error('Erro ao registrar interação:', err);
+    }
+  };
+
+  // Registrar impressões em lote (simulado) quando a lista é carregada
+  useEffect(() => {
+    if (tab === TABS.PROFISSIONAIS && profissionais.length > 0 && !loadingProf) {
+      const timer = setTimeout(() => {
+        profissionais.forEach(p => {
+          if (p.id) registerInteraction(p.id, 'impression', 'Profissional');
+        });
+      }, 1500); // Delay para confirmar visualização
+      return () => clearTimeout(timer);
+    }
+  }, [profissionais, tab, loadingProf]);
+
+  useEffect(() => {
+    if (tab === TABS.ACADEMIAS && locais.length > 0 && !loadingLocais) {
+      const timer = setTimeout(() => {
+        locais.forEach(l => {
+          if (l.id) registerInteraction(l.id, 'impression', 'Local');
+        });
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [locais, tab, loadingLocais]);
 
   // abort + debounce refs
   const abortRef = useRef({ prof: null, academias: null, locais: null });
@@ -227,7 +264,8 @@ export default function Encontrar({ user, tema = 'dark' }) {
       city: opts.city ?? (selectedCity || undefined),
       especialidade: opts.especialidade ?? (especialidade || undefined),
       page: pageToUse,
-      limit: limitToUse
+      limit: limitToUse,
+      sort: opts.sort ?? sort
     };
     Object.keys(params).forEach(k => params[k] === undefined && delete params[k]);
 
@@ -329,7 +367,8 @@ export default function Encontrar({ user, tema = 'dark' }) {
       city: opts.city ?? (selectedCity || undefined),
       localType: opts.localType ?? (localTypeFilter || null),
       page: pageToUse,
-      limit: limitToUse
+      limit: limitToUse,
+      sort: opts.sort ?? sort
     };
     Object.keys(params).forEach(k => params[k] === undefined && delete params[k]);
 
@@ -506,6 +545,8 @@ export default function Encontrar({ user, tema = 'dark' }) {
       navigate(`/dashboard/coach/u?q=${encodeURIComponent(prof.id || '')}`);
       return;
     }
+    // Registrar clique
+    registerInteraction(key, 'click', 'Profissional');
     navigate(`/dashboard/coach/u?q=${encodeURIComponent(key)}`);
   };
 
@@ -665,6 +706,20 @@ export default function Encontrar({ user, tema = 'dark' }) {
                 <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{profTotal || 0} encontrados</span>
               </h2>
               <div className="flex items-center gap-2">
+                <select
+                  value={sort}
+                  onChange={(e) => {
+                    setSort(e.target.value);
+                    fetchProfissionais({ sort: e.target.value, page: 1 });
+                  }}
+                  className={`px-3 py-2 rounded-xl border font-medium text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all ${themeClass(temaValue, 'bg-white border-gray-200 text-gray-700', 'bg-gray-800 border-gray-700 text-gray-200')}`}
+                >
+                  <option value="recente">Mais Recentes</option>
+                  <option value="antiguidade">Mais Antigos</option>
+                  <option value="cliques">Mais Populares</option>
+                  <option value="impressoes">Mais Vistos</option>
+                </select>
+
                 <select 
                   value={especialidade} 
                   onChange={(e) => setEspecialidade(e.target.value)} 
@@ -808,6 +863,20 @@ export default function Encontrar({ user, tema = 'dark' }) {
 
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <div className="relative w-full sm:w-64">
+                  <select
+                    value={sort}
+                    onChange={(e) => {
+                      setSort(e.target.value);
+                      fetchLocais({ sort: e.target.value, page: 1 });
+                    }}
+                    className={`w-full mb-2 px-4 py-2.5 rounded-xl appearance-none transition-all duration-200 focus:ring-2 focus:ring-blue-500 outline-none ${themeClass(temaValue, 'bg-white border border-gray-200', 'bg-gray-800 border border-gray-700 text-white')}`}
+                  >
+                    <option value="recente">Mais Recentes</option>
+                    <option value="antiguidade">Mais Antigos</option>
+                    <option value="cliques">Mais Populares</option>
+                    <option value="impressoes">Mais Vistos</option>
+                  </select>
+
                   <select 
                     value={localTypeFilter} 
                     onChange={(e) => setLocalTypeFilter(e.target.value)} 
@@ -891,7 +960,10 @@ export default function Encontrar({ user, tema = 'dark' }) {
                         )}
 
                         <button 
-                          onClick={() => window.open(l.link, '_blank', 'noopener,noreferrer')}
+                          onClick={() => {
+                            if (l.id) registerInteraction(l.id, 'click', 'Local');
+                            window.open(l.link, '_blank', 'noopener,noreferrer');
+                          }}
                           className="w-full mt-auto py-2.5 rounded-xl border-2 border-blue-600 text-blue-600 font-semibold hover:bg-blue-600 hover:text-white transition-all duration-300 flex items-center justify-center gap-2 group/btn"
                         >
                           <span>Visitar Site / Perfil</span>

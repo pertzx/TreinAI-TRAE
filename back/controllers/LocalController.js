@@ -845,7 +845,8 @@ export const buscarLocais = async (req, res) => {
       localType,
       page = 1,
       limit = 10,
-      status = 'ativo'
+      status = 'ativo',
+      sort
     } = req.query;
 
     // Construir filtros
@@ -866,10 +867,21 @@ export const buscarLocais = async (req, res) => {
     // Paginação
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    let sortOptions = { criadoEm: -1 }; // Default
+    if (sort === 'cliques') {
+        sortOptions = { 'estatisticas.cliques': -1, criadoEm: -1 };
+    } else if (sort === 'impressoes') {
+        sortOptions = { 'estatisticas.impressoes': -1, criadoEm: -1 };
+    } else if (sort === 'antiguidade') {
+        sortOptions = { criadoEm: 1 };
+    } else if (sort === 'recente') {
+        sortOptions = { criadoEm: -1 };
+    }
+
     // Buscar locais
     const locais = await Local.find(filters)
       .populate('userId', 'name username email')
-      .sort({ criadoEm: -1 })
+      .sort(sortOptions)
       .skip(skip)
       .limit(parseInt(limit))
       .lean();

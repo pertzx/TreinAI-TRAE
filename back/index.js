@@ -20,6 +20,7 @@ import { sanitizeInput } from './middlewares/validationMiddleware.js';
 import gamificationRoutes from './routes/gamificationRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
 import eventRoutes from './routes/eventRoutes.js'
+import metricsRoutes from './routes/metrics.js';
 import { secureAccessGuard } from './middlewares/secureAccessGuard.js'
 
 // cria __filename e __dirname em ESM
@@ -205,6 +206,7 @@ app.use('/tokens', apiSecurityHeaders, tokenRoutes);
 app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
 app.use('/admin', apiSecurityHeaders, adminRoutes);
 app.use('/events', apiSecurityHeaders, eventRoutes);
+app.use('/metrics', apiSecurityHeaders, metricsRoutes);
 
 // Iniciar servidor
 // Detectar ambiente serverless

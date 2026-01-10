@@ -282,6 +282,18 @@ const MeusLocais = ({ tema }) => {
             <option value="loja">Loja</option>
             <option value="outro">Outro</option>
           </select>
+
+          <select
+            value={filtros.ordem}
+            onChange={(e) => setFiltros({ ...filtros, ordem: e.target.value })}
+            className={`${currentTheme.input} px-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500`}
+          >
+            <option value="recente">Mais Recentes</option>
+            <option value="antigo">Mais Antigos</option>
+            <option value="impressoes">Mais Visualizados</option>
+            <option value="cliques">Mais Clicados</option>
+            <option value="avaliacoes">Melhor Avaliados</option>
+          </select>
         </div>
       </div>
 

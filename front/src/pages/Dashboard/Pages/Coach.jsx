@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { FiChevronDown, FiChevronUp, FiUsers, FiSettings, FiRefreshCw, FiUserPlus, FiStar, FiTrendingUp } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiUsers, FiSettings, FiRefreshCw, FiUserPlus, FiStar, FiTrendingUp, FiEye, FiMousePointer } from 'react-icons/fi';
 import { HiSparkles, HiAcademicCap } from 'react-icons/hi';
 import { MdDashboard, MdPersonAdd } from 'react-icons/md';
 import api from '../../../Api';
@@ -610,6 +610,14 @@ const Coach = ({ user, tema = 'dark' }) => {
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-gray-800/50' : 'bg-gray-100/50'} backdrop-blur-sm`}>
                   <FiTrendingUp className={`w-4 h-4 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
                   <span className="text-sm font-medium">{pending.length} Pendentes</span>
+                </div>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-gray-800/50' : 'bg-gray-100/50'} backdrop-blur-sm`}>
+                  <FiEye className={`w-4 h-4 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
+                  <span className="text-sm font-medium">{profissional?.estatisticas?.impressoes || 0} Visitas</span>
+                </div>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-gray-800/50' : 'bg-gray-100/50'} backdrop-blur-sm`}>
+                  <FiMousePointer className={`w-4 h-4 ${isDark ? 'text-pink-400' : 'text-pink-600'}`} />
+                  <span className="text-sm font-medium">{profissional?.estatisticas?.cliques || 0} Cliques</span>
                 </div>
               </div>
             </div>

@@ -41,7 +41,8 @@ export const profissionais = async (req, res) => {
       cidade,
       especialidade,
       page = 1,
-      limit = 20
+      limit = 20,
+      sort
     } = req.query;
 
     // aceita userId -> retorna 1 profissional (detalhado)
@@ -118,10 +119,21 @@ export const profissionais = async (req, res) => {
     const perPage = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const skip = (pageNum - 1) * perPage;
 
+    let sortOptions = { criadoEm: -1 }; // Default
+    if (sort === 'cliques') {
+        sortOptions = { 'estatisticas.cliques': -1, criadoEm: -1 };
+    } else if (sort === 'impressoes') {
+        sortOptions = { 'estatisticas.impressoes': -1, criadoEm: -1 };
+    } else if (sort === 'antiguidade') {
+        sortOptions = { criadoEm: 1 };
+    } else if (sort === 'recente') {
+        sortOptions = { criadoEm: -1 };
+    }
+
     const [total, profissionaisList] = await Promise.all([
       Profissional.countDocuments(filter),
       Profissional.find(filter)
-        .sort({ criadoEm: -1 })
+        .sort(sortOptions)
         .skip(skip)
         .limit(perPage)
         .lean()
