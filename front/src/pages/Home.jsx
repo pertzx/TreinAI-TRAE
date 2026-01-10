@@ -1,5 +1,6 @@
 import React, { useRef } from 'react'
 import Header from '../components/Header'
+import PublicFooter from '../components/PublicFooter'
 import SmartphoneAnimation from '../components/SmartphoneAnimation'
 import { motion } from 'framer-motion'
 import {
@@ -482,6 +483,7 @@ function Home({logado}) {
                     </motion.div>
                 </motion.div>
             </motion.section>
+            <PublicFooter initialMinimized={false} />
         </div>
     )
 }

@@ -1,7 +1,7 @@
 // src/components/Footer.jsx
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { FiInstagram, FiMail, FiGithub, FiArrowUp, FiUser, FiLogOut } from 'react-icons/fi';
+import { FiInstagram, FiMail, FiGithub, FiArrowUp, FiUser, FiLogOut, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { FaMapMarkerAlt, FaBullhorn, FaQuestionCircle } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 import Logo from '../../../components/Logo';
@@ -23,7 +23,8 @@ export default function Footer({
   ],
   copyrightText = null,
   sticky = false,
-  showBackToTop = true
+  showBackToTop = true,
+  initialMinimized = true
 }) {
   const isDark = tema === 'dark';
   const bg = isDark ? 'text-gray-100' : 'bg-white text-gray-900';
@@ -33,6 +34,7 @@ export default function Footer({
   const profileBg = isDark ? 'bg-gray-800' : 'bg-white';
 
   const [showTopBtn, setShowTopBtn] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(initialMinimized);
 
   useEffect(() => {
     if (!showBackToTop) return;
@@ -69,8 +71,22 @@ export default function Footer({
 
   return (
     <>
-      <footer className={`${bg} mt-3 ${sticky ? 'sticky bottom-0 left-0 w-full z-40' : ''} border-t border-gray-200`}>
-        <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 ${panel}`}>
+      <footer className={`${bg} mt-3 ${sticky ? 'sticky bottom-0 left-0 w-full z-40' : ''} border-t border-gray-200 transition-all duration-300 ease-in-out`}>
+        {/* Toggle Button Bar */}
+        <div 
+          className={`w-full flex justify-center items-center gap-2 py-1 cursor-pointer hover:bg-opacity-80 ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}
+          onClick={() => setIsMinimized(!isMinimized)}
+          title={isMinimized ? "Expandir Rodapé" : "Minimizar Rodapé"}
+        >
+          {isMinimized && (
+             <span className={`text-xs ${muted}`}>
+               {copyrightText || `© ${new Date(getBrazilDate()).getFullYear()} TreinAI`}
+             </span>
+          )}
+          {isMinimized ? <FiChevronUp className={muted} /> : <FiChevronDown className={muted} />}
+        </div>
+
+        <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${panel} overflow-hidden transition-all duration-300 ease-in-out ${isMinimized ? 'h-0 py-0 opacity-0' : 'py-6 md:py-8 opacity-100'}`}>
           <div className="flex flex-col  items-center xl:items-center justify-between gap-4">
             {/* Left: Branding + copy */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 min-w-0">
@@ -246,5 +262,6 @@ Footer.propTypes = {
   social: PropTypes.array,
   copyrightText: PropTypes.string,
   sticky: PropTypes.bool,
-  showBackToTop: PropTypes.bool
+  showBackToTop: PropTypes.bool,
+  initialMinimized: PropTypes.bool
 };

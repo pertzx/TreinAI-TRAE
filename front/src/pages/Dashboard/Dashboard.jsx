@@ -43,6 +43,7 @@ import { LuActivity, LuTarget, LuZap } from 'react-icons/lu';
 import axios from 'axios';
 import { buildImageUrl } from '../../utils/imageUtils.js';
 import NotFound from './Pages/NotFound.jsx';
+import GlobalEventManager from '../../components/GlobalEventManager.jsx';
 
 const Dashboard = ({ needToPay, plano }) => {
   const [user, setUser] = useState(null);
@@ -908,6 +909,7 @@ const Dashboard = ({ needToPay, plano }) => {
 
   return (
     <div className={`min-h-screen w-full flex flex-col items-center p-1 ${themeClasses}`}>
+      <GlobalEventManager />
       {/* Alerta de segurança para dispositivo bloqueado */}
       <SecurityAlert />
 
@@ -964,7 +966,7 @@ const Dashboard = ({ needToPay, plano }) => {
               <Route path="" element={db} />
               <Route path="*" element={<NotFound tema={tema} user={user}/>} />
             </Routes>
-            {user && <Footer tema={tema} user={user} />}
+            {user && <Footer tema={tema} user={user} initialMinimized={true} />}
           </div>
         )}
     </div>

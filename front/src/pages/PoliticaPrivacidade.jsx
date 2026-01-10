@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FiArrowUp, FiMenu, FiX, FiChevronRight, FiShield, FiEye, FiLock, FiUsers, FiDatabase, FiSettings, FiMail, FiAlertCircle } from 'react-icons/fi';
 import { FaInstagram, FaLinkedin } from 'react-icons/fa';
 import Header from '../components/Header';
+import PublicFooter from '../components/PublicFooter';
 import Logo from '../components/Logo';
 
 const PoliticaPrivacidade = () => {
@@ -522,47 +523,7 @@ const PoliticaPrivacidade = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-8 sm:py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-            <div>
-              <div className="flex items-center mb-3 sm:mb-4">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center mr-2 sm:mr-3">
-                  <Logo scale={1} />
-                </div>
-                <h3 className="text-xl sm:text-2xl font-bold">TreinAI</h3>
-              </div>
-              <p className="text-gray-400 mb-3 sm:mb-4 text-sm sm:text-base">
-                Muito além do Personal Trainer IA. Transformando vidas através da tecnologia e do fitness.
-              </p>
-              <div className="flex space-x-3 sm:space-x-4">
-                <a 
-                  href="https://instagram.com/treeinai" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-white transition-colors"
-                  aria-label="Instagram da TreinAI"
-                >
-                  <FaInstagram className="w-5 h-5 sm:w-6 sm:h-6" />
-                </a>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Links Rápidos</h4>
-              <ul className="space-y-1 sm:space-y-2">
-                <li><Link to="/" className="text-gray-400 hover:text-white transition-colors text-sm sm:text-base">Home</Link></li>
-                <li><Link to="/sobre" className="text-gray-400 hover:text-white transition-colors text-sm sm:text-base">Sobre</Link></li>
-                <li><Link to="/login" className="text-gray-400 hover:text-white transition-colors text-sm sm:text-base">Login</Link></li>
-                <li><Link to="/termos" className="text-gray-400 hover:text-white transition-colors text-sm sm:text-base">Termos</Link></li>
-                <li><Link to="/politica-de-privacidade" className="text-gray-400 hover:text-white transition-colors text-sm sm:text-base">Privacidade</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-gray-400">
-            <p className="text-xs sm:text-sm">&copy; {new Date().getFullYear()} TreinAI. Todos os direitos reservados.</p>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
 
       {/* Back to Top Button */}
       {showBackToTop && (

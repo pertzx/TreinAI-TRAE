@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { NavLink, redirect } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom';
+import PublicFooter from '../components/PublicFooter';
 import { FiCheck, FiX, FiStar, FiUsers, FiTrendingUp, FiZap, FiHeart, FiShield, FiClock, FiTarget, FiBarChart, FiGift, FiInfo, FiCpu } from 'react-icons/fi';
 
 function Planos({ setPlano, setNeedToPay }) {
@@ -405,6 +406,7 @@ function Planos({ setPlano, setNeedToPay }) {
                     </div>
                 </div>
             </div>
+            <PublicFooter initialMinimized={false} />
         </section>
     )
 }
