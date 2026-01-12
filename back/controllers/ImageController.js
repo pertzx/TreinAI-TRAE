@@ -10,7 +10,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const normalize = (s) => String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ')
 
-const PROMPT_SUFFIX = ': Realistico, Demonstrativo, Executando o exato exercicio com destaque no musculo, sem sensualizar, homem ou mulher usando roupa de academia com o nome TreinAI destaque em azul.'
+const PROMPT_SUFFIX = ': Realistico, Demonstrativo com Vetores, setas, simbolos, indicando a execucao do movimento, Executando o exato exercicio com destaque no musculo, sem sensualizar, homem ou mulher usando roupa de academia com o nome TreinAI destaque em azul.'
 
 // Lista de termos proibidos para evitar bloqueios óbvios e economizar tokens
 const FORBIDDEN_WORDS = [
