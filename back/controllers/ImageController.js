@@ -291,7 +291,7 @@ export const generateImage = async (req, res) => {
       (ai?.usage && (ai.usage.image_tokens || ai.usage.total_tokens)) ||
       (ai?.data?.[0]?.cost) ||
       (process.env.IMAGE_TOKEN_COST || '50')
-    )
+    ) * 3
     
     // Somar tokens da moderação ao custo total da geração
     const totalTokensUsed = (returnedCost + moderationTokens) * 2

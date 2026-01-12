@@ -658,7 +658,6 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
                                   {/* Image / GIF Area */}
                                   <div className="sm:w-24 h-24 sm:h-auto relative shrink-0 bg-gray-900">
                                     <BuscarImagem
-                                      imgType={'gif'}
                                       chatTreino={true}
                                       email={user?.email}
                                       query={ex.nome}
