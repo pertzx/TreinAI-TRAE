@@ -35,6 +35,7 @@ import { conversarNutri } from '../controllers/NutriAI.js';
 import { editarLocal, criarLocalDireto, deletarLocalPorId, ativarLocal, buscarLocais, meusLocais, upload, avaliarLocal, listarAvaliacoesLocal, listarAvaliacoesPendentes, moderarAvaliacao } from '../controllers/LocalController.js';
 import { criarAnuncio, editarAnuncio, getAnuncios, deletarAnuncio, marcarClique, marcarImpressao } from '../controllers/AnunciosController.js';
 import { checkTokenLimit } from '../middlewares/tokenLimitMiddleware.js';
+import { queueMiddleware } from '../middlewares/queueMiddleware.js';
 import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
 
 // Função utilitária para configurações de limpeza de cookies baseadas no ambiente
@@ -63,9 +64,11 @@ router.post('/change-loginSeguro', changeLoginSeguro)
 router.post('/complete-onboarding', checkTokenLimit, completeOnboarding)
 router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, uploadProfile.single('avatar'), atualizarPerfil)
 router.post('/criar-meusTreinos', checkTokenLimit, carregarTreinos);
+
 // IA routes
-router.post('/gerar-exercicio-ia', criarExercicioIA);
-router.post('/gerar-treino-ia', checkTokenLimit, criarTreinoIA);
+router.post('/gerar-exercicio-ia', queueMiddleware, checkTokenLimit, criarExercicioIA);
+router.post('/gerar-treino-ia', queueMiddleware, checkTokenLimit, criarTreinoIA);
+
 router.delete('/excluir-treino', async (req, res) => {
   const { email, treinoId } = req.query;
 
@@ -209,7 +212,7 @@ router.get('/buscar-historico', buscarHistorico);
 router.get('/exportar-historico-chat', exportarHistoricoChat);
 
 // nutri
-router.post('/conversar-nutri', checkTokenLimit, conversarNutri);
+router.post('/conversar-nutri', queueMiddleware, checkTokenLimit, conversarNutri);
 
 // locais - FLUXO ATUAL
 router.post('/criar-local-direto', 
