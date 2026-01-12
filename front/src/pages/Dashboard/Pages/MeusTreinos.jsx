@@ -97,53 +97,68 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
     }
   }, []);
 
+  // Ref para controlar se já tentamos buscar/criar treinos para este usuario
+  const hasFetchedRef = useRef(false);
+
   // Carregar treinos iniciais
   useEffect(() => {
     const carregar = async () => {
+      if (!user?.email) {
+        setMeusTreinos([]);
+        setLoading(false);
+        return;
+      }
+
+      // Se já temos treinos no contexto, apenas sincronizamos e finalizamos loading
+      if (Array.isArray(user.meusTreinos) && user.meusTreinos.length > 0) {
+        syncMeusTreinosFromUser(user);
+        setLoading(false);
+        return;
+      }
+
+      // Se já tentamos buscar para este usuário e falhou/veio vazio, não tenta de novo em loop
+      if (hasFetchedRef.current === user.email) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
+      hasFetchedRef.current = user.email; // Marca que estamos buscando para este email
+
       try {
-        if (!user) {
-          setMeusTreinos([]);
-          setLoading(false);
-          return;
-        }
-
-        if (user.meusTreinos.length === 0) {
-          showToast('✨ Seus treinos estão sendo criados. Aguarde...', 'success');
+        // Se chegamos aqui, o user existe mas não tem treinos (length === 0)
+        // Tentamos criar/buscar no backend
+        // showToast('✨ Verificando seus treinos...', 'info');
+        
+        const resp = await axios.post(`${import.meta.env.VITE_API_URL}/criar-meusTreinos`, { 
+          email: user.email, 
+          profissionalId 
+        });
+        
+        if (resp?.data?.user && typeof setUser === 'function') {
+          // Atualiza o user global com o retorno (que pode ter criado treinos default)
+          setUser(resp.data.user);
+          syncMeusTreinosFromUser(resp.data.user);
+        } else if (Array.isArray(resp?.data?.meusTreinos)) {
+          syncMeusTreinosFromUser({ meusTreinos: resp.data.meusTreinos });
         } else {
-          // showToast('🔎 Buscando seus treinos...', 'info');
-        }
-
-        if (!Array.isArray(user.meusTreinos) || user.meusTreinos.length === 0) {
-          try {
-            const resp = await axios.post(`${import.meta.env.VITE_API_URL}/criar-meusTreinos`, { email: user.email, profissionalId });
-            
-            if (resp?.data?.user && typeof setUser === 'function') {
-              setUser(resp.data.user);
-              syncMeusTreinosFromUser(resp.data.user);
-            } else if (Array.isArray(resp?.data?.meusTreinos)) {
-              syncMeusTreinosFromUser({ meusTreinos: resp.data.meusTreinos });
-            } else {
-              syncMeusTreinosFromUser(user);
-            }
-          } catch (err) {
-            console.warn('Falha ao criar meusTreinos no backend (fallback local):', err);
-            syncMeusTreinosFromUser(user);
-          }
-        } else {
+          // Se backend não retornou nada útil, ficamos com lista vazia
           syncMeusTreinosFromUser(user);
         }
+
       } catch (err) {
-        console.error('Erro ao carregar treinos:', err);
-        setMeusTreinos([]);
-        showToast('Erro ao carregar treinos', 'error');
+        console.warn('Falha ao criar/buscar meusTreinos:', err);
+        // Em caso de erro, apenas mantemos o que tem (vazio) para não travar
+        syncMeusTreinosFromUser(user);
       } finally {
         if (mountedRef.current) setLoading(false);
       }
     };
 
     carregar();
-  }, [user, setUser, syncMeusTreinosFromUser, profissionalId]);
+    // Removemos 'user' completo das dependências para evitar loop se o objeto mudar por outros motivos
+    // Usamos user.email como chave principal de mudança de contexto
+  }, [user?.email, profissionalId, setUser, syncMeusTreinosFromUser]);
 
   // calcula nextOrder
   useEffect(() => {
