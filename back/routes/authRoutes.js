@@ -84,6 +84,11 @@ router.delete('/excluir-treino', async (req, res) => {
 
     user.meusTreinos.splice(treinoIndex, 1); // Remove o treino pelo índice
 
+    // Se não houver mais treinos, permitir criar novamente
+    if (user.meusTreinos.length === 0) {
+      user.tentouCriarMeusTreinos = false;
+    }
+
     // se existir o profissionalId entao atualizar
     try {
       if (req?.query?.profissionalId) {
@@ -111,7 +116,7 @@ router.delete('/excluir-treino', async (req, res) => {
     }
 
     await user.save();
-    return res.json({ msg: 'Treino excluído com sucesso.' });
+    return res.json({ msg: 'Treino excluído com sucesso.', user });
 
   } catch (error) {
     console.error(error);
