@@ -238,6 +238,11 @@ export const ToastProvider = ({ children }) => {
   const showInfo = useCallback((message, options = {}) =>
     addToast(message, 'info', options), [addToast]);
 
+  const showTokenUsage = useCallback((tokens, options = {}) => {
+    if (!tokens || tokens <= 0) return;
+    addToast(`Custo da operação: ${tokens} tokens`, 'token', { ...options, duration: 4000 });
+  }, [addToast]);
+
   const value = {
     toasts,
     addToast,
@@ -246,7 +251,8 @@ export const ToastProvider = ({ children }) => {
     showSuccess,
     showError,
     showWarning,
-    showInfo
+    showInfo,
+    showTokenUsage
   };
 
   return (

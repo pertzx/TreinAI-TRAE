@@ -47,7 +47,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
   const bottomRef = useRef(null);
   const containerRef = useRef(null);
 
-  const { showError, showSuccess } = useToast()
+  const { showError, showSuccess, showTokenUsage } = useToast()
 
   // Auto-scroll para a última mensagem
   useEffect(() => {
@@ -84,6 +84,10 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
 
       const res = await api.post('/conversar-nutri', body);
       const data = res?.data || {};
+
+      if (data?.tokensUsed) {
+        showTokenUsage(data.tokensUsed);
+      }
 
       // show server msg if present
       if (data.success) {

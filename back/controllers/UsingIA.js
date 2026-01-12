@@ -160,7 +160,8 @@ Use tipos coerentes (strings para texto, numbers para números). Não inclua com
     return res.json({
       msg: 'Treino gerado com sucesso!',
       success: true,
-      treino: novoTreino
+      treino: novoTreino,
+      tokensUsed // Retorna tokens usados para o front
     });
 
   } catch (error) {
@@ -289,7 +290,8 @@ Retorne apenas JSON puro. Use tipos corretos.
       msg: 'Exercicio gerado com sucesso!',
       success: true,
       treinoAtualizado: treino,
-      user
+      user,
+      tokensUsed // Retorna tokens usados
     });
 
   } catch (error) {
@@ -343,7 +345,8 @@ export const conversar = async (req, res) => {
 
         return res.json({
             msg: 'Tudo certo!',
-            res: text
+            res: text,
+            tokensUsed
         });
     } catch (error) {
         console.error(error);

@@ -50,7 +50,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   const mountedRef = useRef(true);
 
   // Toast
-  const { showWarning } = useToast();
+  const { showWarning, showTokenUsage } = useToast();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -255,6 +255,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
 
     try {
       const res = await api.post('/gerar-exercicio-ia', payload);
+      if (res?.data?.tokensUsed) showTokenUsage(res.data.tokensUsed);
       if (res?.data?.msg) showToast(res.data.msg, res.data.success ? 'success' : 'info');
 
       if (res?.data?.user && typeof setUser === 'function') {

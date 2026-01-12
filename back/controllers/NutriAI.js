@@ -180,7 +180,8 @@ Regras:
           userId: String(user._id),
           restricoes: String(nutriInfos.restricoes),
           planoNutricional: sanitizedPlano
-        }
+        },
+        tokensUsed
       });
     } catch (err) {
       console.error('Erro ao salvar nutriInfos no user:', err);
