@@ -1245,6 +1245,10 @@ export const carregarTreinos = async (req, res) => {
     const treinosGPT = meusTreinosResp?.treinos || meusTreinosResp || [];
     const totalTokens = Number(meusTreinosResp?.total_tokens) || 0;
 
+    if (totalTokens > 0) {
+      await registerTokenUsage(email, totalTokens);
+    }
+
     const meusTreinos = (treinosGPT || []).map((treino, idx) => ({
       treinoId: uuidv4(),
       treinoName: treino.treinoName || `Treino ${idx + 1}`,

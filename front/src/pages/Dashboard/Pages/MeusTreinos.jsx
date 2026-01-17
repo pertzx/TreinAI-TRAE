@@ -135,6 +135,8 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
         profissionalId 
       });
       
+      if (resp?.data?.total_tokens) showTokenUsage(resp.data.total_tokens);
+
       if (resp?.data?.user && typeof setUser === 'function') {
         setUser(resp.data.user);
         syncMeusTreinosFromUser(resp.data.user);
@@ -210,6 +212,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
 
     try {
       const res = await api.post('/gerar-treino-ia', payload);
+      if (res?.data?.tokensUsed) showTokenUsage(res.data.tokensUsed);
       if (res?.data?.msg) showToast(res.data.msg, res.data.success ? 'success' : 'info');
       
       if (res?.data?.user && typeof setUser === 'function') {

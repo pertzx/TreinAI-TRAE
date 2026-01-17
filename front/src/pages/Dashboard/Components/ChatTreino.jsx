@@ -182,7 +182,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
   const [anunciosJaVistos, setAnunciosJaVistos] = useState([]);
 
   // toast
-  const { showError } = useToast();
+  const { showError, showTokenUsage } = useToast();
 
   // Função para verificar se o usuário está no final do chat
   const checkIfAtBottom = () => {
@@ -721,6 +721,11 @@ const ChatTreino = ({ tema = "dark", user }) => {
     try {
       const res = await api.post('/conversar', { email: user.email, input: text, historico, treino: treinoAtual });
       const data = await res.data;
+
+      if (data?.tokensUsed) {
+        showTokenUsage(data.tokensUsed);
+      }
+
       // remove placeholder
       setMensagens(prev => prev.filter(m => m.id !== typingId));
       typingRef.current = null;
