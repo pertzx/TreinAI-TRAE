@@ -1,292 +1,222 @@
 import User from '../models/User.js';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
-import { sendNotificationEmail } from '../utils/sendEmail.js';
-import { DateTime } from 'luxon';
+import { getSettings } from '../models/GlobalSettings.js';
 
-// Limites de tokens por plano (tokens/dia)
-const TOKEN_LIMITS = {
-  free: 5000,
-  pro: 20000,
-  max: 40000,
-  coach: 200000
+/**
+ * Modelo de cobrança de IA por CUSTO (R$).
+ *
+ * A cada uso de IA somam-se os tokens (entrada/saída), converte-se para o custo
+ * real do modelo, aplica-se a margem global (lucro) e debita-se do orçamento do
+ * usuário. Orçamento dos pagos = valor pago na Stripe (planInfos.aiBudgetBRL),
+ * medido por período (planInfos.periodStart). Free = cortesia única (vitalícia).
+ */
+
+const PAID_PLANS = ['pro', 'max', 'coach'];
+const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+/** Lê o preço de um modelo do settings (suporta Map do mongoose ou objeto). */
+const getModelPricing = (settings, model) => {
+  const mp = settings.modelPricingBRL;
+  if (!mp) return null;
+  if (typeof mp.get === 'function') return mp.get(model) || null;
+  return mp[model] || null;
 };
 
 /**
- * Middleware para verificar limite de tokens por plano
- * Deve ser usado antes das rotas que consomem IA
+ * Converte uso em custo real (R$) e custo cobrado (real × margem).
  */
-export const checkTokenLimit = async (req, res, next) => {
+export const computeCost = (settings, { model, promptTokens = 0, completionTokens = 0, isImage = false }) => {
+  let custoReal = 0;
+  if (isImage) {
+    custoReal = Number(settings.imageCostBRL) || 0;
+  } else {
+    const pricing = getModelPricing(settings, model) || getModelPricing(settings, DEFAULT_MODEL);
+    if (pricing) {
+      custoReal = (Number(promptTokens) / 1e6) * pricing.inputPer1M
+        + (Number(completionTokens) / 1e6) * pricing.outputPer1M;
+    }
+  }
+  const margin = Number(settings.marginMultiplier) || 2;
+  const custoCobrado = custoReal * margin;
+  return { custoReal, custoCobrado };
+};
+
+/** Resolve o usuário-alvo (próprio ou, via profissionalId, o dono do plano coach). */
+const findTargetUserDoc = async ({ email, profissionalId }) => {
+  if (profissionalId) {
+    const prof = await Profissional.findOne({ profissionalId });
+    if (!prof) return { error: 'Profissional não encontrado', status: 404 };
+    const user = await User.findById(prof.userId);
+    if (!user) return { error: 'Usuário associado ao profissional não encontrado', status: 404 };
+    if (user.planInfos?.planType !== 'coach' || user.planInfos?.status !== 'ativo') {
+      return { error: 'Plano Coach inativo', status: 403 };
+    }
+    return { user, planType: 'coach' };
+  }
+  if (!email) return { error: 'Email é obrigatório para verificação de uso de IA', status: 400 };
+  const user = await User.findOne({ email });
+  if (!user) return { error: 'Usuário não encontrado', status: 404 };
+  return { user, planType: user.planInfos?.planType || 'free' };
+};
+
+/** Calcula gasto e orçamento atuais do usuário (R$). */
+const computeSpentAndBudget = (user, planType, settings) => {
+  const usage = user.stats?.aiUsage || [];
+  const isPaidActive = PAID_PLANS.includes(planType) && user.planInfos?.status === 'ativo';
+
+  if (isPaidActive) {
+    const periodStart = user.planInfos?.periodStart ? new Date(user.planInfos.periodStart) : new Date(0);
+    const gasto = usage
+      .filter(u => new Date(u.data) >= periodStart)
+      .reduce((acc, u) => acc + (Number(u.custoCobrado) || 0), 0);
+    const orcamento = (Number(user.planInfos?.aiBudgetBRL) > 0)
+      ? Number(user.planInfos.aiBudgetBRL)
+      : (Number(settings.planBudgetFallbackBRL?.[planType]) || 0); // rede de segurança
+    return { gasto, orcamento, isFree: false };
+  }
+
+  // Free (ou pago inativo): cortesia única, soma vitalícia.
+  const gasto = usage.reduce((acc, u) => acc + (Number(u.custoCobrado) || 0), 0);
+  const orcamento = Number(settings.freeCourtesyBudgetBRL) || 0;
+  return { gasto, orcamento, isFree: true };
+};
+
+/**
+ * Registra um uso de IA: calcula o custo e faz append em stats.aiUsage.
+ * Retorna { ok, custoReal, custoCobrado }.
+ */
+export const registerAiUsage = async (email, { model, promptTokens = 0, completionTokens = 0, isImage = false, profissionalId = null } = {}) => {
   try {
-    const bodyEmail = req.body?.email;
-    const email = bodyEmail || req.userEmail || (req.user?.email) || null;
-    const { profissionalId } = req.body;
-    let targetUser, planType;
-    
-    // Se profissionalId for fornecido, verificar tokens do usuário do profissional
-    if (profissionalId) {
-      // 1. Buscar o profissional pelo profissionalId (UUID string)
-      const profissional = await Profissional.findOne({ profissionalId: profissionalId });
+    const settings = await getSettings();
+    const { user, error } = await findTargetUserDoc({ email, profissionalId });
+    if (error || !user) {
+      console.error('[registerAiUsage] alvo não resolvido:', error);
+      return { ok: false, custoReal: 0, custoCobrado: 0 };
+    }
+    const { custoReal, custoCobrado } = computeCost(settings, { model, promptTokens, completionTokens, isImage });
 
-      if (!profissional) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Profissional não encontrado' 
-        });
-      }
+    if (!user.stats) user.stats = {};
+    if (!user.stats.aiUsage) user.stats.aiUsage = [];
+    user.stats.aiUsage.push({
+      model: model || null,
+      promptTokens: Number(promptTokens) || 0,
+      completionTokens: Number(completionTokens) || 0,
+      isImage: !!isImage,
+      custoReal,
+      custoCobrado,
+      data: new Date(getBrazilDate()),
+    });
+    await user.save();
 
-      // 2. Buscar o usuário associado usando o userId do profissional
-      targetUser = await User.findById(profissional.userId);
+    console.log(`[registerAiUsage] ${profissionalId ? 'prof ' + profissionalId : email}: real R$${custoReal.toFixed(4)} cobrado R$${custoCobrado.toFixed(4)}`);
+    return { ok: true, custoReal, custoCobrado };
+  } catch (error) {
+    console.error('[registerAiUsage] erro:', error);
+    return { ok: false, custoReal: 0, custoCobrado: 0 };
+  }
+};
 
-      if (!targetUser) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Usuário associado ao profissional não encontrado' 
-        });
-      }
+/**
+ * Middleware: bloqueia o uso de IA quando o gasto atinge o orçamento.
+ */
+export const checkAiBudget = async (req, res, next) => {
+  try {
+    const email = req.body?.email || req.userEmail || req.user?.email || null;
+    const { profissionalId } = req.body || {};
+    const settings = await getSettings();
 
-      // 3. Verificar se o plano Coach está ativo
-      if (targetUser.planInfos?.planType !== 'coach' || targetUser.planInfos?.status !== 'ativo') {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'Plano Coach inativo' 
-        });
-      }
-
-      planType = 'coach';
-    } else {
-      // Verificação padrão por email para usuários
-      if (!email) {
-        return res.status(400).json({ 
-          success: false, 
-          msg: 'Email é obrigatório para verificação de tokens' 
-        });
-      }
-
-      targetUser = await User.findOne({ email });
-      if (!targetUser) {
-        return res.status(404).json({ 
-          success: false, 
-          msg: 'Usuário não encontrado' 
-        });
-      }
-
-      planType = targetUser.planInfos?.planType || 'free';
+    const { user, planType, error, status } = await findTargetUserDoc({ email, profissionalId });
+    if (error || !user) {
+      return res.status(status || 404).json({ success: false, msg: error || 'Usuário não encontrado' });
     }
 
-    // Inicializar stats se não existir
-    if (!targetUser.stats) {
-      targetUser.stats = { tokens: [] };
-      await targetUser.save();
-    }
-    if (!targetUser.stats.tokens) {
-      targetUser.stats.tokens = [];
-      await targetUser.save();
-    }
+    const { gasto, orcamento, isFree } = computeSpentAndBudget(user, planType, settings);
 
-    const dailyLimit = TOKEN_LIMITS[planType];
-    
-    // Obter data atual no Brasil
-    const todayMillis = getBrazilDate();
-    const today = new Date(todayMillis);
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const todayEnd = new Date(todayStart);
-    todayEnd.setDate(todayEnd.getDate() + 1);
-
-    // Calcular tokens usados hoje
-    const tokensUsedToday = targetUser.stats.tokens
-      .filter(token => {
-        const tokenDate = new Date(token.data);
-        return tokenDate >= todayStart && tokenDate < todayEnd;
-      })
-      .reduce((total, token) => total + token.valor, 0);
-
-    // Verificar se excedeu o limite
-    if (tokensUsedToday >= dailyLimit) {
+    if (gasto >= orcamento) {
       return res.status(429).json({
         success: false,
-        msg: `Limite diário de tokens excedido. Plano ${planType.toUpperCase()}: ${dailyLimit} tokens/dia`,
+        code: 'AI_BUDGET_EXCEEDED',
+        msg: isFree
+          ? 'Sua cortesia de IA acabou. Assine um plano para continuar usando a IA.'
+          : 'Você atingiu o limite de uso de IA do seu plano neste período. Aguarde a renovação ou faça upgrade.',
         data: {
           planType,
-          dailyLimit,
-          tokensUsedToday,
-          tokensRemaining: 0
-        }
+          orcamentoBRL: orcamento,
+          gastoBRL: gasto,
+          restanteBRL: Math.max(0, orcamento - gasto),
+        },
       });
     }
 
-    // Adicionar informações ao request para uso posterior
-    req.tokenInfo = {
+    req.aiBudgetInfo = {
       planType,
-      dailyLimit,
-      tokensUsedToday,
-      tokensRemaining: dailyLimit - tokensUsedToday,
-      targetUser,
-      profissionalId
+      orcamentoBRL: orcamento,
+      gastoBRL: gasto,
+      restanteBRL: orcamento - gasto,
+      isFree,
+      targetUser: user,
+      profissionalId: profissionalId || null,
     };
-
     next();
   } catch (error) {
-    console.error('Erro no middleware de verificação de tokens:', error);
-    return res.status(500).json({
-      success: false,
-      msg: 'Erro interno do servidor ao verificar limite de tokens'
-    });
+    console.error('[checkAiBudget] erro:', error);
+    return res.status(500).json({ success: false, msg: 'Erro ao verificar orçamento de IA' });
   }
 };
 
-// Função para registrar uso de tokens
-export const registerTokenUsage = async (email, tokens, profissionalId = null) => {
+/**
+ * Estatísticas de orçamento/uso (R$) para front e painel.
+ */
+export const getAiBudgetStats = async (userEmail, profissionalId = null) => {
   try {
-    let targetUser;
+    const settings = await getSettings();
+    const { user, planType, error } = await findTargetUserDoc({ email: userEmail, profissionalId });
+    if (error || !user) return { error: error || 'Usuário não encontrado' };
 
-    // Se profissionalId for fornecido, buscar o usuário do profissional
-    if (profissionalId) {
-      // 1. Buscar o profissional pelo profissionalId (UUID string)
-      const profissional = await Profissional.findOne({ profissionalId: profissionalId });
-
-      if (!profissional) {
-        console.error('Profissional não encontrado:', profissionalId);
-        return false;
-      }
-
-      // 2. Buscar o usuário associado
-      targetUser = await User.findById(profissional.userId);
-
-      if (!targetUser) {
-        console.error('Usuário associado ao profissional não encontrado');
-        return false;
-      }
-
-      if (targetUser.planInfos?.planType !== 'coach' || targetUser.planInfos?.status !== 'ativo') {
-        console.error('Plano Coach inativo');
-        return false;
-      }
-    } else {
-      // Lógica original para usuários
-      targetUser = await User.findOne({ email });
-      if (!targetUser) {
-        console.error('Usuário não encontrado:', email);
-        return false;
-      }
-    }
-
-    // Inicializar stats se não existir
-    if (!targetUser.stats) {
-      targetUser.stats = { tokens: [] };
-    }
-    if (!targetUser.stats.tokens) {
-      targetUser.stats.tokens = [];
-    }
-
-    // Obter data atual no formato YYYY-MM-DD usando wall clock (Brasil)
-    const nowBrazil = new Date(DateTime.now().setZone('America/Sao_Paulo').toMillis());
-    const today = nowBrazil.toLocaleDateString('en-CA'); // Retorna YYYY-MM-DD
-
-    const existingTokenRecord = targetUser.stats.tokens.find(token => {
-      if (!token.data) return false;
-      const recordDate = new Date(token.data);
-      // Comparar usando o fuso do Brasil para garantir consistência
-      const recordDay = DateTime.fromJSDate(recordDate).setZone('America/Sao_Paulo').toFormat('yyyy-MM-dd');
-      return recordDay === today;
-    });
-
-    if (existingTokenRecord) {
-      // Se existe registro para hoje, adicionar ao valor existente
-      existingTokenRecord.valor += tokens;
-    } else {
-      // Se não existe, criar novo registro
-      const tokenUsage = {
-        valor: tokens,
-        data: nowBrazil // Usar o objeto Date do Brasil
-      };
-      targetUser.stats.tokens.push(tokenUsage);
-    }
-
-    await targetUser.save();
-
-    console.log(`Tokens registrados: ${tokens} para ${profissionalId ? 'profissional' : 'usuário'} ${profissionalId || email}`);
-    return true;
-  } catch (error) {
-    console.error('Erro ao registrar uso de tokens:', error);
-    return false;
-  }
-};
-
-// Função para obter estatísticas de tokens
-export const getTokenStats = async (userEmail, profissionalId = null) => {
-  try {
-    let targetUser;
-    let planType;
-
-    // Se profissionalId for fornecido, obter stats do usuário do profissional
-    if (profissionalId) {
-      // 1. Buscar o profissional pelo profissionalId (UUID string)
-      const profissional = await Profissional.findOne({ profissionalId: profissionalId });
-
-      if (!profissional) {
-        return { error: 'Profissional não encontrado' };
-      }
-
-      // 2. Buscar o usuário associado usando o userId do profissional
-      targetUser = await User.findById(profissional.userId);
-
-      if (!targetUser) {
-        return { error: 'Usuário associado ao profissional não encontrado' };
-      }
-
-      if (targetUser.planInfos?.planType !== 'coach' || targetUser.planInfos?.status !== 'ativo') {
-        return { error: 'Plano Coach inativo' };
-      }
-
-      planType = 'coach';
-    } else {
-      // Lógica original para usuários
-      targetUser = await User.findOne({ email: userEmail });
-      if (!targetUser) {
-        return { error: 'Usuário não encontrado' };
-      }
-
-      planType = targetUser.planInfos?.planType || 'free';
-    }
-
-    // Inicializar stats se não existir
-    if (!targetUser.stats) {
-      targetUser.stats = { tokens: [] };
-    }
-    if (!targetUser.stats.tokens) {
-      targetUser.stats.tokens = [];
-    }
-
-    const dailyLimit = TOKEN_LIMITS[planType];
-    
-    // Obter data atual no Brasil
-    const todayMillis = getBrazilDate();
-    const today = new Date(todayMillis);
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const todayEnd = new Date(todayStart);
-    todayEnd.setDate(todayEnd.getDate() + 1);
-
-    // Calcular tokens usados hoje
-    const tokensUsedToday = (targetUser.stats?.tokens || [])
-      .filter(token => {
-        const tokenDate = new Date(token.data);
-        return tokenDate >= todayStart && tokenDate < todayEnd;
-      })
-      .reduce((total, token) => total + token.valor, 0);
-
+    const { gasto, orcamento, isFree } = computeSpentAndBudget(user, planType, settings);
     return {
       planType,
-      dailyLimit,
-      tokensUsedToday,
-      tokensRemaining: Math.max(0, dailyLimit - tokensUsedToday),
-      canUseAI: tokensUsedToday < dailyLimit,
-      isProfessional: !!profissionalId
+      orcamentoBRL: Number(orcamento.toFixed(4)),
+      gastoBRL: Number(gasto.toFixed(4)),
+      restanteBRL: Number(Math.max(0, orcamento - gasto).toFixed(4)),
+      canUseAI: gasto < orcamento,
+      isFree,
+      isProfessional: !!profissionalId,
     };
   } catch (error) {
-    console.error('Erro ao obter estatísticas de tokens:', error);
+    console.error('[getAiBudgetStats] erro:', error);
     return { error: 'Erro interno do servidor' };
   }
 };
 
-export default { checkTokenLimit, registerTokenUsage, getTokenStats, TOKEN_LIMITS };
+/* ------------------------------------------------------------------ */
+/* Aliases de compatibilidade (mantêm imports antigos funcionando)     */
+/* ------------------------------------------------------------------ */
+
+// Antes: middleware de limite por tokens. Agora aponta para o gate por custo.
+export const checkTokenLimit = checkAiBudget;
+
+// Antes: estatísticas por tokens. Agora retorna custo (R$).
+export const getTokenStats = getAiBudgetStats;
+
+// Antes: registerTokenUsage(email, tokens, profissionalId). Mantido como wrapper:
+// trata o total como tokens de saída do modelo padrão (estimativa conservadora).
+export const registerTokenUsage = async (email, tokens, profissionalId = null) => {
+  const res = await registerAiUsage(email, {
+    model: DEFAULT_MODEL,
+    completionTokens: Number(tokens) || 0,
+    profissionalId,
+  });
+  return res.ok;
+};
+
+export default {
+  computeCost,
+  registerAiUsage,
+  checkAiBudget,
+  getAiBudgetStats,
+  checkTokenLimit,
+  getTokenStats,
+  registerTokenUsage,
+};

@@ -1,7 +1,7 @@
 import redisCache from '../config/redis.js'
 import ImageAsset from '../models/ImageAsset.js'
 import User from '../models/User.js'
-import { registerTokenUsage } from '../middlewares/tokenLimitMiddleware.js'
+import { registerAiUsage } from '../middlewares/tokenLimitMiddleware.js'
 import { uploadToCloudinary } from '../config/cloudinaryConfig.js'
 import OpenAI from 'openai'
 import crypto from 'crypto'
@@ -234,9 +234,12 @@ export const generateImage = async (req, res) => {
       if (moderation.results[0].flagged) {
         console.log('[images/generate] openai moderation block', { q, categories: moderation.results[0].categories })
         
-        // Registrar tokens gastos na moderação mesmo em caso de bloqueio
+        // Registrar custo da moderação mesmo em caso de bloqueio (tratado como texto)
         if (moderationTokens > 0) {
-          await registerTokenUsage(email, moderationTokens, req.body?.profissionalId || null)
+          await registerAiUsage(email, {
+            completionTokens: moderationTokens,
+            profissionalId: req.body?.profissionalId || null,
+          })
         }
 
         await ImageAsset.updateOne({ normalizedQuery: q, lockId }, {
@@ -325,8 +328,11 @@ export const generateImage = async (req, res) => {
     }
     console.log('[images/generate] db saved', { id: updated?._id })
 
-    const regOk = await registerTokenUsage(email, totalTokensUsed, req.body?.profissionalId || null)
-    console.log('[images/generate] registerTokenUsage', { ok: regOk, totalTokensUsed })
+    const regRes = await registerAiUsage(email, {
+      isImage: true,
+      profissionalId: req.body?.profissionalId || null,
+    })
+    console.log('[images/generate] registerAiUsage (imagem)', { ok: regRes.ok, custoCobrado: regRes.custoCobrado })
     try { if (redisCache?.isConnected) await redisCache.delete(`imggen:lock:${q}`) } catch (_) { }
     const url = buildAssetUrl(updated)
     return res.json({

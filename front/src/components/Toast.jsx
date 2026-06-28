@@ -238,9 +238,11 @@ export const ToastProvider = ({ children }) => {
   const showInfo = useCallback((message, options = {}) =>
     addToast(message, 'info', options), [addToast]);
 
-  const showTokenUsage = useCallback((tokens, options = {}) => {
-    if (!tokens || tokens <= 0) return;
-    addToast(`Custo da operação: ${tokens} tokens`, 'token', { ...options, duration: 4000 });
+  // Mostra o custo da operação de IA em R$ (custoCobrado).
+  const showTokenUsage = useCallback((custo, options = {}) => {
+    const v = Number(custo);
+    if (!v || v <= 0) return;
+    addToast(`Custo da operação: R$ ${v.toFixed(2).replace('.', ',')}`, 'token', { ...options, duration: 4000 });
   }, [addToast]);
 
   const value = {

@@ -984,6 +984,13 @@ export const StripeWebhook = async (req, res) => {
             user.planInfos.status = 'ativo';
             user.planInfos.lastProcessedInvoiceId = invoiceId;
 
+            // MODELO DE CUSTO DE IA: orçamento = valor pago; zera a janela de gasto.
+            // Cobre 1º pagamento E renovações -> usuário sempre pode usar após pagar/renovar.
+            if (invoice.amount_paid != null) {
+              user.planInfos.aiBudgetBRL = invoice.amount_paid / 100;
+            }
+            user.planInfos.periodStart = new Date();
+
             await user.save();
             // Enviar email de confirmação
             sendNotificationEmail(user.email, 'Plano Ativado', 'Seu plano foi ativado com sucesso!');
@@ -1723,6 +1730,13 @@ export const atualizarPlano = async (req, res) => {
       user.planInfos.nextPaymentValue = updated.items?.data?.[0]?.price?.unit_amount ? updated.items.data[0].price.unit_amount / 100 : null;
       user.planInfos.nextPaymentDate = updated.current_period_end ? new Date(updated.current_period_end * 1000) : null;
     }
+
+    // MODELO DE CUSTO DE IA: libera uso imediatamente após a troca de plano.
+    // (a fatura/renovação confirmará o valor real depois, via webhook)
+    if (Number(user.planInfos.nextPaymentValue) > 0) {
+      user.planInfos.aiBudgetBRL = Number(user.planInfos.nextPaymentValue);
+    }
+    user.planInfos.periodStart = new Date();
 
     await user.save();
 

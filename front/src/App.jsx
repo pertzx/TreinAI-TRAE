@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import api from './Api';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import "../src/App.css";
@@ -15,6 +16,7 @@ import PagamentoCancelado from './pages/PagamentoCancelado';
 import Sobre from './pages/Sobre';
 import Termos from './pages/Termos';
 import PoliticaPrivacidade from './pages/PoliticaPrivacidade';
+import LgpdDataExport from './pages/LgpdDataExport.jsx';
 import { ToastProvider, GlobalToastContainer } from './components/Toast.jsx';
 import CookieConsent from './components/CookieConsent';
 import Logo from './components/Logo.jsx';
@@ -22,6 +24,11 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 function App() {
   const [plano, setPlano] = useState('free');
+
+  // Registra a visita diária única (dedupe por dia no backend via cookie visitorId).
+  useEffect(() => {
+    api.post('/analytics/track-visit', {}).catch(() => {});
+  }, []);
 
   const BannedGuard = ({ children }) => {
     const { user, isAuthenticated, isLoading } = useAuth();
@@ -151,6 +158,7 @@ function App() {
             <Route path='/sobre' element={<Sobre />} />
             <Route path='/termos' element={<Termos />} />
             <Route path='/politica-de-privacidade' element={<PoliticaPrivacidade />} />
+            <Route path='/lgpd/exportar-dados' element={<LgpdDataExport />} />
             <Route path='*' element={<p className='font-bold p-5 w-full text-2xl'><Logo scale={1}/>404 Pagina não encontrada. \: <a href="/login" className='text-blue-300'>Ir para Login</a></p>} />
           </Routes>
         </BannedGuard>

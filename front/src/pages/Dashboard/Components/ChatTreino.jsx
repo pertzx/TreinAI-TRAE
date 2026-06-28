@@ -12,6 +12,7 @@ import SummaryOverlay from "./SummaryOverlay";
 import { getBrazilDate } from "../../../../helpers/getBrazilDate.js";
 import AdTreinAI from "./AdTreinAI.jsx";
 import { useToast } from "../../../components/Toast.jsx";
+import TokenUsageBar from "../../../components/TokenUsageBar.jsx";
 
 /* Fallback simples */
 const exerciciosMock = [
@@ -712,6 +713,8 @@ const ChatTreino = ({ tema = "dark", user }) => {
     const text = inputValue.trim();
     adicionarMensagem(text, "user");
     setInputValue("");
+    // Persiste a mensagem do usuário no histórico de IA (fire-and-forget)
+    api.post('/ai/history/append', { assistant: 'treino', role: 'user', content: text }).catch(() => {});
 
     // cria placeholder de "digitando"
     const typingId = `typing-${getBrazilDate()}-${Math.random()}`;
@@ -722,8 +725,8 @@ const ChatTreino = ({ tema = "dark", user }) => {
       const res = await api.post('/conversar', { email: user.email, input: text, historico, treino: treinoAtual });
       const data = await res.data;
 
-      if (data?.tokensUsed) {
-        showTokenUsage(data.tokensUsed);
+      if (data?.custoCobrado) {
+        showTokenUsage(data.custoCobrado);
       }
 
       // remove placeholder
@@ -734,13 +737,10 @@ const ChatTreino = ({ tema = "dark", user }) => {
         showError(data?.msg ? data?.msg : 'Erro ao enviar mensagem.')
       }
 
-      if (data?.res) {
-        adicionarMensagem(data.res, "bot");
-      } else if (data?.message) {
-        adicionarMensagem(data.message, "bot");
-      } else {
-        adicionarMensagem("Sem resposta da IA.", "bot");
-      }
+      const aiText = data?.res || data?.message || "Sem resposta da IA.";
+      adicionarMensagem(aiText, "bot");
+      // Persiste a resposta da IA no histórico de IA (fire-and-forget)
+      api.post('/ai/history/append', { assistant: 'treino', role: 'assistant', content: String(aiText) }).catch(() => {});
     } catch (err) {
       console.error("Erro ao conversar com a IA:", err);
       // remove placeholder
@@ -785,6 +785,11 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
       {/* Conteúdo centralizado em tela cheia */}
       <div className={`flex flex-col flex-1 w-full ${isFullScreen ? "max-w-5xl mx-auto h-full" : ""}`}>
+
+      {/* Token Usage Bar - Visible in all states */}
+      <div className="w-full flex justify-center mb-4 mt-1 px-8 sm:px-0">
+          <TokenUsageBar user={user} className="w-full max-w-xs sm:max-w-sm" />
+      </div>
 
       {/* Antes de iniciar: se jaFezHoje === true mostra tela informativa */}
       {!treinoIniciado && jaFezHoje ? (

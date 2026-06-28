@@ -6,6 +6,7 @@ import Profissional from "../models/Profissional.js";
 import User from "../models/User.js";
 import { v4 as uuidv4 } from "uuid";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
+import { logAudit } from "../helpers/auditLog.js";
 import mongoose from "mongoose";
 
 // Se estiver em ESM e precisar de __dirname:
@@ -666,6 +667,8 @@ export const aceitarAluno = async (req, res) => {
   }
 
   const alunoIdStr = String(alunoUserId);
+
+  logAudit({ req, action: 'aluno.accept', details: { profissionalId, alunoUserId: alunoIdStr } });
 
   let session;
   try {

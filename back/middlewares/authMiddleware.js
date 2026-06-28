@@ -32,6 +32,14 @@ export const verificarToken = (req, res, next) => {
         }
         
         req.userEmail = decoded.email;
+        // Popula req.user a partir do payload do JWT ({ email, userId }).
+        // Vários consumidores (tokenRoutes, authRoutes, AdminController, middlewares
+        // de autorização) dependem de req.user — sem isto eles quebram.
+        req.user = {
+            id: decoded.userId ? String(decoded.userId) : undefined,
+            _id: decoded.userId,
+            email: decoded.email,
+        };
         next();
     });
 };

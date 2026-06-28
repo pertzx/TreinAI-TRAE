@@ -6,6 +6,62 @@ import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import redisCache from '../config/redis.js';
 import RedisManager from '../utils/redisManager.js';
 import Ranking from "../models/Gamification/Ranking.js";
+import GlobalSettings, { getSettings } from "../models/GlobalSettings.js";
+
+// Verifica se o requisitante é admin; retorna o doc do admin ou null.
+const ensureAdmin = async (adminId) => {
+    if (!adminId) return null;
+    const u = await User.findById(adminId);
+    return (u && u.role === 'admin') ? u : null;
+};
+
+// Lê as configurações globais (modelo de custo de IA, margem, etc.)
+export const getGlobalSettings = async (req, res) => {
+    try {
+        const admin = await ensureAdmin(req.body.adminId);
+        if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
+        const settings = await getSettings();
+        return res.status(200).json({ success: true, settings });
+    } catch (error) {
+        return res.status(500).json({ success: false, msg: 'Erro ao buscar configurações.', error: error.message });
+    }
+};
+
+// Atualiza as configurações globais (apenas campos enviados).
+export const updateGlobalSettings = async (req, res) => {
+    try {
+        const admin = await ensureAdmin(req.body.adminId);
+        if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
+
+        const settings = await getSettings();
+        const { marginMultiplier, freeCourtesyBudgetBRL, planBudgetFallbackBRL, modelPricingBRL, imageCostBRL } = req.body;
+
+        if (marginMultiplier != null) settings.marginMultiplier = Math.max(1, Number(marginMultiplier));
+        if (freeCourtesyBudgetBRL != null) settings.freeCourtesyBudgetBRL = Math.max(0, Number(freeCourtesyBudgetBRL));
+        if (imageCostBRL != null) settings.imageCostBRL = Math.max(0, Number(imageCostBRL));
+        if (planBudgetFallbackBRL && typeof planBudgetFallbackBRL === 'object') {
+            ['pro', 'max', 'coach'].forEach(p => {
+                if (planBudgetFallbackBRL[p] != null) settings.planBudgetFallbackBRL[p] = Number(planBudgetFallbackBRL[p]);
+            });
+        }
+        if (modelPricingBRL && typeof modelPricingBRL === 'object') {
+            for (const [model, price] of Object.entries(modelPricingBRL)) {
+                if (price && price.inputPer1M != null && price.outputPer1M != null) {
+                    settings.modelPricingBRL.set(model, {
+                        inputPer1M: Number(price.inputPer1M),
+                        outputPer1M: Number(price.outputPer1M),
+                    });
+                }
+            }
+        }
+        settings.updatedBy = String(admin._id);
+        await settings.save();
+
+        return res.status(200).json({ success: true, settings, msg: 'Configurações atualizadas.' });
+    } catch (error) {
+        return res.status(500).json({ success: false, msg: 'Erro ao atualizar configurações.', error: error.message });
+    }
+};
 
 export const getUsers = async (req, res) => {
     try {

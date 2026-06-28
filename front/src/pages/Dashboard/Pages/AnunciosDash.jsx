@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FaLocationPin, FaChartLine, FaHandPointer, FaPlus, FaUpload, FaBullhorn, FaEye} from 'react-icons/fa6'
 import { FaSave, FaTimes, FaCloudUploadAlt, FaEdit, FaTrash } from 'react-icons/fa'
 import { useToast } from '../../../components/Toast.jsx'
+import InteractionStatsChart from '../Components/InteractionStatsChart'
 import { buildImageUrl } from '../../../utils/imageUtils.js'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
@@ -1116,6 +1117,20 @@ const AnunciosDash = ({ user, tema = 'dark' }) => {
                                                             Deletar
                                                         </motion.button>
                                                     </div>
+
+                                                    {/* Desempenho do anúncio (impressões e cliques) */}
+                                                    <details className="mt-4">
+                                                        <summary className="cursor-pointer text-sm font-medium text-slate-500 dark:text-slate-300">
+                                                            Ver desempenho (gráfico)
+                                                        </summary>
+                                                        <div className="mt-2">
+                                                            <InteractionStatsChart
+                                                                targetId={ad._id || ad.anuncioId}
+                                                                targetModel="Anuncio"
+                                                                tema={tema}
+                                                            />
+                                                        </div>
+                                                    </details>
                                                 </>
                                             ) : (
                                                 <div className="space-y-6">

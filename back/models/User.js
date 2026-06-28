@@ -24,7 +24,10 @@ const UserSchema = new Schema({
     stripeCustomerId: { type: String, default: null },
     lastStripeEventTimestamp: { type: Number, default: null },
     nextPaymentValue: { type: String, default: null }, // coloquei como string porque o valor pode nao ser inteiro. mas é so converter pra Number/String em Back/Front.
-    nextPaymentDate: { type: Date, default: null }
+    nextPaymentDate: { type: Date, default: null },
+    // Modelo de cobrança de IA por custo (R$):
+    aiBudgetBRL: { type: Number, default: 0 },      // orçamento do período (= valor pago na Stripe)
+    periodStart: { type: Date, default: null },     // início do período atual (janela do gasto)
   },
 
   preferences: {
@@ -109,6 +112,18 @@ const UserSchema = new Schema({
         data: { type: Date, default: getBrazilDate },
       }
     ],
+    // Registro de uso de IA por custo (R$) — append-only.
+    aiUsage: [
+      {
+        model: { type: String, default: null },
+        promptTokens: { type: Number, default: 0 },
+        completionTokens: { type: Number, default: 0 },
+        isImage: { type: Boolean, default: false },
+        custoReal: { type: Number, default: 0 },     // custo real em R$
+        custoCobrado: { type: Number, default: 0 },  // custo real × margem (debitado do orçamento)
+        data: { type: Date, default: getBrazilDate },
+      }
+    ],
     deviceHistory: [{
       deviceId: { type: String, required: true },
       bloqueado: { type: Boolean, default: false },
@@ -156,6 +171,17 @@ const UserSchema = new Schema({
         conteudo: { type: String, required: true },
       }
     ]
+  },
+
+  // Ficha de anamnese / avaliação inicial preenchida pelo aluno
+  anamnese: {
+    objetivos: { type: String, default: '' },
+    lesoes: { type: String, default: '' },
+    restricoes: { type: String, default: '' },
+    medicamentos: { type: String, default: '' },
+    experiencia: { type: String, default: '' },
+    observacoes: { type: String, default: '' },
+    preenchidoEm: { type: Date, default: null },
   },
 
   ban: {

@@ -4,7 +4,7 @@ import { login, dashboard, signup, changeTheme, changeLoginSeguro, completeOnboa
 import { verificarToken } from '../middlewares/authMiddleware.js';
 import { validateLogin, validateSignup, validateDashboard, validateUpdateProfile, validateCreateLocal, validateEditLocal } from '../middlewares/validationMiddleware.js';
 import { validateEmailReal, validateEmailBasic } from '../middlewares/emailValidation.js';
-import { loginRateLimit, signupRateLimit, uploadRateLimit, passwordResetRateLimit } from '../middlewares/rateLimitMiddleware.js';
+import { loginRateLimit, signupRateLimit, uploadRateLimit, passwordResetRateLimit, aiRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { validateCSRF, validateCSRFAuth, getCSRFToken, provideCSRFToken } from '../middlewares/csrfMiddleware.js';
 import { uploadSecurityHeaders } from '../middlewares/securityHeaders.js';
 import { 
@@ -34,9 +34,13 @@ import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVista
 import { conversarNutri } from '../controllers/NutriAI.js';
 import { editarLocal, criarLocalDireto, deletarLocalPorId, ativarLocal, buscarLocais, meusLocais, upload, avaliarLocal, listarAvaliacoesLocal, listarAvaliacoesPendentes, moderarAvaliacao } from '../controllers/LocalController.js';
 import { criarAnuncio, editarAnuncio, getAnuncios, deletarAnuncio, marcarClique, marcarImpressao } from '../controllers/AnunciosController.js';
-import { checkTokenLimit } from '../middlewares/tokenLimitMiddleware.js';
+import { checkAiBudget } from '../middlewares/tokenLimitMiddleware.js';
 import { queueMiddleware } from '../middlewares/queueMiddleware.js';
 import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
+import { logAudit } from '../helpers/auditLog.js';
+import { salvarNotaAluno, getNotaAluno, listarTemplates, salvarTemplate, deletarTemplate } from '../controllers/professionalTools.js';
+import { salvarAnamnese, getAnamnese, getAnamneseAluno } from '../controllers/anamnese.js';
+import { getAiHistory, appendAiHistory, clearAiHistory } from '../controllers/aiHistory.js';
 
 // Função utilitária para configurações de limpeza de cookies baseadas no ambiente
 const getClearCookieOptions = () => {
@@ -61,13 +65,13 @@ router.post('/create-checkout-session', CreateCheckoutSession);
 router.get('/session-status', SessionStatus); // verificar status
 router.post('/change-theme', changeTheme)
 router.post('/change-loginSeguro', changeLoginSeguro)
-router.post('/complete-onboarding', checkTokenLimit, completeOnboarding)
+router.post('/complete-onboarding', checkAiBudget, completeOnboarding)
 router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, uploadProfile.single('avatar'), atualizarPerfil)
-router.post('/criar-meusTreinos', checkTokenLimit, carregarTreinos);
+router.post('/criar-meusTreinos', checkAiBudget, carregarTreinos);
 
 // IA routes
-router.post('/gerar-exercicio-ia', queueMiddleware, checkTokenLimit, criarExercicioIA);
-router.post('/gerar-treino-ia', queueMiddleware, checkTokenLimit, criarTreinoIA);
+router.post('/gerar-exercicio-ia', aiRateLimit, queueMiddleware, checkAiBudget, criarExercicioIA);
+router.post('/gerar-treino-ia', aiRateLimit, queueMiddleware, checkAiBudget, criarTreinoIA);
 
 router.delete('/excluir-treino', async (req, res) => {
   const { email, treinoId } = req.query;
@@ -180,7 +184,7 @@ router.delete('/excluir-exercicio', async (req, res) => {
 router.put('/atualizar-meusTreinos', atualizarMeusTreinos)
 
 // Chat and AI conversation routes
-router.post('/conversar', checkTokenLimit, conversar);
+router.post('/conversar', aiRateLimit, checkAiBudget, conversar);
 
 router.post('/publicar-no-historico', publicarNoHistorico);
 router.post('/atualizar-plano', atualizarPlano)
@@ -197,27 +201,48 @@ router.post('/aceitar-aluno', aceitarAluno);
 router.post('/remover-aluno', removerAluno);
 router.get('/pegar-user', pegarUser);
 
+// Importar middlewares de autorização
+import { isSelf, canAccessAluno, isChatParticipant } from '../middlewares/authorizationMiddleware.js';
+
+// Ferramentas do profissional: notas privadas por aluno e templates de treino/dieta
+router.post('/aluno/salvar-nota', verificarToken, canAccessAluno, salvarNotaAluno);
+router.post('/aluno/get-nota', verificarToken, canAccessAluno, getNotaAluno);
+router.get('/templates', verificarToken, listarTemplates);
+router.post('/templates/salvar', verificarToken, salvarTemplate);
+router.post('/templates/deletar', verificarToken, deletarTemplate);
+
+// Anamnese: aluno preenche/lê a própria; profissional lê a de um aluno vinculado
+router.post('/anamnese/salvar', verificarToken, salvarAnamnese);
+router.get('/anamnese', verificarToken, getAnamnese);
+router.post('/aluno/anamnese', verificarToken, canAccessAluno, getAnamneseAluno);
+
+// Histórico de conversas com a IA (NutriAI / TreinoAI)
+router.get('/ai/history', verificarToken, getAiHistory);
+router.post('/ai/history/append', verificarToken, appendAiHistory);
+router.post('/ai/history/clear', verificarToken, clearAiHistory);
+
 //chat
-router.get('/pegarChats', pegarChats);
-router.post('/pegarChat', pegarChat);
-router.post('/enviar-mensagem', enviarMensagem);
-router.post('/deletar-mensagem', deletarMensagem);
-router.post('/adicionar-usuario-chat', adicionarUsuario);
-router.post('/remover-usuario-chat', removerUsuario);
-router.post('/marcar-mensagens-vistas', marcarMensagensVistas);
-router.post('/iniciar-chat-por-userid', iniciarChatPorUserId);
+// Rotas de chat agora com autenticação e autorização
+router.get('/pegarChats', verificarToken, isSelf, pegarChats);
+router.post('/pegarChat', verificarToken, isChatParticipant, pegarChat);
+router.post('/enviar-mensagem', verificarToken, isChatParticipant, enviarMensagem);
+router.post('/deletar-mensagem', verificarToken, isChatParticipant, deletarMensagem);
+router.post('/adicionar-usuario-chat', verificarToken, isChatParticipant, adicionarUsuario);
+router.post('/remover-usuario-chat', verificarToken, isChatParticipant, removerUsuario);
+router.post('/marcar-mensagens-vistas', verificarToken, isChatParticipant, marcarMensagensVistas);
+router.post('/iniciar-chat-por-userid', verificarToken, iniciarChatPorUserId);
 
 // Novas funcionalidades de chat
-router.post('/editar-mensagem', editarMensagem);
-router.post('/deletar-chat', deletarChat);
-router.post('/responder-mensagem', responderMensagem);
-router.post('/marcar-mensagens-vistas-v2', marcarMensagensVistasV2);
-router.post('/configurar-chat', configurarChat);
-router.get('/buscar-historico', buscarHistorico);
-router.get('/exportar-historico-chat', exportarHistoricoChat);
+router.post('/editar-mensagem', verificarToken, isChatParticipant, editarMensagem);
+router.post('/deletar-chat', verificarToken, isChatParticipant, deletarChat);
+router.post('/responder-mensagem', verificarToken, isChatParticipant, responderMensagem);
+router.post('/marcar-mensagens-vistas-v2', verificarToken, isChatParticipant, marcarMensagensVistasV2);
+router.post('/configurar-chat', verificarToken, isChatParticipant, configurarChat);
+router.get('/buscar-historico', verificarToken, isChatParticipant, buscarHistorico);
+router.get('/exportar-historico-chat', verificarToken, isChatParticipant, exportarHistoricoChat);
 
 // nutri
-router.post('/conversar-nutri', queueMiddleware, checkTokenLimit, conversarNutri);
+router.post('/conversar-nutri', aiRateLimit, queueMiddleware, checkAiBudget, conversarNutri);
 
 // locais - FLUXO ATUAL
 router.post('/criar-local-direto', 
@@ -276,6 +301,7 @@ router.post('/lgpd/solicitar-dados', verificarToken, async (req, res) => {
 router.post('/lgpd/excluir-conta', verificarToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    await logAudit({ req, action: 'account.delete', details: { userId } });
     await User.findByIdAndDelete(userId);
     res.clearCookie('auth_token', getClearCookieOptions());
     res.json({ success: true, message: 'Conta excluída com sucesso' });

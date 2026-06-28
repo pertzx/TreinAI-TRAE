@@ -1,21 +1,24 @@
 import express from 'express';
-import { getTokenStats } from '../middlewares/tokenLimitMiddleware.js';
+import { getAiBudgetStats } from '../middlewares/tokenLimitMiddleware.js';
+import { verificarToken } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
 // Endpoint para consultar estatísticas de uso de tokens
-router.post('/token-stats', async (req, res) => {
+// Agora usa o token do cookie (req.user) em vez de email no body
+router.post('/token-stats', verificarToken, async (req, res) => {
   try {
-    const { email } = req.body;
+    // Usa o email do usuário autenticado pelo cookie
+    const email = req.user?.email;
     
     if (!email) {
-      return res.status(400).json({ 
+      return res.status(401).json({ 
         success: false, 
-        msg: 'Email é obrigatório' 
+        msg: 'Usuário não autenticado' 
       });
     }
 
-    const stats = await getTokenStats(email);
+    const stats = await getAiBudgetStats(email);
     
     return res.json({
       success: true,

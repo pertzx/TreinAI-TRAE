@@ -4,7 +4,7 @@ import { verificarToken } from '../middlewares/authMiddleware.js';
 import { adminRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { adminSecurityHeaders } from '../middlewares/securityHeaders.js';
 import { getLocaisAdmin, updateLocalStatus, deleteLocal, editLocal } from '../controllers/AdminLocalController.js';
-import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError, criarRanking, editarRanking, deletarRanking, getRankings, getDetailedAIAnalytics } from '../controllers/AdminController.js';
+import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError, criarRanking, editarRanking, deletarRanking, getRankings, getDetailedAIAnalytics, getGlobalSettings, updateGlobalSettings } from '../controllers/AdminController.js';
 import {
   getCacheDashboard,
   performCacheMaintenance,
@@ -42,7 +42,15 @@ router.post('/cache-maintenance', verificarToken, adminRateLimit, adminSecurityH
 router.get('/cache-monitoring', verificarToken, adminRateLimit, adminSecurityHeaders, getCacheMonitoring) // query: interval
 router.post('/cache-alerts', verificarToken, adminRateLimit, adminSecurityHeaders, configureCacheAlerts) // body: alerts{}
 
-// Ranking 
+// Analytics / desempenho do SaaS
+import { getAdminAnalytics } from '../controllers/analytics.js';
+router.post('/analytics', adminRateLimit, adminSecurityHeaders, getAdminAnalytics) // body: adminId, days?
+
+// Configurações globais (modelo de custo de IA)
+router.post('/global-settings', adminRateLimit, adminSecurityHeaders, getGlobalSettings) // body: adminId
+router.post('/update-global-settings', adminRateLimit, adminSecurityHeaders, updateGlobalSettings) // body: adminId + campos
+
+// Ranking
 router.get('/rankings', verificarToken, adminRateLimit, adminSecurityHeaders, getRankings)
 router.post('/criar-ranking', verificarToken, adminRateLimit, adminSecurityHeaders, criarRanking)
 router.post('/editar-ranking', verificarToken, adminRateLimit, adminSecurityHeaders, editarRanking) 

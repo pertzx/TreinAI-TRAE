@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from "path";
 import User from "../models/User.js";
 import Ticket from "../models/Ticket.js"
+import InteractionLog from "../models/InteractionLog.js";
 import mongoose from "mongoose";
 
 dotenv.config();
@@ -848,6 +849,11 @@ export const marcarClique = async (req, res) => {
         // Salvar as alterações
         await anuncio.save();
 
+        // Registrar evento para série temporal (gráficos)
+        try {
+            await InteractionLog.create({ type: 'click', targetId: String(anuncioId), targetModel: 'Anuncio', userId, ip: userIp });
+        } catch (logErr) { console.warn('[marcarClique] falha ao logar interação:', logErr?.message); }
+
         // Remover o ticket após uso
         await Ticket.findByIdAndDelete(ticket._id);
 
@@ -933,6 +939,11 @@ export const marcarImpressao = async (req, res) => {
 
         // Salvar as alterações do anúncio
         await anuncio.save();
+
+        // Registrar evento para série temporal (gráficos)
+        try {
+            await InteractionLog.create({ type: 'impression', targetId: String(anuncioId), targetModel: 'Anuncio', userId, ip: userIp });
+        } catch (logErr) { console.warn('[marcarImpressao] falha ao logar interação:', logErr?.message); }
 
         // Remover o ticket após uso
         await Ticket.findByIdAndDelete(ticket._id);

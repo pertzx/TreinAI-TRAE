@@ -41,7 +41,22 @@ const profissionalSchema = new Schema({
       userId: { type: String, required: true },
       aceito: { type: Boolean, default: false },
       mensagem: { type: String, default: null },
+      // Notas privadas do profissional sobre o aluno — nunca expostas ao aluno.
+      notasPrivadas: { type: String, default: '' },
       ultimoUpdate: { type: Date, default: null }
+    }
+  ],
+
+  // Modelos reutilizáveis de treino/dieta criados pelo profissional.
+  templates: [
+    {
+      templateId: { type: String, default: () => uuidv4() },
+      tipo: { type: String, enum: ['treino', 'dieta'], required: true },
+      nome: { type: String, required: true },
+      descricao: { type: String, default: '' },
+      conteudo: { type: Schema.Types.Mixed, default: null }, // estrutura livre (exercícios ou refeições)
+      criadoEm: { type: Date, default: getBrazilDate },
+      atualizadoEm: { type: Date, default: getBrazilDate },
     }
   ],
   reports: [

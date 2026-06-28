@@ -6,7 +6,7 @@ const { Schema } = mongoose;
 const InteractionLogSchema = new Schema({
   type: { type: String, enum: ['impression', 'click'], required: true },
   targetId: { type: String, required: true, index: true }, // ProfissionalId ou LocalId
-  targetModel: { type: String, enum: ['Profissional', 'Local'], required: true },
+  targetModel: { type: String, enum: ['Profissional', 'Local', 'Anuncio'], required: true },
   userId: { type: String, default: null }, // Se logado
   ip: { type: String, default: null }, // Anonimizado se possível
   timestamp: { type: Date, default: getBrazilDate },

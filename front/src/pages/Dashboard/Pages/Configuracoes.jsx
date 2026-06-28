@@ -4,6 +4,7 @@ import api from '../../../Api';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
 import TokensChart from '../Components/TokensChart.jsx';
 import { useToast } from '../../../components/Toast.jsx';
+import TokenUsageBar from '../../../components/TokenUsageBar.jsx';
 
 /**
  * Configuracoes - usa `tema` com valores 'dark' | 'light'
@@ -110,14 +111,14 @@ const Configuracoes = ({ setTema, tema, user }) => {
       setPlanInfos(user.planInfos);
     }
 
-    // Calcular tokens
-    const tokenEntries = (user?.stats && Array.isArray(user.stats.tokens)) ? user.stats.tokens : [];
+    // Calcular custo de IA (R$) a partir de stats.aiUsage
+    const tokenEntries = (user?.stats && Array.isArray(user.stats.aiUsage)) ? user.stats.aiUsage : [];
     if (!tokenEntries.length) {
       setTokensTotal(0);
       setTokensToday(0);
     } else {
       const total = tokenEntries.reduce((acc, e) => {
-        const v = Number(e?.valor ?? e?.value ?? 0);
+        const v = Number(e?.custoCobrado ?? 0);
         return acc + (Number.isFinite(v) ? v : 0);
       }, 0);
 
@@ -136,7 +137,7 @@ const Configuracoes = ({ setTema, tema, user }) => {
         const dt = e?.data ?? e?.date ?? e?.createdAt ?? e?.publishedAt ?? null;
         const key = dt ? brazilDayKey(dt) : null;
         if (key === todayKey) {
-          const v = Number(e?.valor ?? e?.value ?? 0);
+          const v = Number(e?.custoCobrado ?? 0);
           return acc + (Number.isFinite(v) ? v : 0);
         }
         return acc;
@@ -495,15 +496,20 @@ const Configuracoes = ({ setTema, tema, user }) => {
       <div className={`${cardClass} w-full max-w-2xl p-4 rounded-2xl border`}>
         <h3 className="font-semibold mb-4">Usagem (IA)</h3>
 
+        {/* Barra visual de tokens */}
+        <div className="mb-4">
+          <TokenUsageBar user={user} />
+        </div>
+
         {/* Resumo dos tokens */}
         <div className="flex items-center justify-between gap-4 mb-4">
           <div>
-            <div className="text-xs text-gray-500">Total de tokens gastos</div>
-            <div className="text-lg font-bold">{fmt(tokensTotal)}</div>
+            <div className="text-xs text-gray-500">Total de IA gasto</div>
+            <div className="text-lg font-bold">R$ {Number(tokensTotal || 0).toFixed(2).replace('.', ',')}</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500">Tokens gastos hoje</div>
-            <div className="text-lg font-bold">{fmt(tokensToday)}</div>
+            <div className="text-xs text-gray-500">Gasto de IA hoje</div>
+            <div className="text-lg font-bold">R$ {Number(tokensToday || 0).toFixed(2).replace('.', ',')}</div>
           </div>
         </div>
 
@@ -513,7 +519,7 @@ const Configuracoes = ({ setTema, tema, user }) => {
           <TokensChart user={user} days={14} tema={tema} />
         </div>
 
-        <div className={`text-xs mt-2 ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Contagem baseada nos registros de <code>user.stats.tokens</code> (fuso America/Sao_Paulo).</div>
+        <div className={`text-xs mt-2 ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Custo de IA baseado em <code>user.stats.aiUsage</code> (fuso America/Sao_Paulo).</div>
       </div>
 
       {/* Devices history */}

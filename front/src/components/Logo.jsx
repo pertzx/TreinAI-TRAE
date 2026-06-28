@@ -1,10 +1,14 @@
 import React from 'react'
+import logoIcon from '../../public/logo-icon.svg'
 
 function Logo({ scale = 1 }) {
   const size = 40 * scale       // quadrado externo
   const hole = 20 * scale        // quadrado interno (buraco)
 
   return (
+    <img src={logoIcon} alt="TreinAI" style={{ width: `${size*2}px`, height: `${size*2}px` }} />
+  )
+  /* return (
     <div
       style={{
         width: `${size}px`,
@@ -27,7 +31,7 @@ function Logo({ scale = 1 }) {
         }}
       ></div>
     </div>
-  )
+  ) */
 }
 
 export default Logo

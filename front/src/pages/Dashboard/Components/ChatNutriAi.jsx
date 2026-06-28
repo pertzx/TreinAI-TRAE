@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../../Api.js';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
 import { useToast } from '../../../components/Toast.jsx';
+import TokenUsageBar from '../../../components/TokenUsageBar.jsx';
 
 export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null }) {
   const isDark = tema === 'dark';
@@ -49,6 +50,41 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
 
   const { showError, showSuccess, showTokenUsage } = useToast()
 
+  // --- Histórico persistente de IA ---
+  const persistedRef = useRef(new Set(['w-1'])); // 'w-1' é a saudação, não persiste
+
+  // Carrega o histórico salvo ao montar
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/ai/history', { params: { assistant: 'nutri' } });
+        const hist = res?.data?.messages || [];
+        if (cancelled || hist.length === 0) return;
+        const mapped = hist.map((m, i) => ({
+          id: `h-${i}`,
+          from: m.role === 'user' ? 'user' : 'nutri',
+          text: m.content,
+          createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
+        }));
+        mapped.forEach(m => persistedRef.current.add(m.id));
+        setMessages(prev => [...prev, ...mapped]);
+      } catch (e) { /* histórico é opcional, ignora erro */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  // Persiste cada nova mensagem (usuário ou IA) sem duplicar
+  useEffect(() => {
+    if (!user) return;
+    const last = messages[messages.length - 1];
+    if (!last || persistedRef.current.has(last.id)) return;
+    persistedRef.current.add(last.id);
+    const role = last.from === 'user' ? 'user' : 'assistant';
+    api.post('/ai/history/append', { assistant: 'nutri', role, content: last.text }).catch(() => {});
+  }, [messages, user]);
+
   // Auto-scroll para a última mensagem
   useEffect(() => {
     if (containerRef.current) {
@@ -85,8 +121,8 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
       const res = await api.post('/conversar-nutri', body);
       const data = res?.data || {};
 
-      if (data?.tokensUsed) {
-        showTokenUsage(data.tokensUsed);
+      if (data?.custoCobrado) {
+        showTokenUsage(data.custoCobrado);
       }
 
       // show server msg if present
@@ -294,6 +330,9 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
               <p className="text-xs sm:text-sm opacity-70">Seu assistente nutricional inteligente</p>
             </div>
           </div>
+
+          <TokenUsageBar user={user} className="w-full sm:w-48 sm:mx-4" />
+
           <div className="flex items-center space-x-2 self-start sm:self-auto">
             <button
               onClick={() => setIsFullScreen(!isFullScreen)}

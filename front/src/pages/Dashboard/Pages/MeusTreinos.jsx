@@ -6,6 +6,7 @@ import { useToast } from '../../../components/Toast.jsx';
 import { createToastHelper } from '../../../utils/toastHelper.js';
 import axios from 'axios';
 import BuscarImagem from '../../../components/BuscarImagens.jsx';
+import TokenUsageBar from '../../../components/TokenUsageBar.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Trash2, 
@@ -459,8 +460,11 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          {newTreinoVisible ? (
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+          <TokenUsageBar user={user} className="w-full sm:w-48" />
+          
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            {newTreinoVisible ? (
             <motion.div 
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -490,6 +494,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
             </button>
           )}
         </div>
+      </div>
       </div>
 
       {/* Grid de Treinos */}

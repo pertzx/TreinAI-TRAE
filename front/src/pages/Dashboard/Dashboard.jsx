@@ -5,6 +5,7 @@ import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Header from './Components/Header.jsx';
 import AdBanner from './Components/AdBanner.jsx';
 import MeusTreinos from './Pages/MeusTreinos.jsx';
+import MinhaAnamnese from './Pages/MinhaAnamnese.jsx';
 import Historico from './Pages/Historico.jsx';
 import Perfil from './Pages/Perfil.jsx';
 import Configuracoes from './Pages/Configuracoes.jsx';
@@ -647,11 +648,11 @@ const Dashboard = ({ needToPay, plano }) => {
                 <div className="flex items-center gap-2 mb-4">
                   <LuZap className={`w-5 h-5 ${tema === 'dark' ? 'text-yellow-400' : 'text-yellow-500'}`} />
                   <h3 className={`font-semibold ${tema === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>
-                    Consumo de Tokens
+                    Consumo de IA (R$)
                   </h3>
                 </div>
                 <div className="min-h-[200px]">
-                  <TokensChart user={user} tokens={user?.stats?.tokens} tema={tema} />
+                  <TokensChart user={user} tema={tema} />
                 </div>
               </div>
             </div>
@@ -956,6 +957,7 @@ const Dashboard = ({ needToPay, plano }) => {
               <Route path="historico" element={<Historico historico={user?.historico} tema={tema} />} />
               <Route path="perfil" element={<Perfil user={user} tema={tema} />} />
               <Route path="configuracoes" element={<Configuracoes setTema={setTema} tema={tema} user={user} />} />
+              <Route path="anamnese" element={<MinhaAnamnese tema={tema} />} />
               <Route path="encontrar" element={<Encontrar user={user} tema={tema} />} />
               <Route path="coach/*" element={<Coach tema={tema} user={user} />} />
               <Route path="coach/u/" element={<CoachEspecifico user={user} />} />

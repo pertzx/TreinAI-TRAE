@@ -3,7 +3,7 @@ import User from "../models/User.js";
 import { v4 as uuidv4 } from "uuid";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import Profissional from "../models/Profissional.js";
-import { registerTokenUsage } from "../middlewares/tokenLimitMiddleware.js";
+import { registerAiUsage } from "../middlewares/tokenLimitMiddleware.js";
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL;
@@ -92,11 +92,15 @@ Regras:
       temperature: 0.2
     });
 
-    // Registrar uso de tokens usando o novo sistema
-    const tokensUsed = Number(resp?.usage?.total_tokens || 0);
-    if (tokensUsed > 0) {
-      await registerTokenUsage(email, tokensUsed, profissionalId);
-    }
+    // Registrar uso de IA pelo custo (R$)
+    const _usage = resp?.usage || {};
+    const _reg = await registerAiUsage(email, {
+      model: OPENAI_MODEL,
+      promptTokens: Number(_usage.prompt_tokens || 0),
+      completionTokens: Number(_usage.completion_tokens || 0),
+      profissionalId,
+    });
+    const custoCobrado = _reg.custoCobrado;
 
     const text = resp?.choices?.[0]?.message?.content || null;
 
@@ -181,7 +185,7 @@ Regras:
           restricoes: String(nutriInfos.restricoes),
           planoNutricional: sanitizedPlano
         },
-        tokensUsed
+        custoCobrado
       });
     } catch (err) {
       console.error('Erro ao salvar nutriInfos no user:', err);

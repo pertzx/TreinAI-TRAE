@@ -37,9 +37,10 @@ function formatDayLabel(dayKey) {
 export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) {
   const isLight = tema === "light";
 
+  // Usa o registro de uso de IA por custo (R$). Mantém compat com prop `tokens`.
   const tokensArray = useMemo(() => {
     if (Array.isArray(tokens)) return tokens;
-    if (user && Array.isArray(user?.stats?.tokens)) return user.stats.tokens;
+    if (user && Array.isArray(user?.stats?.aiUsage)) return user.stats.aiUsage;
     return [];
   }, [user, tokens]);
 
@@ -59,13 +60,15 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
   const aggregated = useMemo(() => {
     const map = new Map();
     for (const entry of tokensArray) {
-      const v = Number(entry?.valor ?? entry?.value ?? 0);
+      // custoCobrado (novo) com fallback para valor/value (legado)
+      const v = Number(entry?.custoCobrado ?? entry?.valor ?? entry?.value ?? 0);
       if (!Number.isFinite(v)) continue;
       const dateField = entry?.data ?? entry?.date ?? entry?.createdAt ?? entry?.publishedAt ?? null;
       const key = dateField ? brazilDayKey(dateField) : brazilDayKey(new Date());
       map.set(key, (map.get(key) || 0) + v);
     }
 
+    const round2 = (n) => Math.round(n * 100) / 100;
     const data = [];
     let cumulative = 0;
     for (const dayKey of daysList) {
@@ -74,8 +77,8 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
       data.push({
         dayKey,
         label: formatDayLabel(dayKey),
-        tokens: Math.round(dayVal),
-        cumulative: Math.round(cumulative),
+        tokens: round2(dayVal),
+        cumulative: round2(cumulative),
       });
     }
     return data;
@@ -85,12 +88,12 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
   const series = useMemo(() => {
     return [
       {
-        name: "Tokens/dia",
+        name: "Custo/dia (R$)",
         type: "column",
         data: aggregated.map((d) => d.tokens),
       },
       {
-        name: "Cumulativo",
+        name: "Cumulativo (R$)",
         type: "line",
         data: aggregated.map((d) => d.cumulative),
       },
@@ -168,8 +171,8 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
           },
         },
         y: {
-          formatter: function (val, opts) {
-            return `${val}`;
+          formatter: function (val) {
+            return `R$ ${Number(val || 0).toFixed(2).replace('.', ',')}`;
           },
         },
         shared: true,
@@ -195,7 +198,7 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
     return (
       <div className={`p-6 rounded-lg text-center ${isLight ? "bg-white" : "bg-gray-800"}`}>
         <div className={`text-sm font-medium ${isLight ? "text-gray-600" : "text-gray-300"}`}>
-          Nenhum registro de tokens disponível
+          Nenhum registro de uso de IA disponível
         </div>
         <div className={`text-xs mt-1 ${isLight ? "text-gray-500" : "text-gray-400"}`}>
           Os dados aparecerão aqui conforme você usar o sistema
@@ -210,7 +213,7 @@ export default function TokensChart({ user, tokens, days = 14, tema = "dark" }) 
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-col">
           <div className={`text-sm font-semibold ${isLight ? "text-gray-800" : "text-gray-100"}`}>
-            Consumo de Tokens
+            Consumo de IA (R$)
           </div>
           <div className={`text-xs ${isLight ? "text-gray-600" : "text-gray-400"}`}>
             Últimos {days} dias

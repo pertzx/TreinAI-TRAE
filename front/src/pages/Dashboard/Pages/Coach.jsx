@@ -9,6 +9,10 @@ import locationsData from '../../../data/locations.json';
 import MeusTreinos from './MeusTreinos';
 import HistoricoChart from '../Components/HistoricoChart';
 import ChatNutriAI from '../Components/ChatNutriAi';
+import AlunoNotas from '../Components/AlunoNotas';
+import AlunoAnamnese from '../Components/AlunoAnamnese';
+import TemplatesManager from '../Components/TemplatesManager';
+import InteractionStatsChart from '../Components/InteractionStatsChart';
 import { useToast } from '../../../components/Toast';
 import { buildImageUrl } from '../../../utils/imageUtils';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate';
@@ -1298,6 +1302,28 @@ const Coach = ({ user, tema = 'dark' }) => {
                     </div>
                   </div>
 
+                  {/* Desempenho do profissional (impressões e cliques) */}
+                  {profissional?.profissionalId && (
+                    <div className="mb-6">
+                      <InteractionStatsChart
+                        targetId={profissional.profissionalId}
+                        targetModel="Profissional"
+                        tema={tema}
+                        title="Seu desempenho (impressões e cliques)"
+                      />
+                    </div>
+                  )}
+
+                  {/* Templates reutilizáveis de treino/dieta */}
+                  <details className="mb-6">
+                    <summary className={`cursor-pointer text-sm font-medium ${theme.muted} mb-2`}>
+                      Meus templates de treino/dieta
+                    </summary>
+                    <div className="mt-2">
+                      <TemplatesManager tema={tema} />
+                    </div>
+                  </details>
+
                   {accepted.length === 0 ? (
                     <div className={`text-center py-8 ${theme.muted}`}>
                       <HiAcademicCap className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -1414,15 +1440,15 @@ const Coach = ({ user, tema = 'dark' }) => {
                                       </div>
 
                                       <div className="flex gap-2 flex-wrap">
-                                        {/* Treinos: relevante apenas para personal trainer */}
+                                        {/* Treinos (personal) / Reabilitação (fisioterapeuta): ambos prescrevem exercícios */}
                                         {
-                                          profissional && profissional.especialidade === 'personal-trainner' && (
+                                          profissional && (profissional.especialidade === 'personal-trainner' || profissional.especialidade === 'fisioterapeuta') && (
                                             <button
                                               onClick={() => toggleSection(item.userId, 'treinos')}
                                               className={`${base.smallBtn} ${theme.ghostBtn} flex items-center gap-2`}
                                               aria-expanded={getSectionState(item.userId, 'treinos')}
                                             >
-                                              {getSectionState(item.userId, 'treinos') ? <FiChevronUp /> : <FiChevronDown />} Treinos
+                                              {getSectionState(item.userId, 'treinos') ? <FiChevronUp /> : <FiChevronDown />} {profissional.especialidade === 'fisioterapeuta' ? 'Reabilitação' : 'Treinos'}
                                             </button>
                                           )
                                         }
@@ -1450,6 +1476,30 @@ const Coach = ({ user, tema = 'dark' }) => {
                                               {getSectionState(item.userId, 'nutriAi') ? <FiChevronUp /> : <FiChevronDown />} NutriAI
                                             </button>
 
+                                          )
+                                        }
+                                        {/* Notas privadas: relevante para todos os profissionais */}
+                                        {
+                                          profissional && (
+                                            <button
+                                              onClick={() => toggleSection(item.userId, 'notas')}
+                                              className={`${base.smallBtn} ${theme.ghostBtn} flex items-center gap-2`}
+                                              aria-expanded={getSectionState(item.userId, 'notas')}
+                                            >
+                                              {getSectionState(item.userId, 'notas') ? <FiChevronUp /> : <FiChevronDown />} Notas
+                                            </button>
+                                          )
+                                        }
+                                        {/* Anamnese: relevante para todos os profissionais */}
+                                        {
+                                          profissional && (
+                                            <button
+                                              onClick={() => toggleSection(item.userId, 'anamnese')}
+                                              className={`${base.smallBtn} ${theme.ghostBtn} flex items-center gap-2`}
+                                              aria-expanded={getSectionState(item.userId, 'anamnese')}
+                                            >
+                                              {getSectionState(item.userId, 'anamnese') ? <FiChevronUp /> : <FiChevronDown />} Anamnese
+                                            </button>
                                           )
                                         }
                                         {/* Chat (1:1) */}
@@ -1531,10 +1581,19 @@ const Coach = ({ user, tema = 'dark' }) => {
                                         case 'fisioterapeuta':
                                           return (
                                             <div className="space-y-4">
-                                              {/* Histórico */}
+                                              {/* Plano de reabilitação (exercícios prescritos pelo fisioterapeuta) */}
+                                              {getSectionState(item.userId, 'treinos') && (
+                                                <div className={`${isDark ? 'bg-gray-800' : 'bg-gray-50'} p-3 rounded-md border`}>
+                                                  <div className="text-sm font-semibold mb-1">{`Plano de reabilitação — ${item.user?.username || item.user?.email || 'Paciente'}`}</div>
+                                                  <div className={`text-xs mb-2 ${theme.muted}`}>Prescreva exercícios terapêuticos com séries, repetições e progressão para o paciente.</div>
+                                                  <MeusTreinos tema={tema} user={item.user} setUser={() => { }} profissionalId={profissional?.profissionalId} />
+                                                </div>
+                                              )}
+
+                                              {/* Histórico / evolução do paciente */}
                                               {getSectionState(item.userId, 'historico') && (
                                                 <div className={`${isDark ? 'bg-gray-800' : 'bg-gray-50'} p-3 rounded-md border`}>
-                                                  <div className="text-sm font-semibold mb-2">Histórico de fisioterapia</div>
+                                                  <div className="text-sm font-semibold mb-2">Histórico de evolução</div>
                                                   {item.user?.historico ? <HistoricoChart historico={item.user?.historico} tema={tema} /> : <div className="text-sm text-gray-500">Sem histórico</div>}
                                                 </div>
                                               )}
@@ -1631,6 +1690,20 @@ const Coach = ({ user, tema = 'dark' }) => {
                                           );
                                       }
                                     })()}
+
+                                    {/* Notas privadas — disponível para todas as especialidades */}
+                                    {getSectionState(item.userId, 'notas') && (
+                                      <div className="mt-4">
+                                        <AlunoNotas alunoId={item.userId} tema={tema} />
+                                      </div>
+                                    )}
+
+                                    {/* Anamnese do aluno — disponível para todas as especialidades */}
+                                    {getSectionState(item.userId, 'anamnese') && (
+                                      <div className="mt-4">
+                                        <AlunoAnamnese alunoId={item.userId} tema={tema} />
+                                      </div>
+                                    )}
                                   </div>
                                 </motion.div>
                               )}

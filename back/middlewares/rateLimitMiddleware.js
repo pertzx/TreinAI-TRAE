@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 // Configuração base para todos os rate limiters
 const baseRateLimitConfig = {
@@ -84,10 +84,27 @@ export const imageGenerateRateLimit = rateLimit({
     ...baseRateLimitConfig,
     windowMs: parseInt(process.env.IMAGE_RATE_WINDOW_MS || `${5 * 60 * 1000}`), // 5 minutos por padrão
     max: parseInt(process.env.IMAGE_RATE_MAX || '3'), // máximo 3 por IP na janela
-    keyGenerator: (req) => (String(req.userEmail || '').toLowerCase() || req.ip || 'unknown'),
+    keyGenerator: (req) => (String(req.userEmail || '').toLowerCase() || ipKeyGenerator(req.ip)),
     message: {
         error: "Muitas requisições de geração de imagens. Tente novamente mais tarde.",
         retryAfter: parseInt(process.env.IMAGE_RATE_WINDOW_MS || `${5 * 60 * 1000}`) / 1000
+    }
+});
+
+// Rate limiting para rotas de IA (conversar, gerar treino/exercício, NutriAI)
+// Protege contra abuso e custos. Chaveado por usuário (email) quando disponível,
+// caindo para IP. O limite de tokens por plano continua sendo aplicado em paralelo.
+export const aiRateLimit = rateLimit({
+    ...baseRateLimitConfig,
+    windowMs: parseInt(process.env.AI_RATE_WINDOW_MS || `${60 * 1000}`), // 1 minuto por padrão
+    max: parseInt(process.env.AI_RATE_MAX || '20'), // máximo 20 requisições de IA por janela
+    keyGenerator: (req) => {
+        const id = req.body?.email || req.userEmail;
+        return id ? String(id).toLowerCase() : ipKeyGenerator(req.ip);
+    },
+    message: {
+        error: "Muitas requisições de IA em pouco tempo. Aguarde um instante e tente novamente.",
+        retryAfter: parseInt(process.env.AI_RATE_WINDOW_MS || `${60 * 1000}`) / 1000
     }
 });
 
@@ -96,7 +113,7 @@ export const imageFindRateLimit = rateLimit({
     ...baseRateLimitConfig,
     windowMs: parseInt(process.env.IMAGE_FIND_RATE_WINDOW_MS || `${5 * 60 * 1000}`), // 5 minutos por padrão
     max: parseInt(process.env.IMAGE_FIND_RATE_MAX || '100'), // máximo 100 por IP na janela
-    keyGenerator: (req) => (req.ip || 'unknown'),
+    keyGenerator: (req) => ipKeyGenerator(req.ip),
     message: {
         error: "Muitas requisições de busca de imagens. Tente novamente mais tarde.",
         retryAfter: parseInt(process.env.IMAGE_FIND_RATE_WINDOW_MS || `${5 * 60 * 1000}`) / 1000

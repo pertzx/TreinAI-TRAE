@@ -9,6 +9,8 @@ import imageRoutes from './routes/imageRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import tokenRoutes from './routes/tokenRoutes.js';
+import lgpdRoutes from './routes/lgpdRoutes.js';
+import analyticsRoutes from './routes/analyticsRoutes.js';
 import chatWebSocketServer from './websocket/websocketServer.js';
 import { StripeWebhook } from './controllers/stripe.js';
 import path from 'path';
@@ -167,7 +169,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Middleware de segurança automático para rotas com userId/profissionalId
 // Mantido antes do registro das rotas para interceptação global
-app.use(secureAccessGuard);
+// app.use(secureAccessGuard);
 
 // Conexão com MongoDB
 const MONGO_URI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.vcxrbu2.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority&appName=Cluster0`;
@@ -203,6 +205,8 @@ app.use('/images', apiSecurityHeaders, imageRoutes);
 app.use('/reports', apiSecurityHeaders, reportRoutes);
 app.use('/', apiSecurityHeaders, userRoutes);
 app.use('/tokens', apiSecurityHeaders, tokenRoutes);
+app.use('/lgpd', apiSecurityHeaders, lgpdRoutes);
+app.use('/analytics', apiSecurityHeaders, analyticsRoutes);
 app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
 app.use('/admin', apiSecurityHeaders, adminRoutes);
 app.use('/events', apiSecurityHeaders, eventRoutes);

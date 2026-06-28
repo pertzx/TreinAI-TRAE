@@ -2,6 +2,34 @@ import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import Ranking from "../models/Gamification/Ranking.js";
 import UserGamification from "../models/Gamification/UserGamification.js";
 
+// Catálogo de conquistas. Cada uma testa o estado atual da gamificação do usuário.
+const BADGE_CATALOG = [
+  { id: 'primeiro-treino', label: 'Primeiro treino', test: (g) => g.workouts >= 1 },
+  { id: 'streak-7', label: 'Sequência de 7 dias', test: (g) => g.streak >= 7 },
+  { id: 'streak-30', label: 'Sequência de 30 dias', test: (g) => g.streak >= 30 },
+  { id: 'treinos-10', label: '10 treinos', test: (g) => g.workouts >= 10 },
+  { id: 'treinos-50', label: '50 treinos', test: (g) => g.workouts >= 50 },
+  { id: 'treinos-100', label: '100 treinos', test: (g) => g.workouts >= 100 },
+];
+
+/**
+ * Confere o catálogo e adiciona ao doc as badges recém-conquistadas (sem duplicar).
+ * Retorna a lista de badges novas (apenas as desbloqueadas nesta chamada).
+ */
+const awardBadges = (gami) => {
+  if (!gami.badges) gami.badges = [];
+  const jaTem = new Set(gami.badges.map(b => b.id));
+  const novas = [];
+  for (const badge of BADGE_CATALOG) {
+    if (!jaTem.has(badge.id) && badge.test(gami)) {
+      const earned = { id: badge.id, label: badge.label, earnedAt: new Date(getBrazilDate()) };
+      gami.badges.push(earned);
+      novas.push(earned);
+    }
+  }
+  return novas;
+};
+
 export const finalizarTreino = async (req, res) => {
   try {
     const { payloadTreino = {}, user = {} } = req.body;
@@ -122,8 +150,11 @@ export const finalizarTreino = async (req, res) => {
         });
       }
     }
+    let gami;
+    let novasBadges = [];
+
     if (!userGamification) {
-      await UserGamification.create({
+      gami = await UserGamification.create({
         userId: user._id,
         streak: 1,
         workouts: 1,
@@ -138,6 +169,8 @@ export const finalizarTreino = async (req, res) => {
           city: user.perfil.city,
         },
       });
+      novasBadges = awardBadges(gami);
+      await gami.save();
     } else {
 
       // Verificação do streak melhorada
@@ -174,7 +207,17 @@ export const finalizarTreino = async (req, res) => {
       userGamification.exercises += exerciseExecutadas;
       userGamification.points += points;
       userGamification.lastWorkoutDate.push(new Date(getBrazilDate()));
+      novasBadges = awardBadges(userGamification);
       await userGamification.save();
+      gami = userGamification;
+    }
+
+    // Posição no ranking (ordenada por pontos), se houver ranking ativo
+    let rankingPosition = null;
+    if (ranking && Array.isArray(ranking.competitors)) {
+      const ordenado = [...ranking.competitors].sort((a, b) => (b.points || 0) - (a.points || 0));
+      const idx = ordenado.findIndex(c => String(c.userId) === String(user._id));
+      rankingPosition = idx >= 0 ? idx + 1 : null;
     }
 
     // Resposta de sucesso com dados relevantes
@@ -183,12 +226,14 @@ export const finalizarTreino = async (req, res) => {
       msg: 'Treino finalizado com sucesso!',
       data: {
         pointsEarned: points,
-        totalPoints: userGamification ? userGamification.points + points : points,
-        streak: userGamification ? userGamification.streak : 1,
+        totalPoints: gami.points,
+        streak: gami.streak,
         exercisesCompleted: exerciseExecutadas,
         setsCompleted: setsExecutados,
         duration: payloadTreino.duracao,
-        rankingPosition: rankingPosition
+        rankingPosition,
+        badges: gami.badges || [],
+        novasBadges
       }
     });
 

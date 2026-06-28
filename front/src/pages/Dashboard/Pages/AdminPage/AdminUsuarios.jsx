@@ -86,13 +86,13 @@ export default function AdminUsuarios({ tema, user }) {
     const today = brazilDayKey(new Date());
 
     return usuarios.map(user => {
-      // Cálculo de tokens
-      const tokenEntries = user.stats?.tokens || [];
+      // Cálculo de custo de IA (R$) a partir de stats.aiUsage
+      const tokenEntries = user.stats?.aiUsage || [];
       const tokensTotal = Array.isArray(tokenEntries)
         ? tokenEntries.reduce((sum, entry) => {
           if (!entry || typeof entry !== 'object') return sum;
-          const valor = entry.valor || entry.value || 0;
-          return sum + (typeof valor === 'number' ? valor : 0);
+          const valor = Number(entry.custoCobrado || 0);
+          return sum + (Number.isFinite(valor) ? valor : 0);
         }, 0)
         : 0;
 
@@ -104,8 +104,8 @@ export default function AdminUsuarios({ tema, user }) {
             return brazilDayKey(entryDate) === today;
           })
           .reduce((sum, entry) => {
-            const valor = entry.valor || entry.value || 0;
-            return sum + (typeof valor === 'number' ? valor : 0);
+            const valor = Number(entry.custoCobrado || 0);
+            return sum + (Number.isFinite(valor) ? valor : 0);
           }, 0)
         : 0;
 
@@ -151,12 +151,12 @@ export default function AdminUsuarios({ tema, user }) {
     const aggregatedData = {}
     
     usuarios.forEach(user => {
-      if (user.tokens && Array.isArray(user.tokens)) {
-        user.tokens.forEach(token => {
-          // Tentar diferentes formatos de data
+      const usage = user.stats?.aiUsage
+      if (Array.isArray(usage)) {
+        usage.forEach(token => {
           const dateValue = token.date || token.createdAt || token.timestamp || token.data
-          const tokenValue = token.value || token.amount || token.tokens || token.quantidade || 0
-          
+          const tokenValue = Number(token.custoCobrado || 0)
+
           if (dateValue && tokenValue) {
             const date = new Date(dateValue).toISOString().split('T')[0] // YYYY-MM-DD
             aggregatedData[date] = (aggregatedData[date] || 0) + tokenValue
@@ -178,7 +178,7 @@ export default function AdminUsuarios({ tema, user }) {
         return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
       }),
       datasets: [{
-        label: 'Tokens Gastos (Todos os Usuários)',
+        label: 'Custo de IA em R$ (Todos os Usuários)',
         data: sortedData.map(([, value]) => value),
         borderColor: 'rgb(59, 130, 246)',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -195,15 +195,15 @@ export default function AdminUsuarios({ tema, user }) {
 
   // Função para gerar dados do gráfico individual de um usuário (memoizada para performance)
   const generateUserChartData = useCallback((user) => {
-    if (!user || !user.stats ||!user.stats.tokens || !Array.isArray(user.stats.tokens)) return null
+    if (!user || !user.stats || !user.stats.aiUsage || !Array.isArray(user.stats.aiUsage)) return null
 
-    // Agregar tokens por data para este usuário específico
+    // Agregar custo de IA (R$) por data para este usuário específico
     const aggregatedData = {}
-    
-    user.stats.tokens.forEach(token => {
+
+    user.stats.aiUsage.forEach(token => {
       const dateValue = token.date || token.createdAt || token.timestamp || token.data
-      const tokenValue = token.valor || token.amount || token.tokens || token.quantidade || 0
-      
+      const tokenValue = Number(token.custoCobrado || 0)
+
       if (dateValue && tokenValue) {
         const date = new Date(dateValue).toISOString()
         aggregatedData[date] = (aggregatedData[date] || 0) + tokenValue
@@ -222,7 +222,7 @@ export default function AdminUsuarios({ tema, user }) {
         return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
       }),
       datasets: [{
-        label: `Tokens - ${user.name || user.username}`,
+        label: `Custo IA (R$) - ${user.name || user.username}`,
         data: sortedData.map(([, value]) => value),
         borderColor: 'rgb(16, 185, 129)',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -528,7 +528,7 @@ export default function AdminUsuarios({ tema, user }) {
                       Plano
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium ${tema === 'dark' ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
-                      Tokens
+                      Custo IA (R$)
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium ${tema === 'dark' ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
                       Dispositivos
@@ -582,9 +582,9 @@ export default function AdminUsuarios({ tema, user }) {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className={`text-sm ${tema === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                          <div className="font-medium">Total: {u.tokensTotal?.toLocaleString() || 0}</div>
+                          <div className="font-medium">Total: R$ {Number(u.tokensTotal || 0).toFixed(2).replace('.', ',')}</div>
                           <div className={`text-xs ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                            Hoje: {u.tokensToday?.toLocaleString() || 0}
+                            Hoje: R$ {Number(u.tokensToday || 0).toFixed(2).replace('.', ',')}
                           </div>
                         </div>
                       </td>
@@ -710,7 +710,7 @@ export default function AdminUsuarios({ tema, user }) {
             <div className={`mt-6 p-6 rounded-lg shadow-lg ${tema === 'dark' ? 'bg-gray-700' : 'bg-white'}`}>
               <div className="flex justify-between items-center mb-4">
                 <h3 className={`text-xl font-semibold ${tema === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                  Gráfico de Tokens - {selectedUser.name || selectedUser.username}
+                  Gráfico de Custo IA (R$) - {selectedUser.name || selectedUser.username}
                 </h3>
                 <button
                   onClick={() => setSelectedUser(null)}
@@ -740,10 +740,10 @@ export default function AdminUsuarios({ tema, user }) {
               <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg ${tema === 'dark' ? 'bg-gray-600' : 'bg-gray-50'}`}>
                 <div className="text-center">
                   <div className={`text-2xl font-bold ${tema === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>
-                    {selectedUser.tokensTotal?.toLocaleString() || 0}
+                    R$ {Number(selectedUser.tokensTotal || 0).toFixed(2).replace('.', ',')}
                   </div>
                   <div className={`text-sm ${tema === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-                    Tokens Totais
+                    Custo IA Total
                   </div>
                 </div>
                 <div className="text-center">

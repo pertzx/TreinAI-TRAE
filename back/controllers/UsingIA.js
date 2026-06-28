@@ -3,7 +3,7 @@ import User from "../models/User.js";
 import { v4 as uuidv4 } from "uuid";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import Profissional from "../models/Profissional.js";
-import { registerTokenUsage } from "../middlewares/tokenLimitMiddleware.js";
+import { registerAiUsage } from "../middlewares/tokenLimitMiddleware.js";
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
@@ -95,11 +95,14 @@ Use tipos coerentes (strings para texto, numbers para números). Não inclua com
       temperature: 0.2
     });
 
-    // Registrar uso de tokens usando o novo sistema
-    const tokensUsed = Number(resp?.usage?.total_tokens || 0);
-    if (tokensUsed > 0) {
-      await registerTokenUsage(email, tokensUsed, profissionalId);
-    }
+    // Registrar uso de IA pelo custo (R$)
+    const _usage = resp?.usage || {};
+    await registerAiUsage(email, {
+      model: OPENAI_MODEL,
+      promptTokens: Number(_usage.prompt_tokens || 0),
+      completionTokens: Number(_usage.completion_tokens || 0),
+      profissionalId,
+    });
 
     const text = resp?.choices?.[0]?.message?.content || null;
     if (!text) return res.status(500).json({ msg: 'Resposta vazia da IA', success: false });
@@ -228,11 +231,14 @@ Retorne apenas JSON puro. Use tipos corretos.
       temperature: 0.2
     });
 
-    // Registrar uso de tokens usando o novo sistema
-    const tokensUsed = Number(resp?.usage?.total_tokens || 0);
-    if (tokensUsed > 0) {
-      await registerTokenUsage(email, tokensUsed, profissionalId);
-    }
+    // Registrar uso de IA pelo custo (R$)
+    const _usage = resp?.usage || {};
+    await registerAiUsage(email, {
+      model: OPENAI_MODEL,
+      promptTokens: Number(_usage.prompt_tokens || 0),
+      completionTokens: Number(_usage.completion_tokens || 0),
+      profissionalId,
+    });
 
     const text = resp?.choices?.[0]?.message?.content || null;
     if (!text) return res.status(500).json({ msg: 'Resposta vazia da IA', success: false });
@@ -334,11 +340,14 @@ export const conversar = async (req, res) => {
             temperature: 0.2
         });
 
-        // Registrar uso de tokens usando o novo sistema
-        const tokensUsed = Number(resp?.usage?.total_tokens || 0);
-        if (tokensUsed > 0) {
-            await registerTokenUsage(email, tokensUsed, profissionalId);
-        }
+        // Registrar uso de IA pelo custo (R$)
+        const _usage = resp?.usage || {};
+        const _reg = await registerAiUsage(email, {
+            model: OPENAI_MODEL,
+            promptTokens: Number(_usage.prompt_tokens || 0),
+            completionTokens: Number(_usage.completion_tokens || 0),
+            profissionalId,
+        });
 
         const text = resp?.choices?.[0]?.message?.content || null;
         if (!text) return res.status(500).json({ msg: 'Resposta vazia da IA' });
@@ -346,7 +355,7 @@ export const conversar = async (req, res) => {
         return res.json({
             msg: 'Tudo certo!',
             res: text,
-            tokensUsed
+            custoCobrado: _reg.custoCobrado
         });
     } catch (error) {
         console.error(error);

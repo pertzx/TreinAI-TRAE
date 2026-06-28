@@ -13,7 +13,13 @@ const UserGamificationSchema = new mongoose.Schema({
         state: { type: String, required: true },
         city: { type: String, required: true },
     },
-    lastWorkoutDate: [{ type: Date, default: null }]
+    lastWorkoutDate: [{ type: Date, default: null }],
+    // Conquistas desbloqueadas pelo usuário
+    badges: [{
+        id: { type: String, required: true },
+        label: { type: String, required: true },
+        earnedAt: { type: Date, default: Date.now }
+    }]
 }, { timestamps: true });
 
 const UserGamification = mongoose.model('UserGamification', UserGamificationSchema);
