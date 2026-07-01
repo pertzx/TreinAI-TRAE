@@ -79,7 +79,35 @@ Regras:
 - Assim deve ser o formato de conteudo >> refeição principal | outras opçoes... (explique o motivo dessas escolhas) 
 `;
 
-    const userContent = 'Mensagem do cliente: ' + String(conteudo) + `. Plano do cliente: ${user?.nutriInfos} ; Informaçoes do cliente: ${user}`;
+    // Monta um contexto enxuto e seguro (sem senha/tokens/etc.) para a IA.
+    const ultimo = (arr) => (Array.isArray(arr) && arr.length ? arr[arr.length - 1]?.valor : null);
+    const perfilCliente = {
+      objetivo: user?.perfil?.objetivo ?? null,
+      idade: user?.perfil?.idade ?? null,
+      genero: user?.perfil?.genero ?? null,
+      nivelExperiencia: user?.perfil?.nivelExperiencia ?? null,
+      pesoAtualKg: ultimo(user?.perfil?.pesoAtual),
+      alturaCm: ultimo(user?.perfil?.altura),
+    };
+    const anamnese = {
+      objetivos: user?.anamnese?.objetivos || '',
+      lesoes: user?.anamnese?.lesoes || '',
+      restricoes: user?.anamnese?.restricoes || '',
+      medicamentos: user?.anamnese?.medicamentos || '',
+      experiencia: user?.anamnese?.experiencia || '',
+      observacoes: user?.anamnese?.observacoes || '',
+    };
+    const planoAtual = {
+      restricoes: user?.nutriInfos?.restricoes ?? null,
+      planoNutricional: user?.nutriInfos?.planoNutricional ?? [],
+    };
+
+    const userContent = [
+      'Mensagem do cliente: ' + String(conteudo),
+      'Plano nutricional atual do cliente: ' + JSON.stringify(planoAtual),
+      'Perfil do cliente: ' + JSON.stringify(perfilCliente),
+      'Anamnese do cliente: ' + JSON.stringify(anamnese),
+    ].join('\n');
 
 
 
@@ -146,14 +174,23 @@ Regras:
       return res.status(400).json({ msg: 'IA retornou plano vazio ou inválido', success: false, raw: parsed });
     }
 
-    // Atualizar user.nutriInfos garantindo userId correto
+    // Atualizar user.nutriInfos garantindo userId correto.
+    // Usamos updateOne atômico (e não user.save()) porque registerAiUsage já
+    // salvou o mesmo documento acima, deixando este `user` em memória com __v
+    // desatualizado — user.save() dispararia VersionError.
     try {
-      user.nutriInfos = user.nutriInfos || {};
-      user.nutriInfos.planoNutricional = sanitizedPlano;
-      user.nutriInfos.restricoes = String(nutriInfos.restricoes);
-      user.nutriInfos.atualizadoEm = getBrazilDate();
-
-      await user.save();
+      const atualizadoEm = getBrazilDate();
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            'nutriInfos.planoNutricional': sanitizedPlano,
+            'nutriInfos.restricoes': String(nutriInfos.restricoes),
+            'nutriInfos.atualizadoEm': atualizadoEm,
+          },
+        }
+      );
+      user.nutriInfos = { ...(user.nutriInfos || {}), planoNutricional: sanitizedPlano, restricoes: String(nutriInfos.restricoes), atualizadoEm };
 
       // Broadcast via WebSocket para sincronização em tempo real
       const nutriMessage = {

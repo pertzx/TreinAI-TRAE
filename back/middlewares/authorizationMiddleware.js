@@ -59,7 +59,7 @@ export const isSelf = async (req, res, next) => {
       return res.status(401).json({ msg: 'Usuário não autenticado', code: 'NOT_AUTHENTICATED' });
     }
 
-    const targetUserId = req.params.userId || req.body.userId || req.query.userId;
+    const targetUserId = req.params?.userId || req.body?.userId || req.query?.userId;
 
     // Sem target explícito: assume o próprio usuário.
     if (!targetUserId) {
