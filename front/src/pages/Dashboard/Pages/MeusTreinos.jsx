@@ -4,6 +4,7 @@ import api from '../../../Api';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
 import { useToast } from '../../../components/Toast.jsx';
 import { createToastHelper } from '../../../utils/toastHelper.js';
+import { hasAccess } from '../../../utils/planAccess.js';
 import axios from 'axios';
 import BuscarImagem from '../../../components/BuscarImagens.jsx';
 import TokenUsageBar from '../../../components/TokenUsageBar.jsx';
@@ -356,7 +357,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
 
   const canEditSync = () => {
     if (profissionalId) return true;
-    return user?.planInfos?.planType !== 'free' && user?.planInfos?.status === 'ativo';
+    return hasAccess(user, 'editarTreinos') && user?.planInfos?.status === 'ativo';
   };
 
   /* ------------------ Drag Handlers ------------------ */

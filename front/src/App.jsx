@@ -147,7 +147,6 @@ function App() {
         <BannedGuard>
           <Routes>
             <Route path='/' element={<Home />} />
-            <Route path='/planos' element={<Planos setPlano={setPlano} />} />
             <Route path='/p/:profissionalId' element={<PublicProfissional />} />
             <Route path='/login' element={<Login plano={plano} />} />
             <Route path='/login-nao-autorizado' element={<LoginNaoAutorizado />} />

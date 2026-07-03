@@ -8,6 +8,7 @@ import RedisManager from '../utils/redisManager.js';
 import Ranking from "../models/Gamification/Ranking.js";
 import GlobalSettings, { getSettings } from "../models/GlobalSettings.js";
 import { logAudit } from "../helpers/auditLog.js";
+import { applyPlanSnapshot } from "../helpers/planAccess.js";
 
 // Verifica se o requisitante é admin; retorna o doc do admin ou null.
 const ensureAdmin = async (adminId) => {
@@ -96,6 +97,9 @@ export const grantFounderTrial = async (req, res) => {
         target.planInfos.isTrial = true;
         target.planInfos.trialUntil = until;
         target.planInfos.trialGrantedBy = String(admin._id);
+        // Snapshot de acesso do plano coach (libera painel Coach, nutriAI, etc.)
+        await applyPlanSnapshot(target, 'coach');
+        target.planInfos.tipo = 'recorrente'; // trial se comporta como pago (não-cortesia)
         await target.save();
 
         logAudit({ req, action: 'trial.grant', details: { userId: String(userId), days, aiBudgetBRL } });

@@ -2,6 +2,7 @@ import redisCache from '../config/redis.js'
 import ImageAsset from '../models/ImageAsset.js'
 import User from '../models/User.js'
 import { registerAiUsage } from '../middlewares/tokenLimitMiddleware.js'
+import { isCourtesyUser } from '../helpers/planAccess.js'
 import { uploadToCloudinary } from '../config/cloudinaryConfig.js'
 import OpenAI from 'openai'
 import crypto from 'crypto'
@@ -143,7 +144,7 @@ export const generateImage = async (req, res) => {
     const user = await User.findOne({ email })
     if (!user) return res.status(401).json({ success: false, message: 'Usuário não autenticado' })
     if (user?.ban?.banned) return res.status(403).json({ success: false, message: 'Usuário banido' })
-    if (user?.planInfos?.status === 'inativo' && user?.planInfos?.planType !== 'free') return res.status(403).json({ success: false, message: 'Plano inativo' })
+    if (user?.planInfos?.status === 'inativo' && !isCourtesyUser(user)) return res.status(403).json({ success: false, message: 'Plano inativo' })
 
     console.log('[images/generate] user ok', { email, plan: user?.planInfos?.planType })
 

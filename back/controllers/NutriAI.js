@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import Profissional from "../models/Profissional.js";
 import { registerAiUsage } from "../middlewares/tokenLimitMiddleware.js";
+import { hasFeature } from "../helpers/planAccess.js";
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL;
@@ -24,7 +25,7 @@ export const conversarNutri = async (req, res) => {
     if (!user) return res.status(404).json({ msg: 'Não conseguimos encontrar o seu usuário.', success: false });
 
     if (!profissionalId) {
-      if (user?.planInfos.planType !== 'max' && user?.planInfos.planType !== 'coach') return res.json({ msg: 'Somente usuarios MAX ou COACH podem criar planos com NutriAI.', success: false })
+      if (!hasFeature(user, 'nutriAI')) return res.json({ msg: 'Seu plano não inclui o NutriAI. Faça upgrade para um plano com acesso ao NutriAI.', success: false })
     }
 
     // Atualiza ultimoUpdate do profissional se aplicável (não bloqueante)

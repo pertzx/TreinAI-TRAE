@@ -4,6 +4,7 @@ import { FiSend, FiUser, FiCpu, FiClock, FiCheckCircle, FiMessageCircle, FiMaxim
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../../Api.js';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
+import { hasAccess } from '../../../utils/planAccess.js';
 import { useToast } from '../../../components/Toast.jsx';
 import TokenUsageBar from '../../../components/TokenUsageBar.jsx';
 
@@ -106,8 +107,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
   }, [messages, isTyping]);
 
   const allowedToUse = () => {
-    const plan = user?.planInfos?.planType;
-    return profissionalId !== null ? true : (plan === 'max' || plan === 'coach');
+    return profissionalId !== null ? true : hasAccess(user, 'nutriAI');
   };
 
   const sendToServer = async (text) => {

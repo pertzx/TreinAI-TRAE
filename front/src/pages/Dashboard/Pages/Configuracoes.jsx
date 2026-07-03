@@ -40,6 +40,7 @@ const Configuracoes = ({ setTema, tema, user }) => {
 
   const [currentPlan, setCurrentPlan] = useState(user?.planInfos?.planType || 'free');
   const [planInfos, setPlanInfos] = useState(user?.planInfos || {});
+  const [plans, setPlans] = useState([]); // planos ativos vindos da API
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
   const [confirmText, setConfirmText] = useState('');
@@ -81,12 +82,29 @@ const Configuracoes = ({ setTema, tema, user }) => {
     }
   };
 
-  const priceMapForDisplay = {
-    free: { label: 'Free', price: 0 },
-    pro: { label: 'Pro', price: '39,99' },
-    max: { label: 'Max', price: '79,99' },
-    coach: { label: 'Coach', price: '149,99' },
-  };
+  // Buscar planos ativos da API (fonte da visualização/venda em Configurações).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/plans');
+        if (!cancelled) setPlans(Array.isArray(res?.data?.plans) ? res.data.plans : []);
+      } catch (e) { if (!cancelled) setPlans([]); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Mapa de exibição derivado dos planos (compat com askChangePlan/modal).
+  const priceMapForDisplay = React.useMemo(() => {
+    const map = {};
+    for (const p of plans) {
+      map[p.key] = { label: p.name || p.key, price: p.precoText || (p.priceBRL ? String(p.priceBRL) : (p.tipo === 'cortesia' ? 0 : '')), plan: p };
+    }
+    if (!map[currentPlan]) map[currentPlan] = { label: currentPlan, price: '' };
+    return map;
+  }, [plans, currentPlan]);
+
+  const ACCESS_LABELS = { nutriAI: 'NutriAI', coachPanel: 'Painel Coach', semAnuncios: 'Sem anúncios', editarTreinos: 'Editar treinos' };
 
   // Função para formatar números
   const fmt = (n) => (typeof n === 'number' ? Math.round(n).toLocaleString('pt-BR') : '0');
@@ -710,43 +728,60 @@ const Configuracoes = ({ setTema, tema, user }) => {
         </div>
       </div>
 
-      {/* Alteração de Plano */}
-      <div className={`w-full max-w-2xl p-4 rounded-2xl border ${cardClass}`}>
-        <div className="flex items-center justify-between mb-3">
+      {/* Planos — visualização de venda */}
+      <div className="w-full max-w-5xl">
+        <div className="flex items-center justify-between mb-4 px-1">
           <div>
-            <div className="text-sm font-medium">Alterar Plano</div>
-            <div className="text-xs ">Escolha um novo plano para seu usuário</div>
+            <div className="text-lg font-semibold">Escolha seu plano</div>
+            <div className="text-xs opacity-70">Desbloqueie mais recursos e mais IA.</div>
           </div>
-          <div className="text-xs text-gray-300">Plano atual: <strong className="capitalize">{currentPlan}</strong></div>
+          <div className="text-xs opacity-70">Plano atual: <strong className="capitalize">{currentPlan}</strong></div>
         </div>
 
-        <div className="flex gap-3 flex-wrap">
-          {['pro', 'max', 'coach', 'free'].map((p) => {
-            const isSamePlan = currentPlan === p;
-            const samePrice = (priceMapForDisplay[p].price ?? null) === (priceMapForDisplay[currentPlan]?.price ?? null);
-            const disabled = planLoading || isSamePlan || samePrice;
-            return (
-              <button
-                key={p}
-                disabled={disabled}
-                onClick={() => askChangePlan(p)}
-                title={disabled ? (isSamePlan ? 'Você já está neste plano' : 'Plano com mesmo valor do atual — não permitido') : `Alterar para ${p}`}
-                className={`px-4 py-2 rounded-2xl font-semibold transition ${currentPlan === p ? 'bg-blue-600 text-white' : (tema === 'dark' ? 'bg-gray-700 text-white' : 'bg-white text-black border')
-                  } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
-              >
-                {priceMapForDisplay[p].label} {priceMapForDisplay[p].price ? `— R$ ${priceMapForDisplay[p].price}` : ''}
-              </button>
-            );
-          })}
-        </div>
+        {plans.length === 0 ? (
+          <div className="text-sm opacity-70 px-1">Carregando planos...</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {plans.map((p) => {
+              const isCurrent = currentPlan === p.key;
+              const accent = { gray: 'from-gray-500 to-gray-600', blue: 'from-blue-500 to-blue-600', purple: 'from-purple-500 to-purple-600', emerald: 'from-emerald-500 to-emerald-600' }[p.accent] || 'from-blue-500 to-blue-600';
+              const accessItems = Object.keys(ACCESS_LABELS).map(flag => ({ text: ACCESS_LABELS[flag], included: !!p.access?.[flag] }));
+              const bullets = [...accessItems, ...((p.features || []).map(f => ({ text: f.text, included: f.included !== false, highlight: f.highlight })))];
+              return (
+                <div key={p.key} className={`relative rounded-2xl border p-5 flex flex-col ${tema === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} ${p.popular ? 'ring-2 ring-amber-500/50' : ''} ${isCurrent ? 'ring-2 ring-blue-500/60' : ''}`}>
+                  {p.popular && <div className="absolute -top-2 right-3 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">POPULAR</div>}
+                  {isCurrent && <div className="absolute -top-2 left-3 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SEU PLANO</div>}
 
-        <div className="text-xs  mt-3">
-          Ao alterar o plano, o sistema tentará atualizar sua assinatura no Stripe. Normalmente:
-          <ul className="list-disc ml-4 mt-1">
-            <li>Haverá ajuste proporcional (proration) caso mude no meio do ciclo.</li>
-            <li>Ao cancelar (passar para Free) a assinatura é removida.</li>
-            <li>Os detalhes finais (datas e valores) são atualizados quando o Stripe confirma a troca.</li>
-          </ul>
+                  <div className={`w-10 h-10 rounded-xl mb-3 bg-gradient-to-r ${accent}`} />
+                  <div className="text-lg font-bold">{p.name}</div>
+                  {p.subtitle && <div className="text-xs opacity-70 mb-2">{p.subtitle}</div>}
+                  <div className="text-2xl font-extrabold mb-1">{p.precoText || (p.tipo === 'cortesia' ? 'Grátis' : '—')}</div>
+                  {p.description && <div className="text-xs opacity-70 mb-3">{p.description}</div>}
+
+                  <ul className="space-y-1.5 mb-4 flex-1">
+                    {bullets.map((b, i) => (
+                      <li key={i} className={`flex items-center gap-2 text-sm ${!b.included ? 'opacity-50' : ''}`}>
+                        <span className={b.included ? 'text-emerald-500' : 'text-gray-400'}>{b.included ? '✓' : '✕'}</span>
+                        <span className={b.highlight ? 'font-semibold text-emerald-500' : (!b.included ? 'line-through' : '')}>{b.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    disabled={planLoading || isCurrent}
+                    onClick={() => askChangePlan(p.key)}
+                    className={`w-full py-2.5 rounded-xl font-semibold text-sm transition ${isCurrent ? 'bg-gray-500/30 text-gray-400 cursor-not-allowed' : `bg-gradient-to-r ${accent} text-white hover:opacity-90`}`}
+                  >
+                    {isCurrent ? 'Plano atual' : (p.buttonText || (p.tipo === 'cortesia' ? 'Selecionar' : 'Assinar'))}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="text-xs opacity-60 mt-3 px-1">
+          A troca é confirmada no Stripe (proration no meio do ciclo). Ao voltar para o gratuito, a assinatura é cancelada.
         </div>
       </div>
 
@@ -769,7 +804,7 @@ const Configuracoes = ({ setTema, tema, user }) => {
               <div className="p-3 rounded border">
                 <div className="text-xs ">Novo plano</div>
                 <div className="font-medium capitalize">{pendingPlan}</div>
-                <div className="text-xs ">Valor: R$ {priceMapForDisplay[pendingPlan].price ?? '—'}</div>
+                <div className="text-xs ">Valor: {priceMapForDisplay[pendingPlan]?.price || '—'}</div>
               </div>
             </div>
 

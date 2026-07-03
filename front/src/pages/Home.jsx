@@ -80,7 +80,7 @@ function Home({ logado }) {
                 'Métricas de impressões e cliques em tempo real',
             ],
             cta: 'Sou profissional',
-            to: '/planos',
+            to: '/login',
         },
         {
             icon: LuDumbbell,
@@ -94,7 +94,7 @@ function Home({ logado }) {
                 'Contato direto com profissionais',
             ],
             cta: 'Quero treinar',
-            to: '/planos',
+            to: '/login',
         },
         {
             icon: LuStore,
@@ -108,7 +108,7 @@ function Home({ logado }) {
                 'Anúncios geolocalizados',
             ],
             cta: 'Quero anunciar',
-            to: '/planos',
+            to: '/login',
         },
     ]
 
@@ -161,7 +161,7 @@ function Home({ logado }) {
                         </motion.p>
 
                         <motion.div className="flex flex-col sm:flex-row gap-4 pt-2" variants={fadeInUp}>
-                            <NavLink to="/planos">
+                            <NavLink to="/login">
                                 <motion.button
                                     className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-300 to-amber-500 text-slate-900 px-8 py-4 rounded-2xl text-lg font-semibold shadow-[0_8px_30px_rgba(245,180,40,0.35)] hover:shadow-[0_12px_40px_rgba(245,180,40,0.5)] transition-all"
                                     whileHover={{ scale: 1.04 }}
@@ -417,7 +417,7 @@ function Home({ logado }) {
                             Junte-se aos profissionais, alunos e comerciantes que já fazem parte do TreinAI. Comece gratuitamente hoje.
                         </motion.p>
                         <motion.div className="mt-9 flex flex-col sm:flex-row gap-4 justify-center items-center" variants={fadeInUp}>
-                            <NavLink to="/planos">
+                            <NavLink to="/login">
                                 <motion.button
                                     className="group inline-flex items-center gap-2 bg-gradient-to-r from-amber-300 to-amber-500 text-slate-900 px-10 py-4 rounded-2xl text-lg font-bold shadow-[0_8px_30px_rgba(245,180,40,0.4)] hover:shadow-[0_12px_40px_rgba(245,180,40,0.6)] transition-all"
                                     whileHover={{ scale: 1.04 }}

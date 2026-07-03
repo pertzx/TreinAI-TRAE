@@ -16,9 +16,6 @@ export default function Menu() {
         {/* Menu desktop */}
         <ul className="hidden md:flex gap-8 font-semibold">
           <li>
-            <a href="/planos" className="hover:text-blue-500 transition">Planos</a>
-          </li>
-          <li>
             <Link to="/login" className="hover:text-blue-500 transition">Login</Link>
           </li>
         </ul>
@@ -39,9 +36,6 @@ export default function Menu() {
           ${open ? 'max-h-48 py-4' : 'max-h-0'}`}
       >
         <ul className="flex flex-col gap-4 px-6 text-lg font-semibold">
-          <li>
-            <a href="/planos" onClick={() => setOpen(false)} className="block hover:text-blue-500 transition">Planos</a>
-          </li>
           <li>
             <Link to="/login" onClick={() => setOpen(false)} className="block hover:text-blue-500 transition">Login</Link>
           </li>

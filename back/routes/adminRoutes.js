@@ -11,7 +11,7 @@ import {
   getCacheMonitoring,
   configureCacheAlerts
 } from '../controllers/CacheAdminController.js';
-import { getAdminPlans, updatePlan } from '../controllers/PlanController.js';
+import { getAdminPlans, updatePlan, createPlan, deletePlan } from '../controllers/PlanController.js';
 import { getAdminMilestones, createMilestone, updateMilestone, deleteMilestone } from '../controllers/MilestoneController.js';
 const router = Router();
 
@@ -55,6 +55,8 @@ router.post('/update-global-settings', adminRateLimit, adminSecurityHeaders, upd
 // Planos comerciais (landing + edição)
 router.post('/plans', adminRateLimit, adminSecurityHeaders, getAdminPlans) // body: adminId
 router.post('/update-plan', adminRateLimit, adminSecurityHeaders, updatePlan) // body: adminId, key, ...campos
+router.post('/create-plan', adminRateLimit, adminSecurityHeaders, createPlan) // body: adminId, key, name, ...
+router.post('/delete-plan', adminRateLimit, adminSecurityHeaders, deletePlan) // body: adminId, key
 
 // Trial "Profissional Fundador"
 router.post('/grant-trial', adminRateLimit, adminSecurityHeaders, grantFounderTrial) // body: adminId, userId, days?, aiBudgetBRL?

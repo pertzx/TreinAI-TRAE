@@ -91,8 +91,8 @@ const TokenUsageBar = ({ user, className = '' }) => {
           <FaExclamationTriangle />
           <span>
             Uso de IA quase no limite! {isFree
-              ? <NavLink to="/planos" className="underline font-semibold hover:text-yellow-700">Faça upgrade</NavLink>
-              : <>Aguarde a renovação ou <NavLink to="/planos" className="underline font-semibold hover:text-yellow-700">faça upgrade</NavLink>.</>}
+              ? <NavLink to="/dashboard/configuracoes" className="underline font-semibold hover:text-yellow-700">Faça upgrade</NavLink>
+              : <>Aguarde a renovação ou <NavLink to="/dashboard/configuracoes" className="underline font-semibold hover:text-yellow-700">faça upgrade</NavLink>.</>}
           </span>
         </div>
       )}
@@ -102,8 +102,8 @@ const TokenUsageBar = ({ user, className = '' }) => {
           <FaExclamationTriangle />
           <span>
             {isFree
-              ? <>Cortesia esgotada! <NavLink to="/planos" className="underline font-semibold hover:text-red-700">Assine um plano</NavLink></>
-              : <>Limite de IA atingido neste período. Aguarde a renovação ou <NavLink to="/planos" className="underline font-semibold hover:text-red-700">faça upgrade</NavLink>.</>}
+              ? <>Cortesia esgotada! <NavLink to="/dashboard/configuracoes" className="underline font-semibold hover:text-red-700">Assine um plano</NavLink></>
+              : <>Limite de IA atingido neste período. Aguarde a renovação ou <NavLink to="/dashboard/configuracoes" className="underline font-semibold hover:text-red-700">faça upgrade</NavLink>.</>}
           </span>
         </div>
       )}

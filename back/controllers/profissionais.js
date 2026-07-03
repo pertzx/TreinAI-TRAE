@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import { v4 as uuidv4 } from "uuid";
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import { logAudit } from "../helpers/auditLog.js";
+import { hasFeature } from "../helpers/planAccess.js";
 import mongoose from "mongoose";
 
 // Se estiver em ESM e precisar de __dirname:
@@ -246,7 +247,7 @@ export const publicarProfissional = async (req, res) => {
     }
 
     // Verificação de permissão: apenas usuários com plano coach ativo podem criar perfil profissional
-    if (user?.planInfos?.planType !== 'coach' || user?.planInfos?.status !== 'ativo') {
+    if (!hasFeature(user, 'coachPanel') || user?.planInfos?.status !== 'ativo') {
       return res.status(403).json({ 
         success: false, 
         msg: "Acesso restrito. Apenas usuários com plano Coach ativo podem criar perfil profissional." 
@@ -356,7 +357,7 @@ export const editarProfissional = async (req, res) => {
       return res.status(404).json({ success: false, msg: "Usuário não encontrado." });
     }
 
-    if (user?.planInfos?.planType !== 'coach' || user?.planInfos?.status !== 'ativo') {
+    if (!hasFeature(user, 'coachPanel') || user?.planInfos?.status !== 'ativo') {
       return res.status(403).json({ 
         success: false, 
         msg: "Acesso restrito. Apenas usuários com plano Coach ativo podem editar perfil profissional." 

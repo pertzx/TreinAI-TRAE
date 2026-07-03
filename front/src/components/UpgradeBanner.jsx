@@ -39,7 +39,7 @@ export default function UpgradeBanner({ className = '' }) {
           ? (isFree ? 'Sua cortesia de IA acabou.' : 'Você atingiu o limite de IA do seu plano neste período.')
           : `Seu uso de IA já está em ${percent}% do plano.`}
       </div>
-      <NavLink to="/planos"
+      <NavLink to="/dashboard/configuracoes"
         className="shrink-0 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 text-white text-sm font-semibold">
         {isFree ? 'Assinar' : 'Fazer upgrade'}
       </NavLink>

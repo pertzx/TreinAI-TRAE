@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { hasAccess } from '../../../utils/planAccess.js';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FiChevronDown, FiChevronUp, FiUsers, FiSettings, FiRefreshCw, FiUserPlus, FiStar, FiTrendingUp, FiEye, FiMousePointer } from 'react-icons/fi';
 import { HiSparkles, HiAcademicCap } from 'react-icons/hi';
@@ -39,7 +40,7 @@ const getSpecialtyTheme = (especialidade = 'personal-trainner', isDark = true) =
 
 const Coach = ({ user, tema = 'dark' }) => {
   // Verificação de permissão: apenas usuários com plano coach ativo podem acessar
-  const hasCoachAccess = user?.planInfos?.planType === 'coach' && user?.planInfos?.status === 'ativo';
+  const hasCoachAccess = hasAccess(user, 'coachPanel') && user?.planInfos?.status === 'ativo';
 
   // Se não tem acesso, exibe componente de acesso negado
   if (!hasCoachAccess) {

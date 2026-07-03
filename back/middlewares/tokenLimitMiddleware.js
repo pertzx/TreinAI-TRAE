@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import { getSettings } from '../models/GlobalSettings.js';
+import { hasFeature, isCourtesyUser } from '../helpers/planAccess.js';
 
 /**
  * Modelo de cobrança de IA por CUSTO (R$).
@@ -49,10 +50,10 @@ const findTargetUserDoc = async ({ email, profissionalId }) => {
     if (!prof) return { error: 'Profissional não encontrado', status: 404 };
     const user = await User.findById(prof.userId);
     if (!user) return { error: 'Usuário associado ao profissional não encontrado', status: 404 };
-    if (user.planInfos?.planType !== 'coach' || user.planInfos?.status !== 'ativo') {
-      return { error: 'Plano Coach inativo', status: 403 };
+    if (!hasFeature(user, 'coachPanel') || user.planInfos?.status !== 'ativo') {
+      return { error: 'Plano do profissional sem painel Coach ativo', status: 403 };
     }
-    return { user, planType: 'coach' };
+    return { user, planType: user.planInfos?.planType || 'coach' };
   }
   if (!email) return { error: 'Email é obrigatório para verificação de uso de IA', status: 400 };
   const user = await User.findOne({ email });
@@ -69,8 +70,8 @@ const isTrialExpired = (user) => {
 /** Calcula gasto e orçamento atuais do usuário (R$), + a lista de usos do período. */
 const computeSpentAndBudget = (user, planType, settings) => {
   const usage = user.stats?.aiUsage || [];
-  // Trial vencido perde o acesso pago → cai para a regra do free (bloqueia IA paga).
-  const isPaidActive = PAID_PLANS.includes(planType)
+  // "Pago ativo" = não-cortesia, ativo e sem trial vencido. Cortesia = saldo único vitalício.
+  const isPaidActive = !isCourtesyUser(user)
     && user.planInfos?.status === 'ativo'
     && !isTrialExpired(user);
 

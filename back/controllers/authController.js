@@ -15,6 +15,7 @@ import Profissional from '../models/Profissional.js';
 import mongoose from 'mongoose';
 import { registerTokenUsage } from '../middlewares/tokenLimitMiddleware.js';
 import { stripAiCostForClient } from '../helpers/sanitizeUser.js';
+import { isCourtesyUser } from '../helpers/planAccess.js';
 import { sendNotificationEmail } from '../utils/sendEmail.js';
 import { validateSecurityTicket, createSecurityTicketData, formatDeviceInfoForEmail } from '../utils/ticketManager.js';
 
@@ -1225,7 +1226,7 @@ export const carregarTreinos = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ msg: "Email invalido. Usuario nao encontrado." });
 
-    if (user.planInfos && user.planInfos.status === 'inativo' && user.planInfos.planType !== 'free') {
+    if (user.planInfos && user.planInfos.status === 'inativo' && !isCourtesyUser(user)) {
       return res.status(400).json({ msg: 'O seu plano está inativo!' });
     }
 

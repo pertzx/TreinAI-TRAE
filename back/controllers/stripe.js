@@ -11,6 +11,8 @@ import ProcessedStripeEvent from '../models/ProcessedStripeEvent.js';
 import ProcessedWebhookEvent from '../models/ProcessedWebhookEvent.js';
 import mongoose from 'mongoose';
 import Profissional from '../models/Profissional.js';
+import Plan from '../models/Plan.js';
+import { applyPlanSnapshot } from '../helpers/planAccess.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import { sendNotificationEmail } from '../utils/sendEmail.js';
 import { excluirLocalPorErro, ativarLocalAposPagamento } from './LocalController.js';
@@ -532,19 +534,20 @@ export const CreateCheckoutSession = async (req, res) => {
       });
     }
 
-    const priceMap = {
-      pro: process.env.STRIPE_PRICEID_PRO,
-      max: process.env.STRIPE_PRICEID_MAX,
-      coach: process.env.STRIPE_PRICEID_COACH,
-    };
-
-    const priceId = priceMap[plan];
+    // Plano vem do banco (admin). priceId, tipo e acesso são do Plan doc.
+    const planDoc = await Plan.findOne({ key: plan, active: true }).lean();
+    if (!planDoc) {
+      return res.status(400).json({ success: false, msg: `Plano inválido ou inativo: ${plan}`, code: 'INVALID_PLAN' });
+    }
+    if (planDoc.tipo === 'cortesia') {
+      return res.status(400).json({ success: false, msg: 'Plano gratuito não usa checkout.', code: 'FREE_PLAN' });
+    }
+    if (planDoc.tipo === 'unico') {
+      return res.status(400).json({ success: false, msg: 'Plano de pagamento único ainda não está disponível para compra.', code: 'ONE_TIME_UNAVAILABLE' });
+    }
+    const priceId = planDoc.priceId;
     if (!priceId) {
-      return res.status(400).json({ 
-        success: false,
-        msg: `Plano inválido: ${plan}. Planos aceitos: ${Object.keys(priceMap).join(', ')}`,
-        code: 'INVALID_PLAN'
-      });
+      return res.status(400).json({ success: false, msg: `Plano sem priceId do Stripe configurado: ${plan}`, code: 'NO_PRICE_ID' });
     }
 
     // Buscar usuário com validação
@@ -786,6 +789,8 @@ export const StripeWebhook = async (req, res) => {
     if (!user) return null;
     user.planInfos = user.planInfos || {};
     for (const [k, v] of Object.entries(updates)) user.planInfos[k] = v;
+    // Snapshot de acesso/tipo quando o plano muda (fonte do gating por flags).
+    if (updates.planType) { try { await applyPlanSnapshot(user, updates.planType); } catch (e) { log('applyPlanSnapshot erro:', e?.message); } }
     user.planInfos.lastStripeEventTimestamp = eventTs;
     await user.save();
     log(`Usuário ${userId} atualizado com:`, updates);
@@ -1443,6 +1448,7 @@ export const StripeWebhook = async (req, res) => {
               user.planInfos.nextPaymentDate = null;
               user.planInfos.nextPaymentValue = null;
               user.planInfos.lastStripeEventTimestamp = evtCreatedMs;
+              await applyPlanSnapshot(user, 'free'); // volta acesso p/ cortesia
               await user.save();
 
               // Enviar email de confirmação
@@ -1505,12 +1511,11 @@ export const atualizarPlano = async (req, res) => {
 
     console.log('[atualizarPlano] Iniciando fluxo', { userId, email, requestedPlan: plan });
 
-    const ALLOWED_PLANS = ['free', 'pro', 'max', 'coach'];
-    const priceMap = {
-      pro: process.env.STRIPE_PRICEID_PRO,
-      max: process.env.STRIPE_PRICEID_MAX,
-      coach: process.env.STRIPE_PRICEID_COACH,
-    };
+    // Planos vêm do banco (admin): key, priceId e tipo.
+    const activePlans = await Plan.find({ active: true }).lean();
+    const planByKey = Object.fromEntries(activePlans.map(p => [p.key, p]));
+    const ALLOWED_PLANS = Object.keys(planByKey);
+    const priceMap = Object.fromEntries(activePlans.filter(p => p.priceId).map(p => [p.key, p.priceId]));
 
     const user = await User.findById(userId);
     if (!user) {
@@ -1535,6 +1540,11 @@ export const atualizarPlano = async (req, res) => {
       return res.status(400).json({ msg: 'Já está neste plano', planInfos: user.planInfos });
     }
 
+    const reqPlanDoc = planByKey[requestedPlan] || null;
+    if (reqPlanDoc?.tipo === 'unico') {
+      return res.status(400).json({ msg: 'Plano de pagamento único ainda não está disponível para compra.', code: 'ONE_TIME_UNAVAILABLE' });
+    }
+
     // localizar/garantir customerId
     let customerId = user.planInfos?.stripeCustomerId || null;
     if (!customerId) {
@@ -1553,9 +1563,11 @@ export const atualizarPlano = async (req, res) => {
       return Array.isArray(subs.data) ? subs.data : [];
     };
 
-    // -------------------- CANCEL (FREE) --------------------
-    if (requestedPlan === 'free') {
+    // -------------------- CANCEL (FREE / cortesia) --------------------
+    if (requestedPlan === 'free' || reqPlanDoc?.tipo === 'cortesia') {
       console.log('[atualizarPlano] Fluxo de downgrade para FREE iniciado', { userId, customerId });
+      // Snapshot de acesso cortesia (persistido pelos saves abaixo).
+      await applyPlanSnapshot(user, requestedPlan);
 
       if (!customerId) {
         console.log('[atualizarPlano] Nenhum customer no Stripe — atualizando localmente para free');
@@ -1737,6 +1749,7 @@ export const atualizarPlano = async (req, res) => {
       user.planInfos.aiBudgetBRL = Number(user.planInfos.nextPaymentValue);
     }
     user.planInfos.periodStart = new Date();
+    await applyPlanSnapshot(user, requestedPlan); // access/tipo do novo plano
 
     await user.save();
 

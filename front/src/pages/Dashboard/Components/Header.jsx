@@ -4,6 +4,7 @@ import Logo from '../../../components/Logo';
 import { LuMenu, LuX } from 'react-icons/lu';
 import { FaHome, FaSearch, FaDumbbell, FaChartLine, FaGamepad, FaUser, FaCog, FaUserShield, FaQuestionCircle, FaUserTie, FaComments, FaTrophy, FaClipboardList } from 'react-icons/fa';
 import { buildImageUrl } from '../../../utils/imageUtils';
+import { hasAccess } from '../../../utils/planAccess.js';
 import { useUnreadChats } from '../../../hooks/useUnreadChats';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdBanner from './AdBanner';
@@ -149,7 +150,7 @@ const Header = ({ user, tema }) => {
     }
   };
   useEffect(() => {
-    const isFreePlan = !!(user && user.planInfos && user.planInfos.planType && user.planInfos.planType === 'free');
+    const isFreePlan = !!(user && !hasAccess(user, 'semAnuncios'));
     if (isFreePlan) {
       if (atTop) {
         setBannerHidden(false);
@@ -265,7 +266,7 @@ const Header = ({ user, tema }) => {
             </nav>
           </motion.div>
 
-          {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && bannerHidden && (
+          {user && !hasAccess(user, 'semAnuncios') && bannerHidden && (
             <motion.div
               className="rounded-xl overflow-hidden"
               initial={{ opacity: 0 }}
@@ -280,7 +281,7 @@ const Header = ({ user, tema }) => {
         </AnimatePresence>
       )}
 
-      {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === "free" && (
+      {user && !hasAccess(user, 'semAnuncios') && (
         bannerHidden ? (
           <div className="hidden" />
         ) : (

@@ -1,4 +1,5 @@
 import User from '../models/User.js'
+import { isCourtesyUser } from '../helpers/planAccess.js'
 
 export const imageAuthGuard = async (req, res, next) => {
   try {
@@ -19,7 +20,7 @@ export const imageAuthGuard = async (req, res, next) => {
     if (user?.ban?.banned) {
       return res.status(403).json({ success: false, message: 'Usuário banido' })
     }
-    if (user?.planInfos?.status === 'inativo' && user?.planInfos?.planType !== 'free') {
+    if (user?.planInfos?.status === 'inativo' && !isCourtesyUser(user)) {
       return res.status(403).json({ success: false, message: 'Plano inativo' })
     }
 

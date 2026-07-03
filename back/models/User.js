@@ -18,7 +18,16 @@ const UserSchema = new Schema({
 
   planInfos: {
     status: { type: String, enum: ['ativo', 'inativo'], default: 'inativo' },
-    planType: { type: String, enum: ['free', 'pro', 'max', 'coach'], default: 'free' },
+    // planType = key do Plano (slug livre). Enum removido p/ permitir planos criados no admin.
+    planType: { type: String, default: 'free' },
+    // Snapshot do plano ativo (evita hit no banco no gating do front/back):
+    tipo: { type: String, default: 'cortesia' }, // recorrente | unico | cortesia
+    access: {
+      nutriAI: { type: Boolean, default: false },
+      coachPanel: { type: Boolean, default: false },
+      semAnuncios: { type: Boolean, default: false },
+      editarTreinos: { type: Boolean, default: false },
+    },
     expirationDate: { type: Date, default: null },
     subscriptionId: { type: String, default: null },
     stripeCustomerId: { type: String, default: null },

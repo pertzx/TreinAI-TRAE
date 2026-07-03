@@ -18,6 +18,7 @@ import HistoricoChart from './Components/HistoricoChart.jsx';
 import Encontrar from './Pages/Encontrar.jsx';
 import TokensChart from './Components/TokensChart.jsx';
 import UpgradeBanner from '../../components/UpgradeBanner.jsx';
+import { hasAccess, isFreeUser } from '../../utils/planAccess.js';
 import Coach from './Pages/Coach.jsx';
 import CoachEspecifico from './Pages/CoachEspecifico.jsx';
 import ChatsOptimized from '../../components/ChatsOptimized.jsx';
@@ -64,7 +65,7 @@ const Dashboard = ({ needToPay, plano }) => {
   const hasInitialized = useRef(false);
 
   useEffect(() => {
-    if (user?.planInfos?.planType === 'free') {
+    if (isFreeUser(user)) {
       showWarning('Você está usando o plano gratuito. Para acessar todas as funcionalidades, por favor, atualize seu plano.');
     }
   }, [user])
@@ -470,7 +471,7 @@ const Dashboard = ({ needToPay, plano }) => {
 
       {/* Banner Coach (se aplicável) */}
       <AnimatePresence>
-        {user && user.planInfos && user.planInfos.planType && user.planInfos.planType === 'coach' && (
+        {user && hasAccess(user, 'coachPanel') && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
