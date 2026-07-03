@@ -14,6 +14,7 @@ import {
 } from '../controllers/CacheAdminController.js';
 import { getAdminPlans, updatePlan, createPlan, deletePlan } from '../controllers/PlanController.js';
 import { getAdminMilestones, createMilestone, updateMilestone, deleteMilestone } from '../controllers/MilestoneController.js';
+import { banUser, unbanUser, setUserPlan, resetAiUsage, deleteUser, getAuditLogs } from '../controllers/AdminUserController.js';
 const router = Router();
 
 // TODAS as rotas admin exigem token válido + papel de admin (role==='admin').
@@ -71,6 +72,14 @@ router.post('/milestones', adminRateLimit, adminSecurityHeaders, getAdminMilesto
 router.post('/create-milestone', adminRateLimit, adminSecurityHeaders, createMilestone) // body: adminId, key, type, title, ...
 router.post('/update-milestone', adminRateLimit, adminSecurityHeaders, updateMilestone) // body: adminId, key, ...campos
 router.post('/delete-milestone', adminRateLimit, adminSecurityHeaders, deleteMilestone) // body: adminId, key
+
+// Gestão de usuários (admin)
+router.post('/ban-user', adminRateLimit, adminSecurityHeaders, banUser) // body: userId, motivo
+router.post('/unban-user', adminRateLimit, adminSecurityHeaders, unbanUser) // body: userId
+router.post('/set-plan', adminRateLimit, adminSecurityHeaders, setUserPlan) // body: userId, planType, status?, aiBudgetBRL?
+router.post('/reset-ai-usage', adminRateLimit, adminSecurityHeaders, resetAiUsage) // body: userId
+router.post('/delete-user', adminRateLimit, adminSecurityHeaders, deleteUser) // body: userId
+router.post('/audit-logs', adminRateLimit, adminSecurityHeaders, getAuditLogs) // body: page, limit, action?, email?
 
 // Ranking
 router.get('/rankings', verificarToken, adminRateLimit, adminSecurityHeaders, getRankings)

@@ -73,6 +73,29 @@ export default function AdminUsuarios({ tema, user }) {
     }
   }
 
+  // Ações de admin sobre o usuário selecionado
+  const [adminMsg, setAdminMsg] = useState(null)
+  const [adminLoading, setAdminLoading] = useState(false)
+  const [banMotivo, setBanMotivo] = useState('')
+  const [planKey, setPlanKey] = useState('')
+  const [planStatus, setPlanStatus] = useState('ativo')
+  const [planBudget, setPlanBudget] = useState('')
+  const [delConfirm, setDelConfirm] = useState('')
+  const [planos, setPlanos] = useState([])
+
+  useEffect(() => { api.get('/plans').then(r => setPlanos(r?.data?.plans || [])).catch(() => {}) }, [])
+
+  const adminAction = async (url, payload, okMsg) => {
+    setAdminLoading(true); setAdminMsg(null)
+    try {
+      const res = await api.post(url, { adminId: user._id, ...payload })
+      setAdminMsg({ type: 'ok', text: res?.data?.msg || okMsg })
+      fetchUsuarios()
+    } catch (e) {
+      setAdminMsg({ type: 'erro', text: e?.response?.data?.msg || 'Erro na ação.' })
+    } finally { setAdminLoading(false) }
+  }
+
   const fetchUsuarios = async () => {
     try {
       // Buscar usuários usando apenas cookies httpOnly
@@ -819,6 +842,64 @@ export default function AdminUsuarios({ tema, user }) {
                   {trialMsg && (
                     <span className={`text-sm ${trialMsg.type === 'ok' ? 'text-green-500' : 'text-red-500'}`}>{trialMsg.text}</span>
                   )}
+                </div>
+              </div>
+
+              {/* Ações de admin */}
+              <div className={`mt-4 p-4 rounded-lg border ${tema === 'dark' ? 'border-red-500/30 bg-red-400/5' : 'border-red-300 bg-red-50'}`}>
+                <div className="text-sm font-semibold mb-2">🛡️ Ações de admin</div>
+                {adminMsg && <div className={`text-sm mb-2 ${adminMsg.type === 'ok' ? 'text-green-500' : 'text-red-500'}`}>{adminMsg.text}</div>}
+
+                {/* Ban */}
+                <div className="flex flex-wrap items-end gap-2 mb-3">
+                  <span className={`text-xs ${selectedUser?.ban?.banned ? 'text-red-500 font-semibold' : 'opacity-60'}`}>
+                    {selectedUser?.ban?.banned ? `BANIDO — ${selectedUser.ban.motivo || ''}` : 'Acesso normal'}
+                  </span>
+                  {selectedUser?.ban?.banned ? (
+                    <button onClick={() => adminAction('/admin/unban-user', { userId: selectedUser._id }, 'Desbanido')} disabled={adminLoading}
+                      className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white">Desbanir</button>
+                  ) : (
+                    <>
+                      <input value={banMotivo} onChange={e => setBanMotivo(e.target.value)} placeholder="motivo do ban"
+                        className={`w-48 px-2 py-1 rounded-lg border text-sm ${tema === 'dark' ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300'}`} />
+                      <button onClick={() => adminAction('/admin/ban-user', { userId: selectedUser._id, motivo: banMotivo }, 'Banido')} disabled={adminLoading}
+                        className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white">Banir</button>
+                    </>
+                  )}
+                </div>
+
+                {/* Ajustar plano */}
+                <div className="flex flex-wrap items-end gap-2 mb-3">
+                  <select value={planKey} onChange={e => setPlanKey(e.target.value)}
+                    className={`px-2 py-1.5 rounded-lg border text-sm ${tema === 'dark' ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300'}`}>
+                    <option value="">plano...</option>
+                    {planos.map(p => <option key={p.key} value={p.key}>{p.name || p.key}</option>)}
+                    {!planos.some(p => p.key === 'free') && <option value="free">Free</option>}
+                  </select>
+                  <select value={planStatus} onChange={e => setPlanStatus(e.target.value)}
+                    className={`px-2 py-1.5 rounded-lg border text-sm ${tema === 'dark' ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300'}`}>
+                    <option value="ativo">ativo</option>
+                    <option value="inativo">inativo</option>
+                  </select>
+                  <input value={planBudget} onChange={e => setPlanBudget(e.target.value)} type="number" min="0" step="0.01" placeholder="orçamento IA R$ (opc)"
+                    className={`w-40 px-2 py-1.5 rounded-lg border text-sm ${tema === 'dark' ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300'}`} />
+                  <button onClick={() => adminAction('/admin/set-plan', { userId: selectedUser._id, planType: planKey, status: planStatus, aiBudgetBRL: planBudget }, 'Plano ajustado')}
+                    disabled={adminLoading || !planKey}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${!planKey ? 'bg-gray-500 text-gray-300' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>Ajustar plano</button>
+                  <button onClick={() => adminAction('/admin/reset-ai-usage', { userId: selectedUser._id }, 'Uso de IA zerado')} disabled={adminLoading}
+                    className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-600 hover:bg-gray-700 text-white">Resetar IA</button>
+                </div>
+
+                {/* Excluir */}
+                <div className="flex flex-wrap items-end gap-2">
+                  <input value={delConfirm} onChange={e => setDelConfirm(e.target.value)} placeholder={`digite "${selectedUser.username || selectedUser.name || ''}" p/ excluir`}
+                    className={`w-64 px-2 py-1 rounded-lg border text-sm ${tema === 'dark' ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300'}`} />
+                  <button
+                    onClick={() => { setDelConfirm(''); adminAction('/admin/delete-user', { userId: selectedUser._id }, 'Usuário excluído'); setSelectedUser(null); }}
+                    disabled={adminLoading || delConfirm.trim() !== String(selectedUser.username || selectedUser.name || '')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${delConfirm.trim() !== String(selectedUser.username || selectedUser.name || '') ? 'bg-gray-500 text-gray-300 cursor-not-allowed' : 'bg-red-700 hover:bg-red-800 text-white'}`}>
+                    Excluir usuário
+                  </button>
                 </div>
               </div>
             </div>

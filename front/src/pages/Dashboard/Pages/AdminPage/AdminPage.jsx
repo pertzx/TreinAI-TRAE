@@ -10,6 +10,8 @@ import AdminConfig from './AdminConfig'
 import AdminPlanos from './AdminPlanos'
 import AdminConquistas from './AdminConquistas'
 import AdminAnalytics from './AdminAnalytics'
+import AdminReports from './AdminReports'
+import AdminAuditoria from './AdminAuditoria'
 
 const AdminPage = ({ user, tema = 'dark' }) => {
   const isAdmin = !!(user && user.role === 'admin')
@@ -36,7 +38,9 @@ const AdminPage = ({ user, tema = 'dark' }) => {
     { label: '🎭 Eventos Globais', element: <AdminEventos tema={tema} user={user} /> },
     { label: '💰 Cobrança de IA (custo & margem)', element: <AdminConfig tema={tema} user={user} /> },
     { label: '💳 Planos (landing)', element: <AdminPlanos tema={tema} user={user} /> },
-    { label: '🏆 Conquistas (card)', element: <AdminConquistas tema={tema} user={user} /> }
+    { label: '🏆 Conquistas (card)', element: <AdminConquistas tema={tema} user={user} /> },
+    { label: '🩺 Saúde do sistema', element: <AdminReports tema={tema} user={user} /> },
+    { label: '📜 Auditoria', element: <AdminAuditoria tema={tema} user={user} /> }
   ]
 
   useEffect(() => {
