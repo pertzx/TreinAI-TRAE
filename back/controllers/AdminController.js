@@ -7,6 +7,7 @@ import redisCache from '../config/redis.js';
 import RedisManager from '../utils/redisManager.js';
 import Ranking from "../models/Gamification/Ranking.js";
 import GlobalSettings, { getSettings } from "../models/GlobalSettings.js";
+import { logAudit } from "../helpers/auditLog.js";
 
 // Verifica se o requisitante é admin; retorna o doc do admin ou null.
 const ensureAdmin = async (adminId) => {
@@ -34,11 +35,15 @@ export const updateGlobalSettings = async (req, res) => {
         if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
 
         const settings = await getSettings();
-        const { marginMultiplier, freeCourtesyBudgetBRL, planBudgetFallbackBRL, modelPricingBRL, imageCostBRL } = req.body;
+        const { marginMultiplier, freeCourtesyBudgetBRL, planBudgetFallbackBRL, modelPricingBRL, imageCostBRL, founderTrial } = req.body;
 
         if (marginMultiplier != null) settings.marginMultiplier = Math.max(1, Number(marginMultiplier));
         if (freeCourtesyBudgetBRL != null) settings.freeCourtesyBudgetBRL = Math.max(0, Number(freeCourtesyBudgetBRL));
         if (imageCostBRL != null) settings.imageCostBRL = Math.max(0, Number(imageCostBRL));
+        if (founderTrial && typeof founderTrial === 'object') {
+            if (founderTrial.defaultDays != null) settings.founderTrial.defaultDays = Math.max(1, Number(founderTrial.defaultDays));
+            if (founderTrial.aiBudgetBRL != null) settings.founderTrial.aiBudgetBRL = Math.max(0, Number(founderTrial.aiBudgetBRL));
+        }
         if (planBudgetFallbackBRL && typeof planBudgetFallbackBRL === 'object') {
             ['pro', 'max', 'coach'].forEach(p => {
                 if (planBudgetFallbackBRL[p] != null) settings.planBudgetFallbackBRL[p] = Number(planBudgetFallbackBRL[p]);
@@ -60,6 +65,53 @@ export const updateGlobalSettings = async (req, res) => {
         return res.status(200).json({ success: true, settings, msg: 'Configurações atualizadas.' });
     } catch (error) {
         return res.status(500).json({ success: false, msg: 'Erro ao atualizar configurações.', error: error.message });
+    }
+};
+
+// Concede o trial "Profissional Fundador": acesso coach grátis por N dias,
+// com um TETO de orçamento de IA (não sangra custo). Sem Stripe.
+export const grantFounderTrial = async (req, res) => {
+    try {
+        const admin = await ensureAdmin(req.body.adminId);
+        if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
+
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ success: false, msg: 'userId é obrigatório.' });
+
+        const settings = await getSettings();
+        const days = Number(req.body.days) > 0 ? Number(req.body.days) : Number(settings.founderTrial?.defaultDays) || 90;
+        const aiBudgetBRL = req.body.aiBudgetBRL != null ? Number(req.body.aiBudgetBRL) : (Number(settings.founderTrial?.aiBudgetBRL) || 30);
+
+        const target = await User.findById(userId);
+        if (!target) return res.status(404).json({ success: false, msg: 'Usuário não encontrado.' });
+
+        const until = new Date();
+        until.setDate(until.getDate() + days);
+
+        target.planInfos = target.planInfos || {};
+        target.planInfos.planType = 'coach';
+        target.planInfos.status = 'ativo';
+        target.planInfos.aiBudgetBRL = Math.max(0, aiBudgetBRL);
+        target.planInfos.periodStart = new Date();
+        target.planInfos.isTrial = true;
+        target.planInfos.trialUntil = until;
+        target.planInfos.trialGrantedBy = String(admin._id);
+        await target.save();
+
+        logAudit({ req, action: 'trial.grant', details: { userId: String(userId), days, aiBudgetBRL } });
+
+        return res.status(200).json({
+            success: true,
+            msg: `Trial Fundador concedido por ${days} dias (teto de IA R$ ${aiBudgetBRL}).`,
+            planInfos: {
+                planType: target.planInfos.planType,
+                status: target.planInfos.status,
+                isTrial: target.planInfos.isTrial,
+                trialUntil: target.planInfos.trialUntil,
+            },
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, msg: 'Erro ao conceder trial.', error: error.message });
     }
 };
 

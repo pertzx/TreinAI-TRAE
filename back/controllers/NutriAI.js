@@ -128,7 +128,6 @@ Regras:
       completionTokens: Number(_usage.completion_tokens || 0),
       profissionalId,
     });
-    const custoCobrado = _reg.custoCobrado;
 
     const text = resp?.choices?.[0]?.message?.content || null;
 
@@ -221,8 +220,8 @@ Regras:
           userId: String(user._id),
           restricoes: String(nutriInfos.restricoes),
           planoNutricional: sanitizedPlano
-        },
-        custoCobrado
+        }
+        // Custo em R$ NÃO é exposto ao cliente (uso mostrado só em %).
       });
     } catch (err) {
       console.error('Erro ao salvar nutriInfos no user:', err);

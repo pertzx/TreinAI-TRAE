@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import "../src/App.css";
 import Menu from './components/Menu';
 import Planos from './pages/Planos';
+import PublicProfissional from './pages/PublicProfissional';
 import Login from './pages/Login';
 import LoginNaoAutorizado from './pages/LoginNaoAutorizado';
 import Dashboard from './pages/Dashboard/Dashboard';
@@ -147,6 +148,7 @@ function App() {
           <Routes>
             <Route path='/' element={<Home />} />
             <Route path='/planos' element={<Planos setPlano={setPlano} />} />
+            <Route path='/p/:profissionalId' element={<PublicProfissional />} />
             <Route path='/login' element={<Login plano={plano} />} />
             <Route path='/login-nao-autorizado' element={<LoginNaoAutorizado />} />
             <Route path='/suporte' element={<SupportRoute />} />

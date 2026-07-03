@@ -7,6 +7,8 @@ import AdminRankings from './AdminRankings'
 import AdminAvaliacoes from './AdminAvaliacoes'
 import AdminEventos from './AdminEventos'
 import AdminConfig from './AdminConfig'
+import AdminPlanos from './AdminPlanos'
+import AdminConquistas from './AdminConquistas'
 import AdminAnalytics from './AdminAnalytics'
 
 const AdminPage = ({ user, tema = 'dark' }) => {
@@ -32,7 +34,9 @@ const AdminPage = ({ user, tema = 'dark' }) => {
     { label: '📣 Anúncios', element: <AdminAnuncios tema={tema} user={user} /> },
     { label: '📊 Rankings', element: <AdminRankings tema={tema} user={user} /> },
     { label: '🎭 Eventos Globais', element: <AdminEventos tema={tema} user={user} /> },
-    { label: '💰 Cobrança de IA (custo & margem)', element: <AdminConfig tema={tema} user={user} /> }
+    { label: '💰 Cobrança de IA (custo & margem)', element: <AdminConfig tema={tema} user={user} /> },
+    { label: '💳 Planos (landing)', element: <AdminPlanos tema={tema} user={user} /> },
+    { label: '🏆 Conquistas (card)', element: <AdminConquistas tema={tema} user={user} /> }
   ]
 
   useEffect(() => {

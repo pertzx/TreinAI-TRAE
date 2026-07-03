@@ -28,6 +28,10 @@ const UserSchema = new Schema({
     // Modelo de cobrança de IA por custo (R$):
     aiBudgetBRL: { type: Number, default: 0 },      // orçamento do período (= valor pago na Stripe)
     periodStart: { type: Date, default: null },     // início do período atual (janela do gasto)
+    // Trial "Profissional Fundador" (acesso concedido pelo admin, sem Stripe):
+    isTrial: { type: Boolean, default: false },
+    trialUntil: { type: Date, default: null },
+    trialGrantedBy: { type: String, default: null }, // adminId que concedeu
   },
 
   preferences: {

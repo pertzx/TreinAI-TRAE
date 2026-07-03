@@ -1,6 +1,8 @@
 import { getBrazilDate } from "../helpers/getBrazilDate.js";
 import Ranking from "../models/Gamification/Ranking.js";
 import UserGamification from "../models/Gamification/UserGamification.js";
+import MilestoneTrigger from "../models/MilestoneTrigger.js";
+import { evaluateMilestones } from "../helpers/evaluateMilestones.js";
 
 // Catálogo de conquistas. Cada uma testa o estado atual da gamificação do usuário.
 const BADGE_CATALOG = [
@@ -126,6 +128,13 @@ export const finalizarTreino = async (req, res) => {
 
     const userGamification = await UserGamification.findOne({ userId: user._id });
 
+    // Estado ANTES deste treino (para detectar cruzamento de marcos cumulativos).
+    const prevState = userGamification ? {
+      workouts: userGamification.workouts || 0,
+      duration: userGamification.duration || 0,
+      points: userGamification.points || 0,
+    } : { workouts: 0, duration: 0, points: 0 };
+
     // Verificar se o usuário já finalizou um treino hoje
     if (userGamification && userGamification.lastWorkoutDate && userGamification.lastWorkoutDate.length > 0) {
       const lastWorkoutDate = userGamification.lastWorkoutDate[userGamification.lastWorkoutDate.length - 1];
@@ -220,6 +229,21 @@ export const finalizarTreino = async (req, res) => {
       rankingPosition = idx >= 0 ? idx + 1 : null;
     }
 
+    // Avaliar os gatilhos de conquista configuráveis (card compartilhável).
+    let novosMarcos = [];
+    try {
+      const triggers = await MilestoneTrigger.find({ active: true }).sort({ sortOrder: 1 }).lean();
+      if (triggers.length) {
+        novosMarcos = evaluateMilestones(
+          { streak: gami.streak, workouts: gami.workouts, duration: gami.duration, points: gami.points },
+          prevState,
+          triggers
+        );
+      }
+    } catch (e) {
+      console.error('[finalizarTreino] erro ao avaliar marcos:', e);
+    }
+
     // Resposta de sucesso com dados relevantes
     return res.status(200).json({
       success: true,
@@ -233,7 +257,8 @@ export const finalizarTreino = async (req, res) => {
         duration: payloadTreino.duracao,
         rankingPosition,
         badges: gami.badges || [],
-        novasBadges
+        novasBadges,
+        novosMarcos
       }
     });
 

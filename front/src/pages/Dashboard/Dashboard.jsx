@@ -17,6 +17,7 @@ import BMIChart from './Components/BMIchart.jsx';
 import HistoricoChart from './Components/HistoricoChart.jsx';
 import Encontrar from './Pages/Encontrar.jsx';
 import TokensChart from './Components/TokensChart.jsx';
+import UpgradeBanner from '../../components/UpgradeBanner.jsx';
 import Coach from './Pages/Coach.jsx';
 import CoachEspecifico from './Pages/CoachEspecifico.jsx';
 import ChatsOptimized from '../../components/ChatsOptimized.jsx';
@@ -642,17 +643,20 @@ const Dashboard = ({ needToPay, plano }) => {
                 <div className={`w-2 h-12 rounded-full bg-gradient-to-b from-green-500 to-blue-500`}></div>
               </div>
 
+              {/* Upsell contextual quando o uso de IA está alto */}
+              <UpgradeBanner className="mb-4" />
+
               {/* Tokens Chart */}
               <div className={`p-5 rounded-2xl ${tema === 'dark' ? 'bg-gray-700/30 border border-gray-600/30' : 'bg-gray-50/50 border border-gray-200/30'
                 } hover:shadow-lg transition-all duration-200`}>
                 <div className="flex items-center gap-2 mb-4">
                   <LuZap className={`w-5 h-5 ${tema === 'dark' ? 'text-yellow-400' : 'text-yellow-500'}`} />
                   <h3 className={`font-semibold ${tema === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>
-                    Consumo de IA (R$)
+                    Uso de IA (% do plano)
                   </h3>
                 </div>
                 <div className="min-h-[200px]">
-                  <TokensChart user={user} tema={tema} />
+                  <TokensChart tema={tema} />
                 </div>
               </div>
             </div>

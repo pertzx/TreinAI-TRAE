@@ -60,26 +60,75 @@ const findTargetUserDoc = async ({ email, profissionalId }) => {
   return { user, planType: user.planInfos?.planType || 'free' };
 };
 
-/** Calcula gasto e orçamento atuais do usuário (R$). */
+/** Trial "Fundador" expirado? (concedido pelo admin, com data limite). */
+const isTrialExpired = (user) => {
+  const pi = user.planInfos || {};
+  return !!pi.isTrial && pi.trialUntil && new Date(pi.trialUntil) < new Date();
+};
+
+/** Calcula gasto e orçamento atuais do usuário (R$), + a lista de usos do período. */
 const computeSpentAndBudget = (user, planType, settings) => {
   const usage = user.stats?.aiUsage || [];
-  const isPaidActive = PAID_PLANS.includes(planType) && user.planInfos?.status === 'ativo';
+  // Trial vencido perde o acesso pago → cai para a regra do free (bloqueia IA paga).
+  const isPaidActive = PAID_PLANS.includes(planType)
+    && user.planInfos?.status === 'ativo'
+    && !isTrialExpired(user);
 
   if (isPaidActive) {
     const periodStart = user.planInfos?.periodStart ? new Date(user.planInfos.periodStart) : new Date(0);
-    const gasto = usage
-      .filter(u => new Date(u.data) >= periodStart)
-      .reduce((acc, u) => acc + (Number(u.custoCobrado) || 0), 0);
+    const usageInPeriod = usage.filter(u => new Date(u.data) >= periodStart);
+    const gasto = usageInPeriod.reduce((acc, u) => acc + (Number(u.custoCobrado) || 0), 0);
     const orcamento = (Number(user.planInfos?.aiBudgetBRL) > 0)
       ? Number(user.planInfos.aiBudgetBRL)
       : (Number(settings.planBudgetFallbackBRL?.[planType]) || 0); // rede de segurança
-    return { gasto, orcamento, isFree: false };
+    return { gasto, orcamento, isFree: false, usageInPeriod };
   }
 
   // Free (ou pago inativo): cortesia única, soma vitalícia.
   const gasto = usage.reduce((acc, u) => acc + (Number(u.custoCobrado) || 0), 0);
   const orcamento = Number(settings.freeCourtesyBudgetBRL) || 0;
-  return { gasto, orcamento, isFree: true };
+  return { gasto, orcamento, isFree: true, usageInPeriod: usage };
+};
+
+/** Chave de dia no fuso de São Paulo (YYYY-MM-DD). */
+const brazilDayKey = (d) => {
+  try {
+    return new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  } catch {
+    return new Date(d).toISOString().slice(0, 10);
+  }
+};
+
+/** Percentual de uso, estado e série diária (%) — sem expor R$ ao cliente. */
+const buildPercentView = (gasto, orcamento, usageInPeriod = []) => {
+  const percentUsed = orcamento > 0
+    ? Math.min(100, Math.max(0, (gasto / orcamento) * 100))
+    : (gasto > 0 ? 100 : 0);
+  const percentRemaining = Math.max(0, 100 - percentUsed);
+
+  let status = 'ok';
+  if (percentUsed >= 100) status = 'exhausted';
+  else if (percentUsed >= 90) status = 'critical';
+  else if (percentUsed >= 70) status = 'warning';
+
+  // Série diária como % do orçamento (base para o gráfico do cliente).
+  const byDay = new Map();
+  if (orcamento > 0) {
+    for (const u of usageInPeriod) {
+      const key = brazilDayKey(u.data);
+      byDay.set(key, (byDay.get(key) || 0) + (Number(u.custoCobrado) || 0));
+    }
+  }
+  const dailyPercent = Array.from(byDay.entries())
+    .map(([date, custo]) => ({ date, percent: Number(((custo / orcamento) * 100).toFixed(2)) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    percentUsed: Number(percentUsed.toFixed(1)),
+    percentRemaining: Number(percentRemaining.toFixed(1)),
+    status,
+    dailyPercent,
+  };
 };
 
 /**
@@ -142,9 +191,10 @@ export const checkAiBudget = async (req, res, next) => {
           : 'Você atingiu o limite de uso de IA do seu plano neste período. Aguarde a renovação ou faça upgrade.',
         data: {
           planType,
-          orcamentoBRL: orcamento,
-          gastoBRL: gasto,
-          restanteBRL: Math.max(0, orcamento - gasto),
+          isFree,
+          percentUsed: 100,
+          percentRemaining: 0,
+          status: 'exhausted',
         },
       });
     }
@@ -166,7 +216,8 @@ export const checkAiBudget = async (req, res, next) => {
 };
 
 /**
- * Estatísticas de orçamento/uso (R$) para front e painel.
+ * Estatísticas de uso de IA para o CLIENTE — expostas em PERCENTUAL, nunca em R$.
+ * (A visão em R$ fica só no admin, via rotas de admin.)
  */
 export const getAiBudgetStats = async (userEmail, profissionalId = null) => {
   try {
@@ -174,15 +225,17 @@ export const getAiBudgetStats = async (userEmail, profissionalId = null) => {
     const { user, planType, error } = await findTargetUserDoc({ email: userEmail, profissionalId });
     if (error || !user) return { error: error || 'Usuário não encontrado' };
 
-    const { gasto, orcamento, isFree } = computeSpentAndBudget(user, planType, settings);
+    const { gasto, orcamento, isFree, usageInPeriod } = computeSpentAndBudget(user, planType, settings);
+    const { percentUsed, percentRemaining, status, dailyPercent } = buildPercentView(gasto, orcamento, usageInPeriod);
     return {
       planType,
-      orcamentoBRL: Number(orcamento.toFixed(4)),
-      gastoBRL: Number(gasto.toFixed(4)),
-      restanteBRL: Number(Math.max(0, orcamento - gasto).toFixed(4)),
-      canUseAI: gasto < orcamento,
       isFree,
       isProfessional: !!profissionalId,
+      canUseAI: gasto < orcamento,
+      percentUsed,
+      percentRemaining,
+      status,
+      dailyPercent,
     };
   } catch (error) {
     console.error('[getAiBudgetStats] erro:', error);

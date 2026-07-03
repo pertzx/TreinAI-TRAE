@@ -23,6 +23,8 @@ import gamificationRoutes from './routes/gamificationRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
 import eventRoutes from './routes/eventRoutes.js'
 import metricsRoutes from './routes/metrics.js';
+import planRoutes from './routes/planRoutes.js';
+import milestoneRoutes from './routes/milestoneRoutes.js';
 import { secureAccessGuard } from './middlewares/secureAccessGuard.js'
 
 // cria __filename e __dirname em ESM
@@ -205,6 +207,8 @@ app.use('/images', apiSecurityHeaders, imageRoutes);
 app.use('/reports', apiSecurityHeaders, reportRoutes);
 app.use('/', apiSecurityHeaders, userRoutes);
 app.use('/tokens', apiSecurityHeaders, tokenRoutes);
+app.use('/plans', apiSecurityHeaders, planRoutes);
+app.use('/milestones', apiSecurityHeaders, milestoneRoutes);
 app.use('/lgpd', apiSecurityHeaders, lgpdRoutes);
 app.use('/analytics', apiSecurityHeaders, analyticsRoutes);
 app.use('/gamification', apiSecurityHeaders, gamificationRoutes);
@@ -217,6 +221,7 @@ app.use('/metrics', apiSecurityHeaders, metricsRoutes);
 const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY;
 
 import { startTokenCleanupJob } from './jobs/tokenCleanup.js';
+import { startTrialExpiryJob } from './jobs/trialExpiry.js';
 
 if (!isServerless) {
   // Ambiente local - inicializar servidor tradicional
@@ -235,6 +240,8 @@ if (!isServerless) {
   
   // Inicializar job de limpeza de tokens
   startTokenCleanupJob();
+  // Inicializar job de expiração de trials "Fundador"
+  startTrialExpiryJob();
 } else {
   console.log('🔧 Ambiente serverless detectado - WebSocket desabilitado');
 }

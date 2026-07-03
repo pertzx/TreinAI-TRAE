@@ -238,12 +238,10 @@ export const ToastProvider = ({ children }) => {
   const showInfo = useCallback((message, options = {}) =>
     addToast(message, 'info', options), [addToast]);
 
-  // Mostra o custo da operação de IA em R$ (custoCobrado).
-  const showTokenUsage = useCallback((custo, options = {}) => {
-    const v = Number(custo);
-    if (!v || v <= 0) return;
-    addToast(`Custo da operação: R$ ${v.toFixed(2).replace('.', ',')}`, 'token', { ...options, duration: 4000 });
-  }, [addToast]);
+  // No-op mantido por compatibilidade: NÃO expor custo de IA em R$ ao cliente.
+  // O uso é mostrado apenas em % (TokenUsageBar / Configurações). Mantido para
+  // não quebrar os chamadores existentes (ChatTreino, ChatNutriAi, MeusTreinos).
+  const showTokenUsage = useCallback(() => {}, []);
 
   const value = {
     toasts,

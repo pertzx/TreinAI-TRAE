@@ -40,6 +40,12 @@ const GlobalSettingsSchema = new Schema({
   // Custo REAL em R$ por imagem gerada (gpt-image-1).
   imageCostBRL: { type: Number, default: 0.30, min: 0 },
 
+  // Defaults do trial "Profissional Fundador" (acesso coach grátis por tempo limitado).
+  founderTrial: {
+    defaultDays: { type: Number, default: 90, min: 1 },
+    aiBudgetBRL: { type: Number, default: 30, min: 0 }, // teto de IA durante o trial
+  },
+
   updatedBy: { type: String, default: null },
 }, { timestamps: true, versionKey: false });
 

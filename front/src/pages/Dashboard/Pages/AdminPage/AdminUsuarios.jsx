@@ -49,6 +49,30 @@ export default function AdminUsuarios({ tema, user }) {
   const [showMainChart, setShowMainChart] = useState(false)
   const [showIndividualCharts, setShowIndividualCharts] = useState(false)
 
+  // Trial "Profissional Fundador"
+  const [trialDays, setTrialDays] = useState('')
+  const [trialBudget, setTrialBudget] = useState('')
+  const [trialMsg, setTrialMsg] = useState(null)
+  const [trialLoading, setTrialLoading] = useState(false)
+
+  const grantTrial = async (target) => {
+    if (!target?._id) return
+    setTrialLoading(true)
+    setTrialMsg(null)
+    try {
+      const payload = { adminId: user._id, userId: target._id }
+      if (Number(trialDays) > 0) payload.days = Number(trialDays)
+      if (trialBudget !== '') payload.aiBudgetBRL = Number(trialBudget)
+      const res = await api.post('/admin/grant-trial', payload)
+      setTrialMsg({ type: 'ok', text: res?.data?.msg || 'Trial concedido!' })
+      fetchUsuarios()
+    } catch (e) {
+      setTrialMsg({ type: 'erro', text: e?.response?.data?.msg || 'Erro ao conceder trial.' })
+    } finally {
+      setTrialLoading(false)
+    }
+  }
+
   const fetchUsuarios = async () => {
     try {
       // Buscar usuários usando apenas cookies httpOnly
@@ -761,6 +785,40 @@ export default function AdminUsuarios({ tema, user }) {
                   <div className={`text-sm ${tema === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
                     Total de Logins
                   </div>
+                </div>
+              </div>
+
+              {/* Trial "Profissional Fundador" */}
+              <div className={`mt-4 p-4 rounded-lg border ${tema === 'dark' ? 'border-emerald-500/30 bg-emerald-400/5' : 'border-emerald-300 bg-emerald-50'}`}>
+                <div className="text-sm font-semibold mb-1">🎁 Trial "Profissional Fundador"</div>
+                <div className={`text-xs mb-3 ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Concede plano Coach grátis por tempo limitado, com teto de IA (não sangra custo).
+                  {selectedUser?.planInfos?.isTrial && (
+                    <span className="ml-1 text-emerald-500 font-medium">
+                      Em trial até {selectedUser.planInfos.trialUntil ? new Date(selectedUser.planInfos.trialUntil).toLocaleDateString('pt-BR') : '—'}.
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <label className="block text-[11px] mb-1">Dias (vazio = padrão)</label>
+                    <input type="number" min="1" value={trialDays} onChange={e => setTrialDays(e.target.value)}
+                      placeholder="90"
+                      className={`w-24 px-2 py-1 rounded-lg border text-sm ${tema === 'dark' ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300 text-gray-900'}`} />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] mb-1">Teto de IA R$ (vazio = padrão)</label>
+                    <input type="number" min="0" step="0.01" value={trialBudget} onChange={e => setTrialBudget(e.target.value)}
+                      placeholder="30"
+                      className={`w-32 px-2 py-1 rounded-lg border text-sm ${tema === 'dark' ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300 text-gray-900'}`} />
+                  </div>
+                  <button onClick={() => grantTrial(selectedUser)} disabled={trialLoading}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-semibold ${trialLoading ? 'bg-gray-500 text-gray-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
+                    {trialLoading ? 'Concedendo...' : 'Conceder trial'}
+                  </button>
+                  {trialMsg && (
+                    <span className={`text-sm ${trialMsg.type === 'ok' ? 'text-green-500' : 'text-red-500'}`}>{trialMsg.text}</span>
+                  )}
                 </div>
               </div>
             </div>

@@ -111,43 +111,33 @@ const Configuracoes = ({ setTema, tema, user }) => {
       setPlanInfos(user.planInfos);
     }
 
-    // Calcular custo de IA (R$) a partir de stats.aiUsage
-    const tokenEntries = (user?.stats && Array.isArray(user.stats.aiUsage)) ? user.stats.aiUsage : [];
-    if (!tokenEntries.length) {
-      setTokensTotal(0);
-      setTokensToday(0);
-    } else {
-      const total = tokenEntries.reduce((acc, e) => {
-        const v = Number(e?.custoCobrado ?? 0);
-        return acc + (Number.isFinite(v) ? v : 0);
-      }, 0);
-
-      const brazilDayKey = (d) => {
-        try {
-          const dt = d ? new Date(d) : new Date();
-          return dt.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-        } catch (err) {
-          const dt = d ? new Date(d) : new Date();
-          return dt.toISOString().slice(0, 10);
-        }
-      };
-
-      const todayKey = brazilDayKey(new Date());
-      const todaySum = tokenEntries.reduce((acc, e) => {
-        const dt = e?.data ?? e?.date ?? e?.createdAt ?? e?.publishedAt ?? null;
-        const key = dt ? brazilDayKey(dt) : null;
-        if (key === todayKey) {
-          const v = Number(e?.custoCobrado ?? 0);
-          return acc + (Number.isFinite(v) ? v : 0);
-        }
-        return acc;
-      }, 0);
-
-      setTokensTotal(total);
-      setTokensToday(todaySum);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Uso de IA em PERCENTUAL (nunca em R$) — vem de /tokens/token-stats.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.post('/tokens/token-stats', {});
+        const stats = res?.data?.stats || {};
+        if (cancelled) return;
+        setTokensTotal(Number(stats.percentUsed || 0)); // % do plano usado no período
+
+        const brazilDayKey = (d) => {
+          try { return new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); }
+          catch { return new Date(d).toISOString().slice(0, 10); }
+        };
+        const todayKey = brazilDayKey(new Date());
+        const dp = Array.isArray(stats.dailyPercent) ? stats.dailyPercent : [];
+        const today = dp.find(e => e.date === todayKey);
+        setTokensToday(Number(today?.percent || 0));
+      } catch (e) {
+        if (!cancelled) { setTokensTotal(0); setTokensToday(0); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.email, user?.planInfos?.periodStart]);
 
   const formatDate = (iso) => {
     if (!iso) return '—';
@@ -501,25 +491,25 @@ const Configuracoes = ({ setTema, tema, user }) => {
           <TokenUsageBar user={user} />
         </div>
 
-        {/* Resumo dos tokens */}
+        {/* Resumo do uso de IA (em %) */}
         <div className="flex items-center justify-between gap-4 mb-4">
           <div>
-            <div className="text-xs text-gray-500">Total de IA gasto</div>
-            <div className="text-lg font-bold">R$ {Number(tokensTotal || 0).toFixed(2).replace('.', ',')}</div>
+            <div className="text-xs text-gray-500">Uso de IA do período</div>
+            <div className="text-lg font-bold">{Math.round(Number(tokensTotal || 0))}%</div>
           </div>
           <div>
-            <div className="text-xs text-gray-500">Gasto de IA hoje</div>
-            <div className="text-lg font-bold">R$ {Number(tokensToday || 0).toFixed(2).replace('.', ',')}</div>
+            <div className="text-xs text-gray-500">Uso de IA hoje</div>
+            <div className="text-lg font-bold">{Number(tokensToday || 0).toFixed(1).replace('.', ',')}%</div>
           </div>
         </div>
 
-        {/* Gráfico de tokens */}
+        {/* Gráfico de uso */}
         <div className="mt-4">
           <h4 className="text-sm font-medium mb-2">Histórico dos últimos 14 dias</h4>
-          <TokensChart user={user} days={14} tema={tema} />
+          <TokensChart days={14} tema={tema} />
         </div>
 
-        <div className={`text-xs mt-2 ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Custo de IA baseado em <code>user.stats.aiUsage</code> (fuso America/Sao_Paulo).</div>
+        <div className={`text-xs mt-2 ${tema === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Uso de IA em % do seu plano no período atual (fuso America/Sao_Paulo).</div>
       </div>
 
       {/* Devices history */}

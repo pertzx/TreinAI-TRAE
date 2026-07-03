@@ -13,6 +13,7 @@ import { getBrazilDate } from "../../../../helpers/getBrazilDate.js";
 import AdTreinAI from "./AdTreinAI.jsx";
 import { useToast } from "../../../components/Toast.jsx";
 import TokenUsageBar from "../../../components/TokenUsageBar.jsx";
+import AchievementCard from "../../../components/AchievementCard.jsx";
 
 /* Fallback simples */
 const exerciciosMock = [
@@ -179,6 +180,9 @@ const ChatTreino = ({ tema = "dark", user }) => {
   const [treinoFinalizado, setTreinoFinalizado] = useState(false);
   const [finalizandoTreino, setFinalizandoTreino] = useState(false);
 
+  // Fila de conquistas/marcos a exibir (card compartilhável).
+  const [marcoQueue, setMarcoQueue] = useState([]);
+
   // anúncios visualizados
   const [anunciosJaVistos, setAnunciosJaVistos] = useState([]);
 
@@ -299,51 +303,57 @@ const ChatTreino = ({ tema = "dark", user }) => {
         payloadTreino: registroLocal,
       });
 
-      if (gmSubmit.reponse.data.success == true) {
+      const g = gmSubmit?.data?.data || {};
+      if (gmSubmit?.data?.success === true) {
         adicionarMensagem((
           <div className="bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-5 shadow-lg ring-1 ring-emerald-200 dark:ring-emerald-500/30 space-y-3 text-gray-800 dark:text-gray-100">
             <div className="flex items-center gap-3">
               <span className="text-2xl">🎉</span>
               <p className="font-semibold text-emerald-700 dark:text-emerald-300">
-                Você ganhou <span className="text-emerald-600 dark:text-emerald-400 font-bold">{gmSubmit.reponse.data.pointsEarned}</span> pontos!
+                Você ganhou <span className="text-emerald-600 dark:text-emerald-400 font-bold">{g.pointsEarned}</span> pontos!
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div className="flex items-center gap-2">
                 <span className="text-blue-500">💎</span>
-                <p>Total de pontos: <span className="font-semibold">{gmSubmit.reponse.data.totalPoints}</span></p>
+                <p>Total de pontos: <span className="font-semibold">{g.totalPoints}</span></p>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-orange-500">🔥</span>
-                <p>Seu streak: <span className="font-semibold">{gmSubmit.reponse.data.streak}</span></p>
+                <p>Seu streak: <span className="font-semibold">{g.streak}</span></p>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-purple-500">🏋️</span>
-                <p>Exercícios completados: <span className="font-semibold">{gmSubmit.reponse.data.exercisesCompleted}</span></p>
+                <p>Exercícios completados: <span className="font-semibold">{g.exercisesCompleted}</span></p>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-green-500">✅</span>
-                <p>Séries completadas: <span className="font-semibold">{gmSubmit.reponse.data.setsCompleted}</span></p>
+                <p>Séries completadas: <span className="font-semibold">{g.setsCompleted}</span></p>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-cyan-500">⏱️</span>
-                <p>Duração do treino: <span className="font-semibold">{formatSeconds(gmSubmit.reponse.data.duration)}</span></p>
+                <p>Duração do treino: <span className="font-semibold">{formatSeconds(g.duration)}</span></p>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-yellow-500">🏆</span>
-                <p>Posição no ranking: <span className="font-bold text-yellow-600 dark:text-yellow-400">#{gmSubmit.reponse.data.rankingPosition}</span></p>
+                <p>Posição no ranking: <span className="font-bold text-yellow-600 dark:text-yellow-400">#{g.rankingPosition}</span></p>
               </div>
             </div>
           </div>
         ), "bot");
       } else {
         adicionarMensagem("❌ Não foi possível finalizar o treino.", "bot");
+      }
+
+      // Conquistas/marcos desbloqueados → card compartilhável.
+      if (Array.isArray(g.novosMarcos) && g.novosMarcos.length) {
+        setMarcoQueue(g.novosMarcos);
       }
     } catch (err) {
       console.error("Erro ao registrar treino:", err);
@@ -942,6 +952,14 @@ const ChatTreino = ({ tema = "dark", user }) => {
         onSave={registrarTreinoHistorico}
         userHistorico={user?.historico || []}
       />
+
+      {marcoQueue.length > 0 && (
+        <AchievementCard
+          milestone={marcoQueue[0]}
+          userName={user?.username || user?.name || ''}
+          onClose={() => setMarcoQueue(q => q.slice(1))}
+        />
+      )}
       </div>
     </motion.div>
   );

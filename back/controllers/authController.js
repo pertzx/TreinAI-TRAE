@@ -14,6 +14,7 @@ import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import Profissional from '../models/Profissional.js';
 import mongoose from 'mongoose';
 import { registerTokenUsage } from '../middlewares/tokenLimitMiddleware.js';
+import { stripAiCostForClient } from '../helpers/sanitizeUser.js';
 import { sendNotificationEmail } from '../utils/sendEmail.js';
 import { validateSecurityTicket, createSecurityTicketData, formatDeviceInfoForEmail } from '../utils/ticketManager.js';
 
@@ -735,9 +736,10 @@ export const dashboard = async (req, res) => {
     }
 
     // Preparar resposta com informações do dispositivo atual
+    // (custo de IA em R$ é removido — cliente vê uso só em %, via /tokens/token-stats)
     const response = {
       msg: `Bem-vindo ao dashboard, ${user.username}!`,
-      user,
+      user: stripAiCostForClient(user),
       bloqueado
     };
 
@@ -784,7 +786,7 @@ export const changeTheme = async (req, res) => {
 
     await usr.save();
 
-    return res.json({ msg: 'Theme alterado com sucesso.', user: usr });
+    return res.json({ msg: 'Theme alterado com sucesso.', user: stripAiCostForClient(usr) });
   } catch (err) {
     console.error('changeTheme error:', err);
     return res.status(500).json({
@@ -900,7 +902,7 @@ export const completeOnboarding = async (req, res) => {
     }
 
     await user.save();
-    return res.json({ msg: 'Tudo certo!', user });
+    return res.json({ msg: 'Tudo certo!', user: stripAiCostForClient(user) });
 
   } catch (err) {
     console.error('completeOnboarding error:', err);
@@ -1088,7 +1090,7 @@ export const atualizarPerfil = async (req, res) => {
 
     await user.save();
 
-    const safeUser = user.toObject ? user.toObject() : user;
+    const safeUser = stripAiCostForClient(user);
     if (safeUser.password) delete safeUser.password;
 
     return res.json({ msg: 'Perfil atualizado com sucesso!', user: safeUser, avatarUrl: user.avatar || null });
@@ -1229,11 +1231,11 @@ export const carregarTreinos = async (req, res) => {
 
     // Caso já tenha treinos
     if (user.tentouCriarMeusTreinos) {
-      return res.json({ msg: 'Você já tentou criar treinos. As vezes demora pra carregar. Recarregue a página para ver os treinos criados!', user, total_tokens: 0 });
+      return res.json({ msg: 'Você já tentou criar treinos. As vezes demora pra carregar. Recarregue a página para ver os treinos criados!', user: stripAiCostForClient(user), total_tokens: 0 });
     }
 
     if (Array.isArray(user.meusTreinos) && user.meusTreinos.length > 0) {
-      return res.json({ msg: 'Você já tem treinos criados', user, total_tokens: 0 });
+      return res.json({ msg: 'Você já tem treinos criados', user: stripAiCostForClient(user), total_tokens: 0 });
     }
 
     // Sem treinos: gerar via IA
@@ -1359,7 +1361,7 @@ export const atualizarMeusTreinos = async (req, res) => {
 
     await user.save();
 
-    return res.json({ msg: 'Tudo certo!', user })
+    return res.json({ msg: 'Tudo certo!', user: stripAiCostForClient(user) })
   } catch (error) {
     return res.json({ msg: error })
   }
@@ -1432,7 +1434,7 @@ export const pegarUser = async (req, res) => {
     return res.status(200).json({
       success: true,
       msg: 'tudo ok!',
-      user,
+      user: stripAiCostForClient(user),
       profissional: safeProfissional
     });
   } catch (err) {

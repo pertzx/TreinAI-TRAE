@@ -27,7 +27,7 @@ import User from '../models/User.js';
 import { publicarNoHistorico } from '../controllers/database.js';
 import { adicionarExercicio, adicionarReport, procurarExercicio } from '../controllers/treino.js';
 import { uploadProfile, uploadImage, uploadMidiaAnuncio } from '../controllers/multerConfig.js';
-import { aceitarAluno, editarProfissional, profissionais, publicarProfissional, queroSerAluno, removerAluno } from '../controllers/profissionais.js';
+import { aceitarAluno, editarProfissional, profissionais, publicarProfissional, queroSerAluno, removerAluno, getPublicProfissional } from '../controllers/profissionais.js';
 import Profissional from '../models/Profissional.js';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
 import { adicionarUsuario, deletarMensagem, enviarMensagem, marcarMensagensVistas, pegarChat, pegarChats, removerUsuario, editarMensagem, responderMensagem, marcarMensagensVistasV2, configurarChat, buscarHistorico, iniciarChatPorUserId, deletarChat, exportarHistoricoChat, atualizarStatusDigitando } from '../controllers/chatController.js';
@@ -194,6 +194,7 @@ router.post('/adicionar-report-exercicio', adicionarReport);
 
 // profissional
 router.get('/profissionais', profissionais);
+router.get('/profissionais/public/:profissionalId', getPublicProfissional); // página pública
 router.post('/publicar-profissional', uploadRateLimit, uploadSecurityHeaders, uploadImage.single('image'), publicarProfissional);
 router.post('/editar-profissional', uploadRateLimit, uploadSecurityHeaders, uploadImage.single('image'), editarProfissional);
 router.post('/quero-ser-aluno', queroSerAluno);

@@ -63,6 +63,7 @@ const AdminConfig = ({ user, tema = 'dark' }) => {
         imageCostBRL: Number(settings.imageCostBRL),
         planBudgetFallbackBRL: settings.planBudgetFallbackBRL,
         modelPricingBRL: settings.modelPricingBRL,
+        founderTrial: settings.founderTrial,
       }
       const res = await api.post('/admin/update-global-settings', payload)
       setSettings(res?.data?.settings || settings)
@@ -116,6 +117,22 @@ const AdminConfig = ({ user, tema = 'dark' }) => {
             onChange={e => set(['imageCostBRL'], e.target.value)}
             className={`w-full rounded-md p-2 text-sm border ${inputCls}`} />
         </Field>
+      </div>
+
+      <div>
+        <div className="text-sm font-semibold mb-2">Trial "Profissional Fundador" (padrões)</div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Dias de trial" hint="Duração padrão do acesso Coach grátis.">
+            <input type="number" min="1" value={settings.founderTrial?.defaultDays ?? 90}
+              onChange={e => set(['founderTrial', 'defaultDays'], e.target.value)}
+              className={`w-full rounded-md p-2 text-sm border ${inputCls}`} />
+          </Field>
+          <Field label="Teto de IA no trial (R$)" hint="Orçamento máximo de IA durante o trial (não sangra custo).">
+            <input type="number" min="0" step="0.01" value={settings.founderTrial?.aiBudgetBRL ?? 30}
+              onChange={e => set(['founderTrial', 'aiBudgetBRL'], e.target.value)}
+              className={`w-full rounded-md p-2 text-sm border ${inputCls}`} />
+          </Field>
+        </div>
       </div>
 
       <div>

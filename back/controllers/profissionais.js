@@ -157,6 +157,42 @@ export const profissionais = async (req, res) => {
 };
 
 /**
+ * GET /profissionais/public/:profissionalId
+ * Página pública do profissional — retorna SOMENTE campos públicos
+ * (sem alunos, reports, userId). Serve a landing compartilhável.
+ */
+export const getPublicProfissional = async (req, res) => {
+  try {
+    const { profissionalId } = req.params;
+    if (!profissionalId) return res.status(400).json({ success: false, msg: "profissionalId é obrigatório." });
+
+    const prof = await Profissional.findOne({ profissionalId })
+      .select('profissionalId profissionalName biografia especialidade imageUrl country state city estatisticas criadoEm -_id')
+      .lean();
+
+    if (!prof) return res.status(404).json({ success: false, msg: "Profissional não encontrado." });
+
+    return res.status(200).json({
+      success: true,
+      profissional: {
+        profissionalId: prof.profissionalId,
+        profissionalName: prof.profissionalName,
+        biografia: prof.biografia,
+        especialidade: prof.especialidade,
+        imageUrl: prof.imageUrl,
+        country: prof.country,
+        state: prof.state,
+        city: prof.city,
+        desde: prof.criadoEm,
+      },
+    });
+  } catch (error) {
+    console.error("Erro em getPublicProfissional:", error);
+    return res.status(500).json({ success: false, msg: "Erro ao buscar profissional." });
+  }
+};
+
+/**
  * POST /profissional (multipart/form-data)
  * campos esperados: profissionalName, biografia, userId, especialidade, (opcional) country/state/city, lat/lng
  * arquivo opcional: image (campo 'image') — middleware multer.single('image') deve ser aplicado na rota

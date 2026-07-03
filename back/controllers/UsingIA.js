@@ -352,10 +352,10 @@ export const conversar = async (req, res) => {
         const text = resp?.choices?.[0]?.message?.content || null;
         if (!text) return res.status(500).json({ msg: 'Resposta vazia da IA' });
 
+        // Custo em R$ NÃO é exposto ao cliente (uso mostrado só em %).
         return res.json({
             msg: 'Tudo certo!',
-            res: text,
-            custoCobrado: _reg.custoCobrado
+            res: text
         });
     } catch (error) {
         console.error(error);

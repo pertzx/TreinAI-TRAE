@@ -4,13 +4,15 @@ import { verificarToken } from '../middlewares/authMiddleware.js';
 import { adminRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { adminSecurityHeaders } from '../middlewares/securityHeaders.js';
 import { getLocaisAdmin, updateLocalStatus, deleteLocal, editLocal } from '../controllers/AdminLocalController.js';
-import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError, criarRanking, editarRanking, deletarRanking, getRankings, getDetailedAIAnalytics, getGlobalSettings, updateGlobalSettings } from '../controllers/AdminController.js';
+import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError, criarRanking, editarRanking, deletarRanking, getRankings, getDetailedAIAnalytics, getGlobalSettings, updateGlobalSettings, grantFounderTrial } from '../controllers/AdminController.js';
 import {
   getCacheDashboard,
   performCacheMaintenance,
   getCacheMonitoring,
   configureCacheAlerts
 } from '../controllers/CacheAdminController.js';
+import { getAdminPlans, updatePlan } from '../controllers/PlanController.js';
+import { getAdminMilestones, createMilestone, updateMilestone, deleteMilestone } from '../controllers/MilestoneController.js';
 const router = Router();
 
 // Rotas administrativas com rate limiting específico
@@ -49,6 +51,19 @@ router.post('/analytics', adminRateLimit, adminSecurityHeaders, getAdminAnalytic
 // Configurações globais (modelo de custo de IA)
 router.post('/global-settings', adminRateLimit, adminSecurityHeaders, getGlobalSettings) // body: adminId
 router.post('/update-global-settings', adminRateLimit, adminSecurityHeaders, updateGlobalSettings) // body: adminId + campos
+
+// Planos comerciais (landing + edição)
+router.post('/plans', adminRateLimit, adminSecurityHeaders, getAdminPlans) // body: adminId
+router.post('/update-plan', adminRateLimit, adminSecurityHeaders, updatePlan) // body: adminId, key, ...campos
+
+// Trial "Profissional Fundador"
+router.post('/grant-trial', adminRateLimit, adminSecurityHeaders, grantFounderTrial) // body: adminId, userId, days?, aiBudgetBRL?
+
+// Conquistas / marcos configuráveis
+router.post('/milestones', adminRateLimit, adminSecurityHeaders, getAdminMilestones) // body: adminId
+router.post('/create-milestone', adminRateLimit, adminSecurityHeaders, createMilestone) // body: adminId, key, type, title, ...
+router.post('/update-milestone', adminRateLimit, adminSecurityHeaders, updateMilestone) // body: adminId, key, ...campos
+router.post('/delete-milestone', adminRateLimit, adminSecurityHeaders, deleteMilestone) // body: adminId, key
 
 // Ranking
 router.get('/rankings', verificarToken, adminRateLimit, adminSecurityHeaders, getRankings)
