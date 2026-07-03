@@ -1,6 +1,7 @@
 // routes/authRoutes.js
 import { Router } from 'express';
 import { verificarToken } from '../middlewares/authMiddleware.js';
+import { isAdmin } from '../middlewares/authorizationMiddleware.js';
 import { adminRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { adminSecurityHeaders } from '../middlewares/securityHeaders.js';
 import { getLocaisAdmin, updateLocalStatus, deleteLocal, editLocal } from '../controllers/AdminLocalController.js';
@@ -14,6 +15,10 @@ import {
 import { getAdminPlans, updatePlan, createPlan, deletePlan } from '../controllers/PlanController.js';
 import { getAdminMilestones, createMilestone, updateMilestone, deleteMilestone } from '../controllers/MilestoneController.js';
 const router = Router();
+
+// TODAS as rotas admin exigem token válido + papel de admin (role==='admin').
+// Isso substitui a confiança no `adminId` vindo do body/query (escalonamento).
+router.use(verificarToken, isAdmin);
 
 // Rotas administrativas com rate limiting específico
 router.post('/usuarios', adminRateLimit, adminSecurityHeaders, getUsers) // body: adminId (obrigatório)

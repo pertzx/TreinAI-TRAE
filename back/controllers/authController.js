@@ -766,7 +766,8 @@ export const dashboard = async (req, res) => {
 // =======================
 export const changeTheme = async (req, res) => {
   try {
-    const { email, novoTema } = req.body;
+    const { novoTema } = req.body;
+    const email = req.userEmail; // identidade do token
 
     if (!email || !novoTema) {
       return res.json({ msg: 'Você precisa nos informar email e novoTema.' });
@@ -802,7 +803,8 @@ export const changeTheme = async (req, res) => {
 // =======================
 export const changeLoginSeguro = async (req, res) => {
   try {
-    const { email, novoLoginSeguro } = req.body;
+    const { novoLoginSeguro } = req.body;
+    const email = req.userEmail; // identidade do token
 
     // Validação de entrada mais rigorosa
     if (!email || typeof email !== 'string') {
@@ -864,7 +866,8 @@ export const changeLoginSeguro = async (req, res) => {
 // =======================
 export const completeOnboarding = async (req, res) => {
   try {
-    const { email, answers, completed, completedAt, startedAt } = req.body;
+    const { answers, completed, completedAt, startedAt } = req.body;
+    const email = req.userEmail; // identidade do token
     if (!email) return res.status(401).json({ msg: 'Usuário não autenticado.' });
 
     // Log removido para evitar exposição de dados sensíveis do usuário
@@ -951,7 +954,7 @@ const normalizeHistoryArray = (arr) => {
 export const atualizarPerfil = async (req, res) => {
   try {
     const body = req.body || {};
-    const email = body.email || req.headers['x-email'];
+    const email = req.userEmail; // identidade do token (não confiar no body)
     if (!email) return res.status(400).json({ msg: 'O email é obrigatório.' });
 
     const user = await User.findOne({ email });
@@ -1220,7 +1223,7 @@ Retorne APENAS o JSON válido sem texto adicional.`;
 
 export const carregarTreinos = async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = req.userEmail; // identidade do token
     if (!email) return res.status(400).json({ msg: "!email" });
 
     const user = await User.findOne({ email });
@@ -1322,7 +1325,8 @@ export const carregarTreinos = async (req, res) => {
 };
 
 export const atualizarMeusTreinos = async (req, res) => {
-  const { email, updated } = req.body;
+  const { updated } = req.body;
+  const email = req.userEmail; // identidade do token
 
   if (!email) return res.json({ msg: '!email' });
   if (!updated) return res.json({ msg: 'Voce nao passou o valor novo de user.meusTreinos' });

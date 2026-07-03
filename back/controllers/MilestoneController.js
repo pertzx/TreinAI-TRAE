@@ -23,7 +23,7 @@ export const getPublicMilestones = async (_req, res) => {
 /** Admin: lista todos os gatilhos. */
 export const getAdminMilestones = async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.body.adminId);
+    const admin = await ensureAdmin(req.user?.id);
     if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
     const milestones = await MilestoneTrigger.find({}).sort({ sortOrder: 1 }).lean();
     return res.status(200).json({ success: true, milestones });
@@ -45,7 +45,7 @@ const applyFields = (doc, b) => {
 /** Admin: cria um gatilho. */
 export const createMilestone = async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.body.adminId);
+    const admin = await ensureAdmin(req.user?.id);
     if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
     const { key, type, title } = req.body;
     if (!key || !type || !title) return res.status(400).json({ success: false, msg: 'key, type e title são obrigatórios.' });
@@ -63,7 +63,7 @@ export const createMilestone = async (req, res) => {
 /** Admin: atualiza um gatilho por key. */
 export const updateMilestone = async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.body.adminId);
+    const admin = await ensureAdmin(req.user?.id);
     if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
     const { key } = req.body;
     if (!key) return res.status(400).json({ success: false, msg: 'key é obrigatória.' });
@@ -80,7 +80,7 @@ export const updateMilestone = async (req, res) => {
 /** Admin: remove um gatilho por key. */
 export const deleteMilestone = async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.body.adminId);
+    const admin = await ensureAdmin(req.user?.id);
     if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
     const { key } = req.body;
     if (!key) return res.status(400).json({ success: false, msg: 'key é obrigatória.' });

@@ -60,7 +60,7 @@ export const getPublicPlans = async (_req, res) => {
 /** Admin: lista TODOS os planos (inclui priceId e inativos). */
 export const getAdminPlans = async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.body.adminId);
+    const admin = await ensureAdmin(req.user?.id);
     if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
     const plans = await Plan.find({}).sort({ sortOrder: 1 }).lean();
     return res.status(200).json({ success: true, plans });
@@ -72,7 +72,7 @@ export const getAdminPlans = async (req, res) => {
 /** Admin: cria um plano (key livre). POST /admin/create-plan */
 export const createPlan = async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.body.adminId);
+    const admin = await ensureAdmin(req.user?.id);
     if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
 
     const key = String(req.body.key || '').trim().toLowerCase();
@@ -95,7 +95,7 @@ export const createPlan = async (req, res) => {
 /** Admin: atualiza um plano por key (campos enviados). POST /admin/update-plan */
 export const updatePlan = async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.body.adminId);
+    const admin = await ensureAdmin(req.user?.id);
     if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
 
     const { key } = req.body;
@@ -115,7 +115,7 @@ export const updatePlan = async (req, res) => {
 /** Admin: remove um plano por key. POST /admin/delete-plan */
 export const deletePlan = async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.body.adminId);
+    const admin = await ensureAdmin(req.user?.id);
     if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
     const { key } = req.body;
     if (!key) return res.status(400).json({ success: false, msg: 'key é obrigatória.' });

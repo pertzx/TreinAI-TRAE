@@ -14,7 +14,7 @@ export const createEvent = async (req, res) => {
   try {
     const { title, code, active, startDate, endDate, adminId } = req.body;
     
-    if (!await checkAdminRole(adminId)) {
+    if (!await checkAdminRole(req.user?.id)) {
       return res.status(403).json({ message: 'Acesso negado. Apenas administradores.' });
     }
 
@@ -24,7 +24,7 @@ export const createEvent = async (req, res) => {
       active: active || false,
       startDate,
       endDate,
-      createdBy: adminId
+      createdBy: req.user?.id
     });
 
     await event.save();
@@ -38,7 +38,7 @@ export const createEvent = async (req, res) => {
 export const getEvents = async (req, res) => {
   try {
     const { adminId } = req.query;
-    if (!await checkAdminRole(adminId)) {
+    if (!await checkAdminRole(req.user?.id)) {
       return res.status(403).json({ message: 'Acesso negado.' });
     }
 
@@ -55,7 +55,7 @@ export const updateEvent = async (req, res) => {
     const { id } = req.params;
     const { title, code, active, startDate, endDate, adminId } = req.body;
 
-    if (!await checkAdminRole(adminId)) {
+    if (!await checkAdminRole(req.user?.id)) {
       return res.status(403).json({ message: 'Acesso negado.' });
     }
 
@@ -79,12 +79,7 @@ export const updateEvent = async (req, res) => {
 export const deleteEvent = async (req, res) => {
   try {
     const { id } = req.params;
-    const { adminId } = req.query; // Delete usually uses query or body? Express supports body in delete but typically query.
-    
-    // Check adminId from query or body
-    const admId = adminId || req.body.adminId;
-
-    if (!await checkAdminRole(admId)) {
+    if (!await checkAdminRole(req.user?.id)) { // identidade do token
       return res.status(403).json({ message: 'Acesso negado.' });
     }
 

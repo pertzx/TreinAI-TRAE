@@ -20,7 +20,7 @@ const ensureAdmin = async (adminId) => {
 // Lê as configurações globais (modelo de custo de IA, margem, etc.)
 export const getGlobalSettings = async (req, res) => {
     try {
-        const admin = await ensureAdmin(req.body.adminId);
+        const admin = await ensureAdmin(req.user?.id);
         if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
         const settings = await getSettings();
         return res.status(200).json({ success: true, settings });
@@ -32,7 +32,7 @@ export const getGlobalSettings = async (req, res) => {
 // Atualiza as configurações globais (apenas campos enviados).
 export const updateGlobalSettings = async (req, res) => {
     try {
-        const admin = await ensureAdmin(req.body.adminId);
+        const admin = await ensureAdmin(req.user?.id);
         if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
 
         const settings = await getSettings();
@@ -73,7 +73,7 @@ export const updateGlobalSettings = async (req, res) => {
 // com um TETO de orçamento de IA (não sangra custo). Sem Stripe.
 export const grantFounderTrial = async (req, res) => {
     try {
-        const admin = await ensureAdmin(req.body.adminId);
+        const admin = await ensureAdmin(req.user?.id);
         if (!admin) return res.status(403).json({ success: false, message: 'Acesso negado.' });
 
         const { userId } = req.body;
@@ -121,9 +121,8 @@ export const grantFounderTrial = async (req, res) => {
 
 export const getUsers = async (req, res) => {
     try {
-        const { adminId } = req.body;
-
-        const user = await User.findById(adminId);
+        // Identidade do TOKEN (nunca do body). A rota já passou por verificarToken+isAdmin.
+        const user = await User.findById(req.user?.id);
         if (!user || user.role !== 'admin') {
             return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem acessar esta rota.' });
         }
@@ -424,7 +423,7 @@ export const getDetailedAIAnalytics = async (req, res) => {
 
 export const getAnunciosByAdmin = async (req, res) => {
     try {
-        const { adminId } = req.query;
+        const adminId = req.user?.id; // identidade do token (rota já exige admin)
 
         const user = await User.findById(adminId);
         if (user.role !== 'admin') {
@@ -478,7 +477,7 @@ export const getSupportsByAdmin = async (req, res) => {
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
         const perPage = Math.min(100, Math.max(1, parseInt(req.query.perPage, 10) || 20));
         const search = (req.query.search || '').toString().trim();
-        const adminId = req.query.adminId;
+        const adminId = req.user?.id; // identidade do token (rota já exige admin)
 
         if (!adminId) return res.json({ msg: 'adminId é obrigatorio', success: false });
 
@@ -632,7 +631,7 @@ export const alterarVisibilidadeSuporte = async (req, res) => {
 // Dashboard administrativo com métricas do sistema AI
 export const getAIDashboard = async (req, res) => {
     try {
-        const { adminId } = req.query;
+        const adminId = req.user?.id; // identidade do token (rota já exige admin)
 
         // Verificar se adminId foi fornecido
         if (!adminId) {

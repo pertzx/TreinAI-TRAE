@@ -20,7 +20,8 @@ const deleteFileIfExists = (filename) => {
 
 export const criarAnuncio = async (req, res) => {
     try {
-        const { link, userId, titulo, descricao, anuncioTipo, country, countryCode, state, city } = req.body;
+        const { link, titulo, descricao, anuncioTipo, country, countryCode, state, city } = req.body;
+        const userId = req.user?.id; // dono = usuário do token (não confiar no body)
         const backendUrl = process.env.BASEURL?.replace(/\/+$/, '');
         const uploadedFile = req.file;
 
@@ -118,7 +119,8 @@ export const criarAnuncio = async (req, res) => {
 
 export const editarAnuncio = async (req, res) => {
     try {
-        const { anuncioId, link, userId, titulo, descricao, anuncioTipo, country, countryCode, state, city } = req.body;
+        const { anuncioId, link, titulo, descricao, anuncioTipo, country, countryCode, state, city } = req.body;
+        const userId = req.user?.id; // identidade do token
         const backendUrl = process.env.BASEURL?.replace(/\/+$/, '');
         const uploadedFile = req.file;
 
@@ -746,7 +748,8 @@ export const getAnuncios = async (req, res) => {
 
 export const deletarAnuncio = async (req, res) => {
     try {
-        const { anuncioId, userId } = req.body;
+        const { anuncioId } = req.body;
+        const userId = req.user?.id; // identidade do token
 
         const anuncio = await Anuncio.findOne({ anuncioId });
         if (!anuncio) {

@@ -16,7 +16,9 @@ const openai = OPENAI_KEY ? new OpenAI({ apiKey: OPENAI_KEY }) : null;
 
 export const conversarNutri = async (req, res) => {
   try {
-    const { email, conteudo, profissionalId } = req.body || {};
+    const { conteudo, profissionalId } = req.body || {};
+    // Identidade do token; body.email só é aceito no fluxo profissional (aluno vinculado).
+    const email = profissionalId ? req.body.email : req.userEmail;
 
     if (!email) return res.status(400).json({ msg: '!email', success: false });
     if (!conteudo) return res.status(400).json({ msg: '!conteudo', success: false });

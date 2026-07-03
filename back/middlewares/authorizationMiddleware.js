@@ -191,12 +191,13 @@ export const isAdmin = async (req, res, next) => {
       return res.status(401).json({ msg: 'Usuário não autenticado', code: 'NOT_AUTHENTICATED' });
     }
 
-    // A flag isAdmin não vem no JWT — consultar sempre o banco para esta decisão sensível.
+    // O papel de admin não vem no JWT — consultar sempre o banco para esta decisão sensível.
+    // Admin = role === 'admin' (schema User). NUNCA confiar em adminId do body/query.
     const dbUser = auth.id
-      ? await User.findById(auth.id).select('isAdmin').lean()
-      : await User.findOne({ email: auth.email }).select('isAdmin').lean();
+      ? await User.findById(auth.id).select('role').lean()
+      : await User.findOne({ email: auth.email }).select('role').lean();
 
-    if (!dbUser || !dbUser.isAdmin) {
+    if (!dbUser || dbUser.role !== 'admin') {
       return res.status(403).json({
         msg: 'Acesso restrito a administradores',
         code: 'NOT_ADMIN',

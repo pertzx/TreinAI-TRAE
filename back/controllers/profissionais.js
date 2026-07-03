@@ -231,7 +231,7 @@ export const publicarProfissional = async (req, res) => {
 
     const profissionalName = String(_profissionalName).trim();
     const biografia = String(_biografia).trim();
-    const userId = String(_userId).trim();
+    const userId = String(req.user?.id || _userId).trim(); // dono = usuário do token
     const especialidade = String(_especialidade).trim();
 
     // localização (aceita campos em pt/en)
@@ -347,6 +347,11 @@ export const editarProfissional = async (req, res) => {
 
     if (!profissional) {
       return res.status(404).json({ success: false, msg: 'Profissional não encontrado.' });
+    }
+
+    // Ownership: só o dono edita o próprio perfil profissional.
+    if (String(profissional.userId) !== String(req.user?.id)) {
+      return res.status(403).json({ success: false, msg: 'Você só pode editar o seu próprio perfil profissional.' });
     }
 
     // Verificação de permissão: buscar o usuário e verificar se tem plano coach ativo
@@ -735,6 +740,13 @@ export const aceitarAluno = async (req, res) => {
       });
     }
 
+    // Ownership: só o dono do perfil profissional aceita alunos nele.
+    if (String(profissional.userId) !== String(req.user?.id)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({ success: false, msg: 'Você não é o dono deste perfil profissional.' });
+    }
+
     // 2) encontra índice do aluno na lista deste profissional
     const idx = (profissional.alunos || []).findIndex(a => String(a.userId) === alunoIdStr);
 
@@ -868,6 +880,13 @@ export const removerAluno = async (req, res) => {
 
     if (!profissional) {
       return res.status(404).json({ success: false, msg: 'Profissional não encontrado para o profissionalId fornecido.' });
+    }
+
+    // Ownership: o dono do perfil OU o próprio aluno podem remover o vínculo.
+    const isOwner = String(profissional.userId) === String(req.user?.id);
+    const isSelfAluno = String(alunoUserId) === String(req.user?.id);
+    if (!isOwner && !isSelfAluno) {
+      return res.status(403).json({ success: false, msg: 'Você não tem permissão para remover este vínculo.' });
     }
 
     const originalCount = Array.isArray(profissional.alunos) ? profissional.alunos.length : 0;

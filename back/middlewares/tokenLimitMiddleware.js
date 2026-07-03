@@ -172,10 +172,25 @@ export const registerAiUsage = async (email, { model, promptTokens = 0, completi
  */
 export const checkAiBudget = async (req, res, next) => {
   try {
-    const email = req.body?.email || req.userEmail || req.user?.email || null;
+    // Identidade SEMPRE do token (nunca do body) — evita gastar a IA de outro usuário.
+    const tokenEmail = req.user?.email || req.userEmail || null;
+    const tokenUserId = req.user?.id || (req.user?._id ? String(req.user._id) : null);
     const { profissionalId } = req.body || {};
     const settings = await getSettings();
 
+    // Fluxo com profissionalId (allowance do coach): só o coach dono OU um aluno aceito.
+    if (profissionalId) {
+      const prof = await Profissional.findOne({ profissionalId });
+      if (!prof) return res.status(404).json({ success: false, msg: 'Profissional não encontrado' });
+      const isOwner = String(prof.userId) === String(tokenUserId);
+      const isAluno = (prof.alunos || []).some(a => String(a.userId) === String(tokenUserId) && a.aceito);
+      if (!isOwner && !isAluno) {
+        return res.status(403).json({ success: false, msg: 'Você não tem acesso ao orçamento de IA deste profissional.' });
+      }
+    }
+
+    // Sem profissionalId: o alvo é o próprio usuário do token.
+    const email = profissionalId ? null : tokenEmail;
     const { user, planType, error, status } = await findTargetUserDoc({ email, profissionalId });
     if (error || !user) {
       return res.status(status || 404).json({ success: false, msg: error || 'Usuário não encontrado' });

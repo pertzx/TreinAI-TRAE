@@ -34,7 +34,8 @@ function tolerantParseJsonFromText(text) {
 /* -------------------------------------------------------------------------- */
 export const criarTreinoIA = async (req, res) => {
   try {
-    const { email, nome, profissionalId } = req.body || {};
+    const { nome, profissionalId } = req.body || {};
+    const email = profissionalId ? req.body.email : req.userEmail; // identidade do token
 
     if (!email) return res.status(400).json({ msg: '!email', success: false });
     if (!nome) return res.status(400).json({ msg: 'Nao passou o nome do treino: !nome', success: false });
@@ -178,7 +179,8 @@ Use tipos coerentes (strings para texto, numbers para números). Não inclua com
 /* -------------------------------------------------------------------------- */
 export const criarExercicioIA = async (req, res) => {
   try {
-    const { email, treinoId, nome, profissionalId } = req.body || {};
+    const { treinoId, nome, profissionalId } = req.body || {};
+    const email = profissionalId ? req.body.email : req.userEmail; // identidade do token
 
     if (!email) return res.status(400).json({ msg: '!email', success: false });
     if (!treinoId) return res.status(400).json({ msg: '!treinoId', success: false });
@@ -308,7 +310,8 @@ Retorne apenas JSON puro. Use tipos corretos.
 
 export const conversar = async (req, res) => {
     try {
-        const { email, input, historico, treino, profissionalId } = req.body;
+        const { input, historico, treino, profissionalId } = req.body;
+        const email = profissionalId ? req.body.email : req.userEmail; // identidade do token
 
         if (!email) return res.json({ msg: '!email' });
         if (!input) return res.json({ msg: '!input' });

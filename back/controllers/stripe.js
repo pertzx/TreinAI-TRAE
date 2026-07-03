@@ -523,8 +523,9 @@ export const webhookHandler = async (req, res) => {
 // Modernizar CreateCheckoutSession com práticas 2024
 export const CreateCheckoutSession = async (req, res) => {
   try {
-    const { plan, userId } = req.body;
-    
+    const { plan } = req.body;
+    const userId = req.user?.id; // identidade do token (ignora userId do body)
+
     // Validação robusta
     if (!plan || !userId) {
       return res.status(400).json({ 
@@ -1503,7 +1504,10 @@ export const SessionStatus = async (req, res) => {
 // =====================================================================================
 export const atualizarPlano = async (req, res) => {
   try {
-    const { email, userId, plan, password } = req.body;
+    const { plan, password } = req.body;
+    // Identidade do token (nunca do body) — não dá pra alterar o plano de outro usuário.
+    const userId = req.user?.id;
+    const email = req.userEmail;
     if (!userId) return res.status(400).json({ msg: '!userId' });
     if (!email) return res.status(400).json({ msg: '!email' });
     if (!plan) return res.status(400).json({ msg: '!plan' });

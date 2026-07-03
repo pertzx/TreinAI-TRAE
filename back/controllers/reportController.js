@@ -17,8 +17,8 @@ export const generateReport = async (req, res) => {
       dateRange, 
       settings = {},
       templateId,
-      professionalId 
     } = req.body;
+    const professionalId = req.user?.id; // identidade do token (não do body)
 
     // Verificar se o profissional tem acesso ao cliente
     const client = await User.findById(clientId);
@@ -86,7 +86,8 @@ export const generateReport = async (req, res) => {
 // Listar relatórios do profissional
 export const getReports = async (req, res) => {
   try {
-    const { page = 1, limit = 10, type, status, clientId, professionalId } = req.query;
+    const { page = 1, limit = 10, type, status, clientId } = req.query;
+    const professionalId = req.user?.id; // identidade do token
 
     const filter = { professionalId };
     if (type) filter.type = type;
@@ -118,11 +119,11 @@ export const getReports = async (req, res) => {
 export const getReport = async (req, res) => {
   try {
     const { reportId } = req.params;
-    const { professionalId } = req.query;
+    const professionalId = req.user?.id; // identidade do token
 
-    const report = await Report.findOne({ 
-      _id: reportId, 
-      professionalId 
+    const report = await Report.findOne({
+      _id: reportId,
+      professionalId
     }).populate('clientId', 'username email avatar');
 
     if (!report) {
@@ -141,11 +142,12 @@ export const getReport = async (req, res) => {
 export const shareReport = async (req, res) => {
   try {
     const { reportId } = req.params;
-    const { userId, permissions = 'view', professionalId } = req.body;
+    const { userId, permissions = 'view' } = req.body;
+    const professionalId = req.user?.id; // identidade do token
 
-    const report = await Report.findOne({ 
-      _id: reportId, 
-      professionalId 
+    const report = await Report.findOne({
+      _id: reportId,
+      professionalId
     });
 
     if (!report) {
@@ -181,7 +183,8 @@ export const shareReport = async (req, res) => {
 // Criar template básico de relatório
 export const createReportTemplate = async (req, res) => {
   try {
-    const { name, description, type, config, professionalId } = req.body;
+    const { name, description, type, config } = req.body;
+    const professionalId = req.user?.id; // identidade do token
 
     const template = new ReportTemplate({
       name,
@@ -207,7 +210,8 @@ export const createReportTemplate = async (req, res) => {
 // Listar templates
 export const getReportTemplates = async (req, res) => {
   try {
-    const { type, professionalId } = req.query;
+    const { type } = req.query;
+    const professionalId = req.user?.id; // identidade do token
 
     const filter = { professionalId, isActive: true };
     if (type) filter.type = type;

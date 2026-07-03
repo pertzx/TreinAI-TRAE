@@ -78,7 +78,7 @@ export const trackVisit = async (req, res) => {
 /* ------------------------------------------------------------------ */
 export const getAdminAnalytics = async (req, res) => {
   try {
-    if (!(await isAdmin(req.body.adminId))) {
+    if (!(await isAdmin(req.user?.id))) { // identidade do token, não do body
       return res.status(403).json({ success: false, message: 'Acesso negado.' });
     }
     const days = Math.min(90, Math.max(7, Number(req.body.days) || 30));

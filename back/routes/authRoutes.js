@@ -61,20 +61,21 @@ router.post('/login', loginRateLimit, validateCSRFAuth, validateEmailBasic, vali
 router.post('/signup', signupRateLimit, validateCSRFAuth, validateEmailReal, validateSignup, signup);
 router.post('/login-nao-autorizado', loginNaoAutorizado);
 router.post('/dashboard', verificarToken, dashboard);
-router.post('/create-checkout-session', CreateCheckoutSession);
+router.post('/create-checkout-session', verificarToken, CreateCheckoutSession);
 router.get('/session-status', SessionStatus); // verificar status
-router.post('/change-theme', changeTheme)
-router.post('/change-loginSeguro', changeLoginSeguro)
-router.post('/complete-onboarding', checkAiBudget, completeOnboarding)
-router.post('/atualizar-perfil', uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, uploadProfile.single('avatar'), atualizarPerfil)
-router.post('/criar-meusTreinos', checkAiBudget, carregarTreinos);
+router.post('/change-theme', verificarToken, changeTheme)
+router.post('/change-loginSeguro', verificarToken, changeLoginSeguro)
+router.post('/complete-onboarding', verificarToken, checkAiBudget, completeOnboarding)
+router.post('/atualizar-perfil', verificarToken, uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, uploadProfile.single('avatar'), atualizarPerfil)
+router.post('/criar-meusTreinos', verificarToken, checkAiBudget, carregarTreinos);
 
 // IA routes
-router.post('/gerar-exercicio-ia', aiRateLimit, queueMiddleware, checkAiBudget, criarExercicioIA);
-router.post('/gerar-treino-ia', aiRateLimit, queueMiddleware, checkAiBudget, criarTreinoIA);
+router.post('/gerar-exercicio-ia', verificarToken, aiRateLimit, queueMiddleware, checkAiBudget, criarExercicioIA);
+router.post('/gerar-treino-ia', verificarToken, aiRateLimit, queueMiddleware, checkAiBudget, criarTreinoIA);
 
-router.delete('/excluir-treino', async (req, res) => {
-  const { email, treinoId } = req.query;
+router.delete('/excluir-treino', verificarToken, async (req, res) => {
+  const email = req.userEmail; // identidade do token (não confiar na query)
+  const { treinoId } = req.query;
 
   if (!email) return res.json({ msg: '!email' });
   if (!treinoId) return res.json({ msg: '!treinoId' });
@@ -127,8 +128,9 @@ router.delete('/excluir-treino', async (req, res) => {
     return res.status(500).json({ msg: 'Erro interno no servidor.' });
   }
 });
-router.delete('/excluir-exercicio', async (req, res) => {
-  const { email, treinoId, exercicioId } = req.query;
+router.delete('/excluir-exercicio', verificarToken, async (req, res) => {
+  const email = req.userEmail; // identidade do token
+  const { treinoId, exercicioId } = req.query;
 
   if (!email) return res.status(400).json({ msg: '!email' });
   if (!treinoId) return res.status(400).json({ msg: '!treinoId' });
@@ -181,13 +183,13 @@ router.delete('/excluir-exercicio', async (req, res) => {
     return res.status(500).json({ msg: 'Erro interno no servidor.' });
   }
 });
-router.put('/atualizar-meusTreinos', atualizarMeusTreinos)
+router.put('/atualizar-meusTreinos', verificarToken, atualizarMeusTreinos)
 
 // Chat and AI conversation routes
-router.post('/conversar', aiRateLimit, checkAiBudget, conversar);
+router.post('/conversar', verificarToken, aiRateLimit, checkAiBudget, conversar);
 
 router.post('/publicar-no-historico', publicarNoHistorico);
-router.post('/atualizar-plano', atualizarPlano)
+router.post('/atualizar-plano', verificarToken, atualizarPlano)
 router.get('/procurar-exercicio', procurarExercicio);
 router.post('/adicionar-exercicio', adicionarExercicio);
 router.post('/adicionar-report-exercicio', adicionarReport);
@@ -195,15 +197,15 @@ router.post('/adicionar-report-exercicio', adicionarReport);
 // profissional
 router.get('/profissionais', profissionais);
 router.get('/profissionais/public/:profissionalId', getPublicProfissional); // página pública
-router.post('/publicar-profissional', uploadRateLimit, uploadSecurityHeaders, uploadImage.single('image'), publicarProfissional);
-router.post('/editar-profissional', uploadRateLimit, uploadSecurityHeaders, uploadImage.single('image'), editarProfissional);
-router.post('/quero-ser-aluno', queroSerAluno);
-router.post('/aceitar-aluno', aceitarAluno);
-router.post('/remover-aluno', removerAluno);
-router.get('/pegar-user', pegarUser);
+router.post('/publicar-profissional', verificarToken, uploadRateLimit, uploadSecurityHeaders, uploadImage.single('image'), publicarProfissional);
+router.post('/editar-profissional', verificarToken, uploadRateLimit, uploadSecurityHeaders, uploadImage.single('image'), editarProfissional);
+router.post('/quero-ser-aluno', verificarToken, queroSerAluno);
+router.post('/aceitar-aluno', verificarToken, aceitarAluno);
+router.post('/remover-aluno', verificarToken, removerAluno);
+router.get('/pegar-user', verificarToken, pegarUser);
 
 // Importar middlewares de autorização
-import { isSelf, canAccessAluno, isChatParticipant } from '../middlewares/authorizationMiddleware.js';
+import { isSelf, canAccessAluno, isChatParticipant, isAdmin } from '../middlewares/authorizationMiddleware.js';
 
 // Ferramentas do profissional: notas privadas por aluno e templates de treino/dieta
 router.post('/aluno/salvar-nota', verificarToken, canAccessAluno, salvarNotaAluno);
@@ -243,7 +245,7 @@ router.get('/buscar-historico', verificarToken, isChatParticipant, buscarHistori
 router.get('/exportar-historico-chat', verificarToken, isChatParticipant, exportarHistoricoChat);
 
 // nutri
-router.post('/conversar-nutri', aiRateLimit, queueMiddleware, checkAiBudget, conversarNutri);
+router.post('/conversar-nutri', verificarToken, aiRateLimit, queueMiddleware, checkAiBudget, conversarNutri);
 
 // locais - FLUXO ATUAL
 router.post('/criar-local-direto', 
@@ -276,11 +278,11 @@ router.get('/locais', buscarLocais);
 router.post('/deletar-local', verificarToken, deletarLocal);
 
 // anuncios
-router.post('/adicionar-saldo', SessionPaymentSaldoDeImpressoes);
-router.post('/criar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), criarAnuncio);
+router.post('/adicionar-saldo', verificarToken, SessionPaymentSaldoDeImpressoes);
+router.post('/criar-anuncio', verificarToken, uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), criarAnuncio);
 router.post('/anuncios', getAnuncios); // query profissionalId (opcional). se nao passar, retorna todos os anuncios disponiveis.
-router.post('/deletar-anuncio', deletarAnuncio); // corpo => profissionalId e anuncioId.
-router.post('/editar-anuncio', uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), editarAnuncio); // corpo => profissionalId e anuncioId.
+router.post('/deletar-anuncio', verificarToken, deletarAnuncio); // corpo => profissionalId e anuncioId.
+router.post('/editar-anuncio', verificarToken, uploadSecurityHeaders, uploadMidiaAnuncio('uploads/midias-anuncio', 'midia'), editarAnuncio); // corpo => profissionalId e anuncioId.
 router.post('/marcar-impressao', marcarImpressao); // corpo => userId e anuncioId.
 router.post('/marcar-clique', marcarClique); // corpo => userId e anuncioId.
 
@@ -322,10 +324,10 @@ router.post('/avaliar-local', verificarToken, validateAndSanitize.localData, ava
 router.get('/avaliacoes-local/:localId', listarAvaliacoesLocal);
 
 // Listar avaliações pendentes de moderação (admin)
-router.get('/avaliacoes-pendentes', verificarToken, listarAvaliacoesPendentes);
+router.get('/avaliacoes-pendentes', verificarToken, isAdmin, listarAvaliacoesPendentes);
 
 // Moderar avaliação (aceitar/rejeitar) - admin
-router.post('/moderar-avaliacao', verificarToken, moderarAvaliacao);
+router.post('/moderar-avaliacao', verificarToken, isAdmin, moderarAvaliacao);
 
 // Rota de logout para limpar cookies
 router.post('/logout', (req, res) => {

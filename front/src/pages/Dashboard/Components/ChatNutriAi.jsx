@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FiSend, FiUser, FiCpu, FiClock, FiCheckCircle, FiMessageCircle, FiMaximize2, FiMinimize2 } from 'react-icons/fi';
+import { FiSend, FiUser, FiCpu, FiClock, FiCheckCircle, FiMessageCircle, FiMaximize2, FiMinimize2, FiChevronDown } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../../Api.js';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
@@ -46,6 +46,7 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
   const [nutriInfos, setNutriInfos] = useState(user && user.nutriInfos ? user.nutriInfos : null);
   const [notify, setNotify] = useState(null); // { text, type: 'info'|'error' }
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const bottomRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -335,7 +336,15 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
 
           <div className="flex items-center space-x-2 self-start sm:self-auto">
             <button
+              onClick={() => { setIsFullScreen(false); setIsMinimized(true); }}
+              title="Minimizar"
+              className={`p-2 rounded-xl transition-all duration-300 ${isDark ? "hover:bg-gray-700 text-white" : "hover:bg-gray-200 text-gray-700"}`}
+            >
+              <FiChevronDown size={20} />
+            </button>
+            <button
               onClick={() => setIsFullScreen(!isFullScreen)}
+              title={isFullScreen ? "Restaurar" : "Tela cheia"}
               className={`p-2 rounded-xl transition-all duration-300 ${isDark ? "hover:bg-gray-700 text-white" : "hover:bg-gray-200 text-gray-700"}`}
             >
               {isFullScreen ? <FiMinimize2 size={20} /> : <FiMaximize2 size={20} />}
@@ -530,6 +539,20 @@ export default function ChatNutriAI({ user, tema = 'dark', profissionalId = null
       </motion.div>
     </motion.div>
   );
+
+  if (isMinimized) {
+    return createPortal(
+      <button
+        onClick={() => setIsMinimized(false)}
+        title="Abrir NutriAI"
+        className="fixed bottom-5 right-5 z-[9990] flex items-center gap-2 px-4 py-3 rounded-full shadow-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold hover:opacity-90 transition-all"
+      >
+        <FiMessageCircle size={20} />
+        <span className="text-sm">NutriAI</span>
+      </button>,
+      document.body
+    );
+  }
 
   if (isFullScreen) return createPortal(<AnimatePresence mode="wait">{content}</AnimatePresence>, document.body);
 
