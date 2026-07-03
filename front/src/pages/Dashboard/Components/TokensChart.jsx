@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Chart from "react-apexcharts";
 import PropTypes from "prop-types";
 import { getBrazilDate } from "../../../../helpers/getBrazilDate";
-import api from "../../../../Api.js";
+import api from "../../../Api.js";
 
 /**
  * TokensChart
