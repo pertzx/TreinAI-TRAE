@@ -21,6 +21,15 @@ const ACCESS_FIELDS = [
 
 const emptyNovo = () => ({ key: '', name: '', tipo: 'recorrente', priceId: '', precoText: '', accent: 'blue', active: true })
 
+// Definido FORA do componente: se ficasse dentro, seria recriado a cada render
+// e os inputs perderiam o foco a cada tecla.
+const Field = ({ label, children }) => (
+  <div>
+    <label className="block text-[11px] font-medium mb-1">{label}</label>
+    {children}
+  </div>
+)
+
 const AdminPlanos = ({ user, tema = 'dark' }) => {
   const isDark = tema === 'dark'
   const adminId = user?._id
@@ -100,13 +109,6 @@ const AdminPlanos = ({ user, tema = 'dark' }) => {
   }
 
   if (loading) return <div className="text-sm text-gray-400">Carregando planos...</div>
-
-  const Field = ({ label, children }) => (
-    <div>
-      <label className="block text-[11px] font-medium mb-1">{label}</label>
-      {children}
-    </div>
-  )
 
   return (
     <div className="space-y-6">

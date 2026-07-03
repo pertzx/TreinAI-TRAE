@@ -6,6 +6,15 @@ import api from '../../../../Api'
  * Edita a margem de lucro (principal), cortesia do free, custo de imagem,
  * fallback por plano e preços por modelo.
  */
+// Fora do componente para não recriar a cada render (senão os inputs perdem foco).
+const Field = ({ label, children, hint }) => (
+  <div>
+    <label className="block text-xs font-medium mb-1">{label}</label>
+    {children}
+    {hint && <div className="text-[11px] text-gray-400 mt-1">{hint}</div>}
+  </div>
+)
+
 const AdminConfig = ({ user, tema = 'dark' }) => {
   const isDark = tema === 'dark'
   const adminId = user?._id
@@ -80,14 +89,6 @@ const AdminConfig = ({ user, tema = 'dark' }) => {
   if (!settings) return <div className="text-sm text-red-500">Não foi possível carregar as configurações.</div>
 
   const models = Object.keys(settings.modelPricingBRL || {})
-
-  const Field = ({ label, children, hint }) => (
-    <div>
-      <label className="block text-xs font-medium mb-1">{label}</label>
-      {children}
-      {hint && <div className="text-[11px] text-gray-400 mt-1">{hint}</div>}
-    </div>
-  )
 
   return (
     <div className="space-y-6">

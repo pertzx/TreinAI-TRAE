@@ -74,8 +74,9 @@ const AdminConquistas = ({ user, tema = 'dark' }) => {
 
   if (loading) return <div className="text-sm text-gray-400">Carregando conquistas...</div>
 
-  const Row = ({ m }) => (
-    <div className={`p-3 rounded-xl border ${isDark ? 'border-gray-700 bg-gray-800/40' : 'border-gray-200 bg-gray-50'}`}>
+  // Função (não componente) chamada inline no map — evita remount/perda de foco.
+  const renderRow = (m) => (
+    <div key={m.key} className={`p-3 rounded-xl border ${isDark ? 'border-gray-700 bg-gray-800/40' : 'border-gray-200 bg-gray-50'}`}>
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 items-end">
         <div>
           <label className="block text-[11px] mb-1">Key</label>
@@ -131,7 +132,7 @@ const AdminConquistas = ({ user, tema = 'dark' }) => {
         Cada gatilho vira um card compartilhável quando o usuário bate o marco ao finalizar um treino.
       </div>
 
-      {items.map(m => <Row key={m.key} m={m} />)}
+      {items.map(m => renderRow(m))}
 
       {/* Criar novo */}
       <div className={`p-3 rounded-xl border-2 border-dashed ${isDark ? 'border-gray-600' : 'border-gray-300'}`}>
