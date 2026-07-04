@@ -23,7 +23,25 @@ const exerciciosMock = [
   { nome: "Remada Curvada", instrucoes: "Puxe em direção ao abdômen.", series: "3x12 - Desc 60s", imagem: "Remada Curvada", pse: 5 },
 ];
 
+/* Persistência do progresso do treino (sobrevive a reload). Expira em 12h. */
+const PROGRESS_KEY = (email) => `treino_progress_v1_${email || 'anon'}`;
+const loadProgress = (email) => {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY(email));
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || !obj.savedAt || (Date.now() - obj.savedAt) > 12 * 3600 * 1000) return null;
+    return obj;
+  } catch { return null; }
+};
+const saveProgress = (email, data) => {
+  try { localStorage.setItem(PROGRESS_KEY(email), JSON.stringify({ ...data, savedAt: Date.now() })); } catch (_) { }
+};
+const clearProgress = (email) => { try { localStorage.removeItem(PROGRESS_KEY(email)); } catch (_) { } };
+
 const ChatTreino = ({ tema = "dark", user }) => {
+  // Snapshot salvo (lido uma vez) para retomar o treino após um reload.
+  const _savedProgress = useMemo(() => loadProgress(user?.email), [user?.email]);
   const isDark = tema === "dark";
   const navigate = useNavigate();
 
@@ -150,12 +168,12 @@ const ChatTreino = ({ tema = "dark", user }) => {
   const [mensagens, setMensagens] = useState([]);
   const [historico, setHistorico] = useState([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [treinoIniciado, setTreinoIniciado] = useState(false);
-  const [treinoIndex, setTreinoIndex] = useState(() => computeNextIndex(treinosDisponiveis, user?.historico || []));
-  const [indiceAtual, setIndiceAtual] = useState(0);
+  const [treinoIniciado, setTreinoIniciado] = useState(_savedProgress?.treinoIniciado || false);
+  const [treinoIndex, setTreinoIndex] = useState(() => _savedProgress?.treinoIniciado ? _savedProgress.treinoIndex : computeNextIndex(treinosDisponiveis, user?.historico || []));
+  const [indiceAtual, setIndiceAtual] = useState(_savedProgress?.indiceAtual || 0);
   const [inputValue, setInputValue] = useState("");
   const [exercicioExibido, setExercicioExibido] = useState(false);
-  const [duracaoTotal, setDuracaoTotal] = useState(0);
+  const [duracaoTotal, setDuracaoTotal] = useState(_savedProgress?.duracaoTotal || 0);
   const mensagensEndRef = useRef(null);
   const mensagensContainerRef = useRef(null);
   const isAtBottomRef = useRef(true);
@@ -165,12 +183,12 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
   // set control
   const [setsRequired, setSetsRequired] = useState(3);
-  const [currentSetIndex, setCurrentSetIndex] = useState(0);
+  const [currentSetIndex, setCurrentSetIndex] = useState(_savedProgress?.currentSetIndex || 0);
   const [setStarted, setSetStarted] = useState(false);
   const [setStartAt, setSetStartAt] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const elapsedIntervalRef = useRef(null);
-  const [setTimingsByExercise, setSetTimingsByExercise] = useState([]);
+  const [setTimingsByExercise, setSetTimingsByExercise] = useState(_savedProgress?.setTimingsByExercise || []);
   const [exerciseComplete, setExerciseComplete] = useState(false);
 
   // summary
@@ -245,11 +263,32 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
   // recompute treino index when histórico / treinos mudarem
   useEffect(() => {
+    // Não reinicia se há um treino em andamento (inclui sessão retomada do localStorage).
+    if (treinoIniciado) return;
     const idx = computeNextIndex(treinosDisponiveis, user?.historico || []);
     setTreinoIndex(idx);
     setSetTimingsByExercise([]);
     setIndiceAtual(0);
-  }, [user?.historico, user?.meusTreinos]); // eslint-disable-line
+  }, [user?.historico, user?.meusTreinos, treinoIniciado]); // eslint-disable-line
+
+  // Persiste o progresso do treino (para sobreviver a reload); limpa ao finalizar.
+  useEffect(() => {
+    if (treinoFinalizado) { clearProgress(user?.email); return; }
+    if (treinoIniciado) {
+      saveProgress(user?.email, { treinoIniciado, treinoIndex, indiceAtual, currentSetIndex, setTimingsByExercise, duracaoTotal });
+    }
+  }, [treinoIniciado, treinoFinalizado, treinoIndex, indiceAtual, currentSetIndex, setTimingsByExercise, duracaoTotal, user?.email]);
+
+  // Ao montar, se havia uma sessão salva, retoma exibindo o exercício atual.
+  const restoredOnceRef = useRef(false);
+  useEffect(() => {
+    if (_savedProgress?.treinoIniciado && !restoredOnceRef.current) {
+      restoredOnceRef.current = true;
+      adicionarMensagem('↩️ Retomando seu treino de onde você parou...', 'bot');
+      setTimeout(() => exibirExercicio(_savedProgress.indiceAtual || 0, _savedProgress.treinoIndex || 0), 300);
+    }
+    // eslint-disable-next-line
+  }, []);
 
   // helper isSameDay (local timezone)
   const isSameDay = (d1, d2) => {
@@ -261,6 +300,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
 
   // função para resetar o treino após finalização
   const resetarTreino = () => {
+    clearProgress(user?.email); // limpa o progresso salvo
     setTreinoFinalizado(false);
     setFinalizandoTreino(false);
     setTreinoIniciado(false);

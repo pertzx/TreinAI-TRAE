@@ -88,8 +88,19 @@ export const finalizarTreino = async (req, res) => {
       return res.status(400).json({ success: false, msg: 'Nenhum exercício válido foi executado' });
     }
 
-    // Calcular os pontos do usuario
-    const points = Math.round(setsExecutados * exerciseExecutadas * (payloadTreino.duracao * 0.001));
+    // Anti-cheat: `duracao` vem do cliente e os pontos escalam com ela. Limita a
+    // duração usada em pontos/stats a um teto sensato por set (evita inflar o tempo
+    // pra ganhar pontos). O treino também é 1x/dia (checagem acima).
+    const MAX_SEG_POR_SET = 300;    // 5 min por set já é generoso
+    const TETO_ABSOLUTO = 4 * 3600; // 4h no total
+    const duracaoValida = Math.min(
+      Number(payloadTreino.duracao) || 0,
+      Math.max(1, setsExecutados) * MAX_SEG_POR_SET,
+      TETO_ABSOLUTO
+    );
+
+    // Calcular os pontos do usuario (com a duração validada/capada)
+    const points = Math.round(setsExecutados * exerciseExecutadas * (duracaoValida * 0.001));
 
     // Atualizar os dados do usuario no ranking e no userGamification
     const userRanking = ranking?.competitors.find((u) => u.userId === user._id);
@@ -101,7 +112,7 @@ export const finalizarTreino = async (req, res) => {
         points: points,
         workouts: 1,
         sets: setsExecutados,
-        duration: payloadTreino.duracao,
+        duration: duracaoValida,
         exercises: exerciseExecutadas,
         location: {
           country: user.perfil.country,
@@ -118,7 +129,7 @@ export const finalizarTreino = async (req, res) => {
       userRanking.workouts += 1;
       userRanking.exercises += exerciseExecutadas;
       userRanking.sets += setsExecutados;
-      userRanking.duration += payloadTreino.duracao;
+      userRanking.duration += duracaoValida;
       userRanking.location.country = user.perfil.country;
       userRanking.location.state = user.perfil.state;
       userRanking.location.city = user.perfil.city;
@@ -168,7 +179,7 @@ export const finalizarTreino = async (req, res) => {
         streak: 1,
         workouts: 1,
         sets: setsExecutados,
-        duration: payloadTreino.duracao,
+        duration: duracaoValida,
         exercises: exerciseExecutadas,
         points: points,
         lastWorkoutDate: [new Date(getBrazilDate())],
@@ -212,7 +223,7 @@ export const finalizarTreino = async (req, res) => {
       userGamification.location.city = user.perfil.city;
       userGamification.workouts += 1;
       userGamification.sets += setsExecutados;
-      userGamification.duration += payloadTreino.duracao;
+      userGamification.duration += duracaoValida;
       userGamification.exercises += exerciseExecutadas;
       userGamification.points += points;
       userGamification.lastWorkoutDate.push(new Date(getBrazilDate()));
@@ -254,7 +265,7 @@ export const finalizarTreino = async (req, res) => {
         streak: gami.streak,
         exercisesCompleted: exerciseExecutadas,
         setsCompleted: setsExecutados,
-        duration: payloadTreino.duracao,
+        duration: duracaoValida,
         rankingPosition,
         badges: gami.badges || [],
         novasBadges,
