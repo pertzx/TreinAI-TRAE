@@ -29,6 +29,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 // Helper: grava logs
 const log = (...args) => console.log('[StripeController]', ...args);
 
+// Compat de versão da API no payload do webhook: a partir da versão basil (2025+),
+// a invoice não traz mais `invoice.subscription` — o id passa a vir em
+// `invoice.parent.subscription_details.subscription`. O endpoint de webhook da
+// conta nova só permite versões recentes (dahlia), então lemos os dois formatos.
+const getInvoiceSubscriptionId = (invoice) => {
+  const sub = invoice?.subscription
+    ?? invoice?.parent?.subscription_details?.subscription
+    ?? null;
+  return typeof sub === 'string' ? sub : (sub?.id || null);
+};
+
 // ---------------------------
 // Paths helpers (Desativados - Usando Cloudinary)
 // ---------------------------
@@ -959,7 +970,7 @@ export const StripeWebhook = async (req, res) => {
         log('invoice.paid handler');
         const invoice = data;
         const invoiceId = invoice.id;
-        const subscriptionId = invoice.subscription || null;
+        const subscriptionId = getInvoiceSubscriptionId(invoice);
         const customerId = invoice.customer || null;
         const invoicePaidFlag = invoice.paid === true || invoice.status === 'paid' || (typeof invoice.amount_paid === 'number' && invoice.amount_paid > 0);
         if (!invoicePaidFlag) { log('invoice não está paga -> ignorando'); break; }
@@ -1237,7 +1248,7 @@ export const StripeWebhook = async (req, res) => {
       case 'invoice.payment_failed': {
         log('invoice.payment_failed');
         const invoice = data;
-        const subscriptionId = invoice.subscription || null;
+        const subscriptionId = getInvoiceSubscriptionId(invoice);
         const customerId = invoice.customer || null;
 
         // tentar obter metadata da invoice; se vazio, puxar da subscription
