@@ -9,7 +9,6 @@ import Ranking from "../models/Gamification/Ranking.js";
 import GlobalSettings, { getSettings } from "../models/GlobalSettings.js";
 import { logAudit } from "../helpers/auditLog.js";
 import { applyPlanSnapshot } from "../helpers/planAccess.js";
-import User from "../models/User.js";
 
 // Verifica se o requisitante é admin; retorna o doc do admin ou null.
 const ensureAdmin = async (adminId) => {
