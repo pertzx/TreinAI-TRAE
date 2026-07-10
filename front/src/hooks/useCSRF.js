@@ -26,10 +26,13 @@ export const useCSRF = () => {
         setCsrfToken(response.data.csrfToken);
         // Log removido para evitar exposição de token CSRF
 
-        
+        // Fallback de 25 min caso o backend não informe expiresIn (evita
+        // gravar NaN no cookie de expiração, que invalidava toda a lógica)
+        const expiresIn = Number(response.data.expiresIn) || 25 * 60 * 1000;
+
         // Armazena em cookie para persistir entre recarregamentos
         authCookies.setCsrfToken(response.data.csrfToken);
-        authCookies.setCsrfExpiry(getBrazilDate() + response.data.expiresIn);
+        authCookies.setCsrfExpiry(getBrazilDate() + expiresIn);
         
         return response.data.csrfToken;
       }

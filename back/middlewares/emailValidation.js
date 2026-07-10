@@ -144,12 +144,19 @@ export const validateEmailReal = async (req, res, next) => {
         dnsCache.set(cacheKey, { valid: true, timestamp: getBrazilDate() });
 
       } catch (dnsError) {
-        // Se houver erro na consulta DNS, assumir que o domínio é inválido
-        dnsCache.set(cacheKey, { valid: false, timestamp: getBrazilDate() });
-        return res.status(400).json({
-          message: 'Não foi possível verificar o domínio do email',
-          field: 'email'
-        });
+        // Só rejeita (e cacheia) quando o DNS afirma que o domínio não existe.
+        // Falhas transitórias (timeout, servfail) não podem bloquear o cadastro
+        // nem envenenar o cache por 30 minutos — ex.: gmail.com ficaria
+        // recusado para todos os usuários até o cache expirar.
+        const definitiveFailures = ['ENOTFOUND', 'ENODATA'];
+        if (definitiveFailures.includes(dnsError?.code)) {
+          dnsCache.set(cacheKey, { valid: false, timestamp: getBrazilDate() });
+          return res.status(400).json({
+            message: 'Domínio de email inválido ou inexistente',
+            field: 'email'
+          });
+        }
+        console.warn(`Falha transitória de DNS ao validar domínio ${domain}:`, dnsError?.code || dnsError?.message);
       }
     }
 

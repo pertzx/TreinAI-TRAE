@@ -113,7 +113,7 @@ function Login({ plano }) {
 
       console.log(response)
 
-      if (response.status === 200 || response.data.msg === "Usuario criado com sucesso!") {
+      if (response.status === 200 || response.status === 201) {
         // Armazenar token JWT em cookie seguro
         console.log('🔑 Token recebido do servidor:', response.data.token);
         authCookies.setToken(response.data.token);
@@ -229,10 +229,7 @@ function Login({ plano }) {
 
         <div className="flex items-center gap-2 mb-10 mt-6 select-none">
           <Logo scale={1} />
-          <div onClick={() => {
-            buildIdentifier().then(identifier => console.log(identifier))
-            console.log(isWithinRadius(-3.399342, -44.364647, -3.3977973, -44.3628696, 0.4))
-          }}>
+          <div>
             <h1 className="text-lg font-semibold leading-tight">TreinAI</h1>
             <p className="text-xs text-slate-400">Seu coach digital pessoal</p>
           </div>

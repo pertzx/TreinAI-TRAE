@@ -23,9 +23,15 @@ import CookieConsent from './components/CookieConsent';
 import Logo from './components/Logo.jsx';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
+// Precisa ser um componente dentro da árvore do AuthProvider — chamar useAuth
+// direto no App (que renderiza o próprio provider) quebra o app inteiro.
+const DashboardRoute = ({ plano }) => {
+  const { needToPay } = useAuth();
+  return <Dashboard needToPay={needToPay} plano={plano} />;
+};
+
 function App() {
   const [plano, setPlano] = useState('free');
-  const { needToPay } = useAuth();
 
   // Registra a visita diária única (dedupe por dia no backend via cookie visitorId).
   useEffect(() => {
@@ -152,7 +158,7 @@ function App() {
             <Route path='/login' element={<Login plano={plano} />} />
             <Route path='/login-nao-autorizado' element={<LoginNaoAutorizado />} />
             <Route path='/suporte' element={<SupportRoute />} />
-            <Route path='/dashboard/*' element={<Dashboard needToPay={needToPay} plano={plano} />} />
+            <Route path='/dashboard/*' element={<DashboardRoute plano={plano} />} />
             <Route path='/success?' element={<Success />} />
             <Route path='/cancel' element={<Cancel />} />
             <Route path='/pagamento-sucesso' element={<PagamentoSucesso />} />
