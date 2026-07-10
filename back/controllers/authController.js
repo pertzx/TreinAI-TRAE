@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { isSameDay as isSameDayFn } from 'date-fns';
 import * as dateFnsTz from 'date-fns-tz';
 import { getBrazilDate } from '../helpers/getBrazilDate.js';
+import { generateCSRFToken } from '../middlewares/csrfMiddleware.js';
 import Profissional from '../models/Profissional.js';
 import mongoose from 'mongoose';
 import { registerTokenUsage } from '../middlewares/tokenLimitMiddleware.js';
@@ -518,13 +519,17 @@ Observações:
     // Gera token
     const token = jwt.sign({ email: user.email, userId: user._id }, SECRET_JWT, { expiresIn: "7d" });
 
+    // Gera token CSRF usando o email do usuário como sessionId
+    const csrfToken = generateCSRFToken(user.email);
+
     // Define cookie acessível via JavaScript para WebSocket
     res.cookie('auth_token', token, getCookieOptions());
 
     return res.json({
       msg: "Login realizado com sucesso!",
       userId: user._id,
-      token: token // Adicionando o token na resposta para o frontend
+      token: token,
+      csrfToken: csrfToken
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -566,6 +571,9 @@ export const signup = async (req, res) => {
     // Gera token
     const token = jwt.sign({ email: newUser.email, userId: newUser._id }, SECRET_JWT, { expiresIn: "7d" });
 
+    // Gera token CSRF usando o email do usuário como sessionId
+    const csrfToken = generateCSRFToken(newUser.email);
+
     // Define cookie acessível via JavaScript para WebSocket
     res.cookie('auth_token', token, getCookieOptions());
 
@@ -579,7 +587,8 @@ export const signup = async (req, res) => {
     return res.status(201).json({
       msg: 'Usuario criado com sucesso!',
       newUser,
-      token
+      token,
+      csrfToken
     });
 
   } catch (err) {

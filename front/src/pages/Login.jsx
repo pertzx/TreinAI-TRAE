@@ -117,6 +117,11 @@ function Login({ plano }) {
         // Armazenar token JWT em cookie seguro
         console.log('🔑 Token recebido do servidor:', response.data.token);
         authCookies.setToken(response.data.token);
+        
+        // Armazenar CSRF token se fornecido
+        if (response.data.csrfToken) {
+          authCookies.setCsrfToken(response.data.csrfToken);
+        }
 
         // Debug: verificar se o cookie foi definido
         setTimeout(() => {

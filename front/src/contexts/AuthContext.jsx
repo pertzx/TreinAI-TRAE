@@ -68,6 +68,10 @@ export const AuthProvider = ({ children }) => {
       
       if (response.data && response.data.token) {
         authCookies.setToken(response.data.token);
+        // Store CSRF token if provided
+        if (response.data.csrfToken) {
+          authCookies.setCsrfToken(response.data.csrfToken);
+        }
         await checkAuth(); // Recarregar dados do usuário
         return response.data;
       }
