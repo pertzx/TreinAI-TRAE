@@ -1,10 +1,23 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hasAccess } from '../../../utils/planAccess.js';
 import { AnimatePresence, motion } from 'framer-motion';
-import { FiChevronDown, FiChevronUp, FiUsers, FiSettings, FiRefreshCw, FiUserPlus, FiStar, FiTrendingUp, FiEye, FiMousePointer } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiUsers, FiSettings, FiRefreshCw, FiUserPlus, FiStar, FiTrendingUp, FiEye, FiMousePointer, FiWifi, FiWifiOff, FiHeart, FiActivity } from 'react-icons/fi';
 import { HiSparkles, HiAcademicCap } from 'react-icons/hi';
 import { MdDashboard, MdPersonAdd } from 'react-icons/md';
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  PointElement,
+  LineElement
+} from 'chart.js'
+import { Doughnut, Bar } from 'react-chartjs-2'
 import api from '../../../Api';
 import locationsData from '../../../data/locations.json';
 import MeusTreinos from './MeusTreinos';
@@ -18,6 +31,18 @@ import { useToast } from '../../../components/Toast';
 import { buildImageUrl } from '../../../utils/imageUtils';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate';
 import CoachAccessDenied from '../../../components/CoachAccessDenied';
+
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  PointElement,
+  LineElement
+);
 
 const base = {
   card: 'p-4',
@@ -81,6 +106,8 @@ const Coach = ({ user, tema = 'dark' }) => {
 
   const [meusLocais, setMeusLocais] = useState([]);
   const [alunosData, setAlunosData] = useState([]);
+  const [heartbeatData, setHeartbeatData] = useState(null);
+  const [heartbeatLoading, setHeartbeatLoading] = useState(true);
   const [chatStates, setChatStates] = useState({});
   const [removingMap, setRemovingMap] = useState({});
 
@@ -345,6 +372,30 @@ const Coach = ({ user, tema = 'dark' }) => {
     fetchAlunosDetails(controller.signal).catch(err => { if (!(err.name === 'CanceledError' || err.message === 'canceled')) console.warn(err); });
     return () => controller.abort();
   }, [profissional, fetchAlunosDetails]);
+
+  // Fetch heartbeat data for students
+  const fetchHeartbeat = useCallback(async () => {
+    if (!profissional) { setHeartbeatData(null); return; }
+    setHeartbeatLoading(true);
+    try {
+      const res = await api.get('/heartbeat/coach-students');
+      if (res.data?.success) {
+        setHeartbeatData(res.data.data);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar heartbeat:', err);
+    } finally {
+      if (mountedRef.current) setHeartbeatLoading(false);
+    }
+  }, [profissional]);
+
+  useEffect(() => {
+    if (!profissional) { setHeartbeatData(null); return; }
+    fetchHeartbeat();
+    // Atualizar a cada 30 segundos
+    const interval = setInterval(fetchHeartbeat, 30000);
+    return () => clearInterval(interval);
+  }, [profissional, fetchHeartbeat]);
 
   // helper: load chat for a user
   const loadChatForUser = async (alunoUserId) => {
@@ -1324,6 +1375,196 @@ const Coach = ({ user, tema = 'dark' }) => {
                       <TemplatesManager tema={tema} />
                     </div>
                   </details>
+
+                  {/* Heartbeat Chart - Online Status dos Alunos */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.6 }}
+                    className={`relative overflow-hidden rounded-2xl p-6 ${isDark ? 'bg-gradient-to-br from-purple-900/20 to-indigo-900/20' : 'bg-gradient-to-br from-purple-50 to-indigo-50'} border ${isDark ? 'border-purple-800/30' : 'border-purple-200'} shadow-lg`}
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 opacity-10">
+                      <div className={`w-full h-full rounded-full ${isDark ? 'bg-gradient-to-br from-purple-500 to-indigo-500' : 'bg-gradient-to-br from-purple-400 to-indigo-400'}`}></div>
+                    </div>
+                    <div className="relative z-10">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${isDark ? 'bg-purple-600/20 text-purple-400' : 'bg-purple-100 text-purple-600'}`}>
+                            <FiWifi className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold">Status Online dos Alunos</h3>
+                            <p className={`text-sm ${theme.muted}`}>Alunos ativos nos últimos 15 segundos (heartbeat)</p>
+                          </div>
+                        </div>
+                        {heartbeatLoading ? (
+                          <div className={`px-3 py-1 rounded-full text-sm font-medium ${isDark ? 'bg-purple-600/20 text-purple-400' : 'bg-purple-100 text-purple-600'}`}>
+                            Carregando...
+                          </div>
+                        ) : (
+                          <div className={`px-3 py-1 rounded-full text-sm font-medium ${isDark ? 'bg-green-600/20 text-green-400' : 'bg-green-100 text-green-600'}`}>
+                            {heartbeatData?.summary?.online || 0} de {heartbeatData?.summary?.total || 0} online
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        {/* Doughnut Chart - Online/Offline */}
+                        <div className={`p-4 rounded-xl ${isDark ? 'bg-gray-800/50' : 'bg-white/80'} border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                          <h4 className={`text-sm font-medium ${theme.muted} mb-3 text-center`}>Status Geral</h4>
+                          <div className="h-48 flex justify-center">
+                            {heartbeatData?.summary && (
+                              <Doughnut
+                                data={{
+                                  labels: ['Online', 'Offline'],
+                                  datasets: [{
+                                    data: [
+                                      heartbeatData.summary.online,
+                                      heartbeatData.summary.total - heartbeatData.summary.online
+                                    ],
+                                    backgroundColor: [
+                                      'rgba(16, 185, 129, 0.7)',
+                                      'rgba(239, 68, 68, 0.7)'
+                                    ],
+                                    borderColor: [
+                                      'rgba(16, 185, 129, 1)',
+                                      'rgba(239, 68, 68, 1)'
+                                    ],
+                                    borderWidth: 2
+                                  }]
+                                }}
+                                options={{
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    legend: { 
+                                      position: 'bottom', 
+                                      labels: { color: isDark ? '#E5E7EB' : '#374151' } 
+                                    }
+                                  }
+                                }}
+                              />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Bar Chart - By Plan */}
+                        <div className={`p-4 rounded-xl ${isDark ? 'bg-gray-800/50' : 'bg-white/80'} border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                          <h4 className={`text-sm font-medium ${theme.muted} mb-3 text-center`}>Por Plano</h4>
+                          <div className="h-48 flex justify-center">
+                            {heartbeatData?.students && (
+                              <Bar
+                                data={{
+                                  labels: Object.keys(heartbeatData.students.reduce((acc, s) => {
+                                    acc[s.plan] = (acc[s.plan] || 0) + 1;
+                                    return acc;
+                                  }, {})),
+                                  datasets: [{
+                                    label: 'Alunos',
+                                    data: Object.values(heartbeatData.students.reduce((acc, s) => {
+                                      acc[s.plan] = (acc[s.plan] || 0) + 1;
+                                      return acc;
+                                    }, {})),
+                                    backgroundColor: [
+                                      'rgba(156, 163, 175, 0.7)',
+                                      'rgba(59, 130, 246, 0.7)',
+                                      'rgba(139, 92, 246, 0.7)',
+                                      'rgba(16, 185, 129, 0.7)'
+                                    ],
+                                    borderColor: [
+                                      'rgba(156, 163, 175, 1)',
+                                      'rgba(59, 130, 246, 1)',
+                                      'rgba(139, 92, 246, 1)',
+                                      'rgba(16, 185, 129, 1)'
+                                    ],
+                                    borderWidth: 1
+                                  }]
+                                }}
+                                options={{
+                                  maintainAspectRatio: false,
+                                  indexAxis: 'y',
+                                  plugins: {
+                                    legend: { display: false }
+                                  },
+                                  scales: {
+                                    x: { grid: { color: isDark ? '#374151' : '#E5E7EB' }, ticks: { color: isDark ? '#E5E7EB' : '#374151' } },
+                                    y: { grid: { color: isDark ? '#374151' : '#E5E7EB' }, ticks: { color: isDark ? '#E5E7EB' : '#374151' } }
+                                  }
+                                }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Lista Responsiva de Alunos com Status Online */}
+                      <div className={`overflow-x-auto rounded-xl ${isDark ? 'bg-gray-800/50' : 'bg-white/80'} border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <table className="w-full text-sm">
+                          <thead className={`text-xs uppercase ${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-700'}`}>
+                            <tr>
+                              <th className="px-4 py-3">Aluno</th>
+                              <th className="px-4 py-3">Plano</th>
+                              <th className="px-4 py-3">Status</th>
+                              <th className="px-4 py-3">Última Atividade</th>
+                              <th className="px-4 py-3">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {heartbeatData?.students?.map(student => {
+                              const alunoInfo = accepted.find(a => String(a.userId) === String(student.userId));
+                              const isOnline = student.isOnline;
+                              const secondsAgo = student.secondsSinceActive;
+                              return (
+                                <tr key={student.userId} className={`border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} hover:bg-gray-50/50`}>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-8 h-8 rounded-lg ${isDark ? 'bg-blue-600/20 text-blue-400' : 'bg-blue-100 text-blue-600'} flex items-center justify-center font-bold`}>
+                                        {(alunoInfo?.user?.name || alunoInfo?.user?.username || student.username || 'A').charAt(0).toUpperCase()}
+                                      </div>
+                                      <div>
+                                        <p className="font-medium">{alunoInfo?.user?.name || alunoInfo?.user?.username || student.username}</p>
+                                        <p className="text-xs text-gray-500">{student.email}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className={`px-2 py-1 rounded-full text-xs ${student.plan === 'coach' ? 'bg-green-100 text-green-800' : student.plan === 'pro' ? 'bg-blue-100 text-blue-800' : student.plan === 'max' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
+                                      {student.plan}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${isOnline ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                      <FiWifi className={`w-3 h-3 ${isOnline ? 'text-green-500' : 'text-red-500'}`} />
+                                      {isOnline ? 'Online' : 'Offline'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-xs text-gray-500">
+                                    {secondsAgo !== null ? `${secondsAgo}s atrás` : 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <motion.button
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      onClick={() => navigate(`/dashboard/usuario/${student.userId}`)}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${isDark ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
+                                    >
+                                      Ver Perfil
+                                    </motion.button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {(!heartbeatData?.students?.length) && (
+                              <tr>
+                                <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
+                                  Nenhum aluno vinculado
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </motion.div>
 
                   {accepted.length === 0 ? (
                     <div className={`text-center py-8 ${theme.muted}`}>

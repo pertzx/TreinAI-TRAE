@@ -5,7 +5,7 @@ import { isAdmin } from '../middlewares/authorizationMiddleware.js';
 import { adminRateLimit } from '../middlewares/rateLimitMiddleware.js';
 import { adminSecurityHeaders } from '../middlewares/securityHeaders.js';
 import { getLocaisAdmin, updateLocalStatus, deleteLocal, editLocal } from '../controllers/AdminLocalController.js';
-import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError, criarRanking, editarRanking, deletarRanking, getRankings, getDetailedAIAnalytics, getGlobalSettings, updateGlobalSettings, grantFounderTrial } from '../controllers/AdminController.js';
+import { adicionarRespostaSupport, alterarStatusAnuncio, alterarVisibilidadeSuporte, getAnunciosByAdmin, getSupportsByAdmin, getUsers, getAIDashboard, manageCacheRedis, getAPIPerformanceMetrics, getAPIErrorLogs, resolveAPIError, criarRanking, editarRanking, deletarRanking, getRankings, getDetailedAIAnalytics, getGlobalSettings, updateGlobalSettings, grantFounderTrial, getAllUsersHeartbeat, getCoachStudentsHeartbeat } from '../controllers/AdminController.js';
 import {
   getCacheDashboard,
   performCacheMaintenance,
@@ -87,5 +87,8 @@ router.post('/criar-ranking', verificarToken, adminRateLimit, adminSecurityHeade
 router.post('/editar-ranking', verificarToken, adminRateLimit, adminSecurityHeaders, editarRanking) 
 router.post('/deletar-ranking', verificarToken, adminRateLimit, adminSecurityHeaders, deletarRanking) 
 
+// Heartbeat monitoring
+router.get('/heartbeat/all', verificarToken, adminRateLimit, adminSecurityHeaders, getAllUsersHeartbeat)
+router.get('/heartbeat/coach', verificarToken, adminRateLimit, adminSecurityHeaders, getCoachStudentsHeartbeat)
 
 export default router;

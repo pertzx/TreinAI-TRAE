@@ -9,6 +9,7 @@ import Ranking from "../models/Gamification/Ranking.js";
 import GlobalSettings, { getSettings } from "../models/GlobalSettings.js";
 import { logAudit } from "../helpers/auditLog.js";
 import { applyPlanSnapshot } from "../helpers/planAccess.js";
+import User from "../models/User.js";
 
 // Verifica se o requisitante é admin; retorna o doc do admin ou null.
 const ensureAdmin = async (adminId) => {
@@ -1169,16 +1170,173 @@ export const deletarRanking = async (req, res) => {
         // Deleção
         await Ranking.findByIdAndDelete(rankingId);
 
-        return res.status(200).json({
+return res.status(200).json({
             success: true,
-            msg: 'Ranking deletado com sucesso',
-            rankingId
+            msg: 'Rankings obtidos com sucesso',
+            rankings
         });
-    } catch (err) {
+    } catch (error) {
         return res.status(500).json({
             success: false,
-            msg: "Erro ao deletar ranking.",
-            error: err.message || String(err)
+            msg: "Erro ao obter rankings.",
+            error: error.message || String(error)
+        });
+    }
+};
+
+export const getAllUsersHeartbeat = async (req, res) => {
+    try {
+        const adminId = req.user?.id;
+        
+        if (!adminId) {
+            return res.status(400).json({ success: false, msg: 'AdminId é obrigatório.' });
+        }
+
+        const user = await User.findById(adminId);
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({ success: false, msg: 'Acesso negado. Apenas admins.' });
+        }
+
+        const users = await User.find({}, 'isOnline lastActive username email role planInfos createdAt').lean();
+        const now = getBrazilDate();
+        
+        const heartbeatData = users.map(u => {
+            const lastActive = u.lastActive ? new Date(u.lastActive) : null;
+            const secondsSinceActive = lastActive ? Math.floor((now - lastActive) / 1000) : null;
+            const isOnline = secondsSinceActive !== null && secondsSinceActive <= 15;
+            
+            return {
+                userId: String(u._id),
+                username: u.username,
+                email: u.email,
+                role: u.role,
+                plan: u.planInfos?.planType || 'free',
+                isOnline,
+                lastActive: u.lastActive,
+                secondsSinceActive,
+                createdAt: u.createdAt
+            };
+        });
+
+        // Estatísticas resumidas
+        const onlineCount = heartbeatData.filter(u => u.isOnline).length;
+        const totalCount = heartbeatData.length;
+        const byRole = heartbeatData.reduce((acc, u) => {
+            acc[u.role] = (acc[u.role] || 0) + 1;
+            return acc;
+        }, {});
+        const byPlan = heartbeatData.reduce((acc, u) => {
+            acc[u.plan] = (acc[u.plan] || 0) + 1;
+            return acc;
+        }, {});
+
+        return res.status(200).json({
+            success: true,
+            msg: 'Heartbeat de todos os usuários obtido com sucesso',
+            data: {
+                users: heartbeatData,
+                summary: {
+                    totalUsers: totalCount,
+                    onlineNow: onlineCount,
+                    offline: totalCount - onlineCount,
+                    byRole,
+                    byPlan
+                },
+                timestamp: now.toISOString()
+            }
+        });
+    } catch (error) {
+        console.error('Erro ao obter heartbeat:', error);
+        return res.status(500).json({
+            success: false,
+            msg: "Erro ao obter heartbeat dos usuários",
+            error: error.message || String(error)
+        });
+    }
+};
+
+export const getCoachStudentsHeartbeat = async (req, res) => {
+    try {
+        const coachId = req.user?.id;
+        
+        if (!coachId) {
+            return res.status(400).json({ success: false, msg: 'CoachId é obrigatório.' });
+        }
+
+        // Buscar profissional do coach
+        const coach = await User.findById(coachId).lean();
+        if (!coach || !coach.isCoach) {
+            return res.status(403).json({ success: false, msg: 'Acesso negado. Apenas coaches.' });
+        }
+
+        // Buscar o documento Profissional para obter a lista de alunos
+        const Profissional = (await import('../models/Profissional.js')).default;
+        const profissional = await Profissional.findOne({ 
+            $or: [
+                { profissionalId: coachId },
+                { userId: coachId }
+            ]
+        }).lean();
+
+        if (!profissional || !profissional.alunos?.length) {
+            return res.status(200).json({
+                success: true,
+                msg: 'Nenhum aluno vinculado',
+                data: { students: [], summary: { total: 0, online: 0, offline: 0 } }
+            });
+        }
+
+        const studentIds = profissional.alunos.map(a => a.userId);
+        const students = await User.find({ _id: { $in: studentIds } }, 'isOnline lastActive username email role planInfos createdAt').lean();
+        
+        const now = getBrazilDate();
+        
+        const heartbeatData = students.map(s => {
+            const lastActive = s.lastActive ? new Date(s.lastActive) : null;
+            const secondsSinceActive = lastActive ? Math.floor((now - lastActive) / 1000) : null;
+            const isOnline = secondsSinceActive !== null && secondsSinceActive <= 15;
+            
+            // Encontrar dados extras do profissional.alunos
+            const alunoInfo = profissional.alunos.find(a => String(a.userId) === String(s._id));
+            
+            return {
+                userId: String(s._id),
+                username: s.username,
+                email: s.email,
+                role: s.role,
+                plan: s.planInfos?.planType || 'free',
+                isOnline,
+                lastActive: s.lastActive,
+                secondsSinceActive,
+                createdAt: s.createdAt,
+                aceito: alunoInfo?.aceito,
+                aceitoEm: alunoInfo?.aceitoEm,
+                ultimoUpdate: alunoInfo?.ultimoUpdate
+            };
+        });
+
+        const onlineCount = heartbeatData.filter(u => u.isOnline).length;
+        const totalCount = heartbeatData.length;
+
+        return res.status(200).json({
+            success: true,
+            msg: 'Heartbeat dos alunos obtido com sucesso',
+            data: {
+                students: heartbeatData,
+                summary: {
+                    total: totalCount,
+                    online: onlineCount,
+                    offline: totalCount - onlineCount
+                },
+                timestamp: now.toISOString()
+            }
+        });
+    } catch (error) {
+        console.error('Erro ao obter heartbeat dos alunos:', error);
+        return res.status(500).json({
+            success: false,
+            msg: "Erro ao obter heartbeat dos alunos",
+            error: error.message || String(error)
         });
     }
 };

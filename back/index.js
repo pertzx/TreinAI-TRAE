@@ -19,6 +19,7 @@ import rateLimit from 'express-rate-limit';
 import { securityHeaders, apiSecurityHeaders } from './middlewares/securityHeaders.js';
 import redisCache from './config/redis.js';
 import { sanitizeInput } from './middlewares/validationMiddleware.js';
+import { heartbeatMiddleware } from './middlewares/heartbeatMiddleware.js';
 import gamificationRoutes from './routes/gamificationRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
 import eventRoutes from './routes/eventRoutes.js'
@@ -165,6 +166,9 @@ app.use((req, res, next) => {
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Heartbeat middleware - rastreia atividade do usuário em rotas principais
+app.use(heartbeatMiddleware);
 
 // Servir arquivos estáticos (Desativado - Usando Cloudinary)
 // app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

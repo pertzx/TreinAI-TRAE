@@ -11,9 +11,9 @@ import {
   PointElement,
   LineElement
 } from 'chart.js'
-import { Pie, Bar, Line } from 'react-chartjs-2'
+import { Pie, Bar, Line, Doughnut } from 'react-chartjs-2'
 import api from '../../../../Api'
-import { FiUsers, FiDollarSign, FiActivity, FiUserCheck, FiUserX, FiTrendingUp } from 'react-icons/fi'
+import { FiUsers, FiDollarSign, FiActivity, FiUserCheck, FiUserX, FiTrendingUp, FiHeart, FiWifi, FiWifiOff, FiUser } from 'react-icons/fi'
 
 ChartJS.register(
   ArcElement,
@@ -31,21 +31,26 @@ export default function AdminDashboard({ tema, user }) {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [supports, setSupports] = useState([])
+  const [heartbeat, setHeartbeat] = useState(null)
+  const [heartbeatLoading, setHeartbeatLoading] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [usersRes, supportsRes] = await Promise.all([
+        const [usersRes, supportsRes, heartbeatRes] = await Promise.all([
             api.post('/admin/usuarios', { adminId: user._id }),
-            api.get(`/admin/supports-by-admin?adminId=${user._id}&perPage=5`)
+            api.get(`/admin/supports-by-admin?adminId=${user._id}&perPage=5`),
+            api.get('/admin/heartbeat/all')
         ])
         
         if (usersRes.data?.users) setUsers(usersRes.data.users)
         if (supportsRes.data?.supports) setSupports(supportsRes.data.supports)
+        if (heartbeatRes.data?.success) setHeartbeat(heartbeatRes.data.data)
       } catch (error) {
         console.error('Erro ao buscar dados dashboard', error)
       } finally {
         setLoading(false)
+        setHeartbeatLoading(false)
       }
     }
     fetchData()
@@ -140,6 +145,74 @@ export default function AdminDashboard({ tema, user }) {
     ],
   }
 
+  // Heartbeat chart data
+  const heartbeatChartData = useMemo(() => {
+    if (!heartbeat?.users) return null
+    
+    const online = heartbeat.users.filter(u => u.isOnline).length
+    const offline = heartbeat.users.filter(u => !u.isOnline).length
+    const byRole = heartbeat.summary?.byRole || {}
+    const byPlan = heartbeat.summary?.byPlan || {}
+    
+    return {
+      onlineOffline: {
+        labels: ['Online', 'Offline'],
+        datasets: [{
+          data: [online, offline],
+          backgroundColor: [
+            'rgba(16, 185, 129, 0.7)',   0.7)',
+            'rgba(239, 68, 68, 0.7)'
+          ],
+          borderColor: [
+            'rgba(16, 185, 129, 1)',
+            'rgba(239, 68, 68, 1)'
+          ],
+          borderWidth: 2
+        }]
+      },
+      byRole: {
+        labels: Object.keys(byRole),
+        datasets: [{
+          label: 'Usuários por Role',
+          data: Object.values(byRole),
+          backgroundColor: [
+            'rgba(59, 130, 246, 0.7)',
+            'rgba(139, 92, 246, 0.7)',
+            'rgba(16, 185, 129, 0.7)',
+            'rgba(249, 115, 22, 0.7)'
+          ],
+          borderColor: [
+            'rgba(59, 130, 246, 1)',
+            'rgba(139, 92, 246, 1)',
+            'rgba(16, 185, 129, 1)',
+            'rgba(249, 115, 22, 1)'
+          ],
+          borderWidth: 1
+        }]
+      },
+      byPlan: {
+        labels: Object.keys(byPlan),
+        datasets: [{
+          label: 'Usuários por Plano',
+          data: Object.values(byPlan),
+          backgroundColor: [
+            'rgba(156, 163, 175, 0.7)',
+            'rgba(59, 130, 246, 0.7)',
+            'rgba(139, 92, 246, 0.7)',
+            'rgba(16, 185, 129, 0.7)'
+          ],
+          borderColor: [
+            'rgba(156, 163, 175, 1)',
+            'rgba(59, 130, 246, 1)',
+            'rgba(139, 92, 246, 1)',
+            'rgba(16, 185, 129, 1)'
+          ],
+          borderWidth: 1
+        }]
+      }
+    }
+  }, [heartbeat])
+
   if (loading) return <div className="p-4">Carregando dashboard...</div>
   if (!stats) return <div className="p-4">Sem dados para exibir.</div>
 
@@ -148,7 +221,7 @@ export default function AdminDashboard({ tema, user }) {
         <h2 className="text-2xl font-bold mb-6">Visão Geral</h2>
         
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
             <div className={`p-4 rounded-xl shadow-sm border ${tema === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="text-sm font-medium opacity-70">Total Usuários</h3>
@@ -188,47 +261,141 @@ export default function AdminDashboard({ tema, user }) {
                 </p>
                 <p className="text-xs opacity-50 mt-1">Taxa de assinantes pagos</p>
             </div>
+
+            <div className={`p-4 rounded-xl shadow-sm border ${tema === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-sm font-medium opacity-70">Online Agora</h3>
+                    <FiHeart className={heartbeat?.summary?.onlineNow > 0 ? 'text-green-500' : 'text-gray-500'} />
+                </div>
+                <p className="text-2xl font-bold text-green-500">{heartbeat?.summary?.onlineNow || 0}</p>
+                <p className="text-xs opacity-50 mt-1">de {heartbeat?.summary?.totalUsers || 0} usuários</p>
+            </div>
         </div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div className={`col-span-1 p-4 rounded-xl shadow-sm border ${tema === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div className={`p-4 rounded-xl shadow-sm border ${tema === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <h3 className="text-lg font-semibold mb-4">Distribuição de Planos</h3>
                 <div className="h-64 flex justify-center">
                     <Pie data={pieData} options={{ maintainAspectRatio: false }} />
                 </div>
             </div>
 
-            <div className={`col-span-2 p-4 rounded-xl shadow-sm border ${tema === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                <h3 className="text-lg font-semibold mb-4">Últimos Tickets de Suporte</h3>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className={`text-xs uppercase ${tema === 'dark' ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-700'}`}>
-                            <tr>
-                                <th className="px-4 py-3">Assunto</th>
-                                <th className="px-4 py-3">Usuário</th>
-                                <th className="px-4 py-3">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {supports.length > 0 ? supports.map(ticket => (
-                                <tr key={ticket._id} className={`border-b ${tema === 'dark' ? 'border-gray-700' : 'border-gray-100'}`}>
-                                    <td className="px-4 py-3 font-medium">{ticket.assunto}</td>
-                                    <td className="px-4 py-3">{ticket.userId?.name || 'Anon'}</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`px-2 py-1 rounded-full text-xs ${ticket.resposta ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                            {ticket.resposta ? 'Respondido' : 'Pendente'}
-                                        </span>
-                                    </td>
-                                </tr>
-                            )) : (
-                                <tr>
-                                    <td colSpan="3" className="px-4 py-3 text-center opacity-50">Nenhum ticket recente</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+            <div className={`p-4 rounded-xl shadow-sm border ${tema === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <h3 className="text-lg font-semibold mb-4">Status Online (Heartbeat ≤15s)</h3>
+                <div className="h-64 flex justify-center">
+                    {heartbeatChartData ? (
+                        <Doughnut 
+                            data={heartbeatChartData.onlineOffline} 
+                            options={{ 
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { position: 'bottom', labels: { color: chartTheme.textColor } }
+                                }
+                            }} 
+                        />
+                    ) : (
+                        <div className="flex items-center justify-center text-gray-500">Carregando...</div>
+                    )}
                 </div>
+            </div>
+
+            <div className={`p-4 rounded-xl shadow-sm border ${tema === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <h3 className="text-lg font-semibold mb-4">Usuários por Role</h3>
+                <div className="h-64 flex justify-center">
+                    {heartbeatChartData ? (
+                        <Bar 
+                            data={heartbeatChartData.byRole} 
+                            options={{ 
+                                maintainAspectRatio: false,
+                                indexAxis: 'y',
+                                plugins: {
+                                    legend: { display: false, labels: { color: chartTheme.textColor } }
+                                },
+                                scales: {
+                                    x: { grid: { color: chartTheme.gridColor }, ticks: { color: chartTheme.textColor } },
+                                    y: { grid: { color: chartTheme.gridColor }, ticks: { color: chartTheme.textColor } }
+                                }
+                            }} 
+                        />
+                    ) : (
+                        <div className="flex items-center justify-center text-gray-500">Carregando...</div>
+                    )}
+                </div>
+            </div>
+
+            <div className={`p-4 rounded-xl shadow-sm border ${tema === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <h3 className="text-lg font-semibold mb-4">Usuários por Plano</h3>
+                <div className="h-64 flex justify-center">
+                    {heartbeatChartData ? (
+                        <Bar 
+                            data={heartbeatChartData.byPlan} 
+                            options={{ 
+                                maintainAspectRatio: false,
+                                indexAxis: 'y',
+                                plugins: {
+                                    legend: { display: false, labels: { color: chartTheme.textColor } }
+                                },
+                                scales: {
+                                    x: { grid: { color: chartTheme.gridColor }, ticks: { color: chartTheme.textColor } },
+                                    y: { grid: { color: chartTheme.gridColor }, ticks: { color: chartTheme.textColor } }
+                                }
+                            }} 
+                        />
+                    ) : (
+                        <div className="flex items-center justify-center text-gray-500">Carregando...</div>
+                    )}
+                </div>
+            </div>
+        </div>
+
+        {/* Live Users Table */}
+        <div className={`p-4 rounded-xl shadow-sm border ${tema === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <FiWifi className="text-green-500" />
+                Usuários Online em Tempo Real
+            </h3>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                    <thead className={`text-xs uppercase ${tema === 'dark' ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-700'}`}>
+                        <tr>
+                            <th className="px-4 py-3">Usuário</th>
+                            <th className="px-4 py-3">Email</th>
+                            <th className="px-4 py-3">Role</th>
+                            <th className="px-4 py-3">Plano</th>
+                            <th className="px-4 py-3">Status</th>
+                            <th className="px-4 py-3">Última Atividade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {heartbeat?.users?.filter(u => u.isOnline).slice(0, 20).map(user => (
+                            <tr key={user.userId} className={`border-b ${tema === 'dark' ? 'border-gray-700' : 'border-gray-100'}`}>
+                                <td className="px-4 py-3 font-medium">{user.username}</td>
+                                <td className="px-4 py-3">{user.email}</td>
+                                <td className="px-4 py-3">
+                                    <span className={`px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+                                        {user.role}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-3">{user.plan}</td>
+                                <td className="px-4 py-3">
+                                    <span className="flex items-center gap-1 text-green-500">
+                                        <FiWifi className="w-4 h-4" />
+                                        Online
+                                    </span>
+                                </td>
+                                <td className="px-4 py-3 text-xs text-gray-500">
+                                    {user.secondsSinceActive !== null ? `${user.secondsSinceActive}s atrás` : 'N/A'}
+                                </td>
+                            </tr>
+                        ))}
+                        {(!heartbeat?.users?.filter(u => u.isOnline).length) && (
+                            <tr>
+                                <td colSpan="6" className="px-4 py-3 text-center opacity-50">Nenhum usuário online no momento</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

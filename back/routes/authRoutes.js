@@ -204,6 +204,10 @@ router.post('/aceitar-aluno', verificarToken, aceitarAluno);
 router.post('/remover-aluno', verificarToken, removerAluno);
 router.get('/pegar-user', verificarToken, pegarUser);
 
+// Heartbeat do coach para seus alunos
+import { getCoachStudentsHeartbeat } from '../controllers/AdminController.js';
+router.get('/heartbeat/coach-students', verificarToken, getCoachStudentsHeartbeat);
+
 // Importar middlewares de autorização
 import { isSelf, canAccessAluno, isChatParticipant, isAdmin } from '../middlewares/authorizationMiddleware.js';
 

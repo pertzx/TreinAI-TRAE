@@ -1,0 +1,11 @@
+EU DEVO PODER CRIAR OS PLANOS NO PROPIO PAINEL DE ADMIN EU COLOCO TUDO QUE É NECESSÁRIO E O PRICEId tambem. e outras informações. do planos. e a visualização aparece somente na DASHBOARD nas configurações inclusive melhore as, porque se não mostrar perfeitamente oque tem de bom o cliente nao compra. elimine a parte de planos da landing. melhore a visualização dos planos nas configurações. deixando tudo funcionar como deve.
+
+os parâmetros pra criação de plano devem ser:
+Nome: nome do plano,
+priceId: stripe priceId,
+precoText: preço que aparece na visualização,
+Tudo oque tem acesso e oque não tem acesso: nutriAI, painel Coach, anuncios e outras.
+Tipo: único ou recorrente,
+
+
+e outros parâmetros tambem que prescisar, é porque o plano free ele é um valor único que a pessoa pode pegar uma vez só uma vez só tipo porque eu entro lá tem uns exemplo r$ 1 aí minha conta só vai ter r$ 1 para sempre aí o resto não vai ter mais ia aí pode ter também o outro o plano pro pode ser por exemplo r$ 30 só que esses r$ 30 não é para sempre não é ele é por mês aí outro exemplo o plano anual exemplo né o plano anual ele é pago só uma vez mas também não é para sempre tipo eu pago uma vez aí eu posso comprar de novo se eu quiser diferente do frei que o fria só pega uma vez e não tem como pegar mais
