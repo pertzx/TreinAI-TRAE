@@ -25,6 +25,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 function App() {
   const [plano, setPlano] = useState('free');
+  const { needToPay } = useAuth();
 
   // Registra a visita diária única (dedupe por dia no backend via cookie visitorId).
   useEffect(() => {
@@ -151,7 +152,7 @@ function App() {
             <Route path='/login' element={<Login plano={plano} />} />
             <Route path='/login-nao-autorizado' element={<LoginNaoAutorizado />} />
             <Route path='/suporte' element={<SupportRoute />} />
-            <Route path='/dashboard/*' element={<Dashboard plano={plano} />} />
+            <Route path='/dashboard/*' element={<Dashboard needToPay={needToPay} plano={plano} />} />
             <Route path='/success?' element={<Success />} />
             <Route path='/cancel' element={<Cancel />} />
             <Route path='/pagamento-sucesso' element={<PagamentoSucesso />} />
