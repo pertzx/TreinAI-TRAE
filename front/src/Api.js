@@ -12,6 +12,15 @@ const api = axios.create({
   }
 });
 
+// Função para limpar auth e redirecionar para login
+const handleAuthFailure = () => {
+  authCookies.clearAuth();
+  // Redireciona para login se não estiver já lá não estiver
+  if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/signup')) {
+    window.location.href = '/login';
+  }
+};
+
 // Interceptor para incluir CSRF token automaticamente
 api.interceptors.request.use(
   async (config) => {
@@ -64,9 +73,8 @@ api.interceptors.response.use(
         
       } catch (tokenError) {
         console.error('Falha ao renovar CSRF token:', tokenError);
-        // Remove tokens inválidos
-        authCookies.removeCsrfToken();
-        authCookies.removeCsrfExpiry();
+        // Remove tokens inválidos e força logout
+        handleAuthFailure();
       }
     }
     
@@ -145,8 +153,7 @@ const criticalApi = createRetryAxios(axios.create({
           
         } catch (tokenError) {
           console.error('Falha ao renovar CSRF token:', tokenError);
-          authCookies.removeCsrfToken();
-          authCookies.removeCsrfExpiry();
+          handleAuthFailure();
         }
       }
       
