@@ -58,6 +58,7 @@ const Termos = () => {
     { id: 'privacidade', title: 'Privacidade e Dados' },
     { id: 'propriedade', title: 'Propriedade Intelectual' },
     { id: 'pagamentos', title: 'Pagamentos e Assinaturas' },
+    { id: 'anuncios', title: 'Anúncios e Publicidade' },
     { id: 'responsabilidades', title: 'Responsabilidades' },
     { id: 'limitacoes', title: 'Limitações de Responsabilidade' },
     { id: 'modificacoes', title: 'Modificações' },
@@ -393,8 +394,53 @@ const Termos = () => {
                 </div>
               </section>
 
+              <section id="anuncios" className="mb-12">
+                <h2 className="text-3xl font-bold text-gray-900 mb-6">10. Anúncios e Publicidade</h2>
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Exibição de Anúncios</h3>
+                  <p className="text-gray-700 leading-relaxed mb-4">
+                    A plataforma TreinAI exibe anúncios de parceiros, profissionais e estabelecimentos como parte
+                    dos Serviços. Por padrão, os anúncios são exibidos a todos os usuários, independentemente do
+                    plano contratado.
+                  </p>
+
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Opção de Desativar Anúncios</h3>
+                  <p className="text-gray-700 leading-relaxed mb-4">
+                    Usuários cujo plano inclui o recurso <strong>"Sem anúncios"</strong> podem, a seu exclusivo
+                    critério, desativar a exibição de anúncios a qualquer momento através das Configurações da
+                    conta. A desativação é uma escolha do usuário e pode ser revertida quando desejar. Caso o
+                    plano seja alterado para um que não inclua esse recurso, os anúncios voltam a ser exibidos
+                    automaticamente.
+                  </p>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <p className="text-blue-800 text-sm">
+                      <strong>Como desativar:</strong> Acesse Dashboard → Configurações → Anúncios e utilize o
+                      controle de exibição. A opção fica disponível apenas para planos que incluem o recurso
+                      "Sem anúncios".
+                    </p>
+                  </div>
+
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Conteúdo dos Anúncios</h3>
+                  <p className="text-gray-700 leading-relaxed mb-4">
+                    Os anúncios exibidos são de responsabilidade de seus respectivos anunciantes. A TreinAI realiza
+                    moderação, mas não garante, endossa nem se responsabiliza por produtos, serviços, ofertas ou
+                    conteúdos anunciados por terceiros, tampouco por negociações realizadas entre usuários e
+                    anunciantes fora da plataforma.
+                  </p>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-yellow-800 text-sm">
+                      <strong>Métricas de Publicidade:</strong> Para viabilizar o sistema de anúncios, coletamos
+                      métricas de exibição (impressões) e cliques de forma agregada, conforme descrito em nossa
+                      Política de Privacidade.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
               <section id="responsabilidades" className="mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">10. Responsabilidades</h2>
+                <h2 className="text-3xl font-bold text-gray-900 mb-6">11. Responsabilidades</h2>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Nossas Responsabilidades</h3>
                   <ul className="list-disc list-inside space-y-2 text-gray-700 mb-4">
@@ -422,7 +468,7 @@ const Termos = () => {
               </section>
 
               <section id="limitacoes" className="mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">11. Limitações de Responsabilidade</h2>
+                <h2 className="text-3xl font-bold text-gray-900 mb-6">12. Limitações de Responsabilidade</h2>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                     <p className="text-blue-800 font-semibold mb-2">RESPONSABILIDADE DA TREINAI</p>
@@ -463,7 +509,7 @@ const Termos = () => {
               </section>
 
               <section id="modificacoes" className="mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">12. Modificações</h2>
+                <h2 className="text-3xl font-bold text-gray-900 mb-6">13. Modificações</h2>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Alterações nos Termos</h3>
                   <p className="text-gray-700 leading-relaxed mb-4">
@@ -480,7 +526,7 @@ const Termos = () => {
               </section>
 
               <section id="rescisao" className="mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">13. Rescisão</h2>
+                <h2 className="text-3xl font-bold text-gray-900 mb-6">14. Rescisão</h2>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Rescisão pelo Usuário</h3>
                   <p className="text-gray-700 leading-relaxed mb-4">
@@ -545,7 +591,7 @@ const Termos = () => {
               </section>
 
               <section id="lei-aplicavel" className="mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">14. Lei Aplicável</h2>
+                <h2 className="text-3xl font-bold text-gray-900 mb-6">15. Lei Aplicável</h2>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <p className="text-gray-700 leading-relaxed mb-4">
                     Estes Termos são regidos pelas leis da República Federativa do Brasil. Qualquer disputa 
@@ -568,7 +614,7 @@ const Termos = () => {
                 Estes Termos de Uso foram atualizados pela última vez em {new Date().toLocaleDateString('pt-BR')}
               </p>
               <p className="text-sm text-gray-600 mt-2">
-                Versão 1.0 - TreinAI
+                Versão 1.1 - TreinAI
               </p>
             </div>
           </div>

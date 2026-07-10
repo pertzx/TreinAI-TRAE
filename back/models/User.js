@@ -21,7 +21,10 @@ const UserSchema = new Schema({
     // planType = key do Plano (slug livre). Enum removido p/ permitir planos criados no admin.
     planType: { type: String, default: 'free' },
     // Snapshot do plano ativo (evita hit no banco no gating do front/back):
-    tipo: { type: String, default: 'cortesia' }, // recorrente | unico | cortesia
+    // SEM default: o default 'cortesia' era aplicado pelo Mongoose a docs
+    // antigos sem o campo e persistido no próximo save(), marcando usuários
+    // pagos (pro/max/coach) como cortesia — quem preenche é applyPlanSnapshot.
+    tipo: { type: String }, // recorrente | unico | cortesia
     access: {
       nutriAI: { type: Boolean, default: false },
       coachPanel: { type: Boolean, default: false },
@@ -47,6 +50,9 @@ const UserSchema = new Schema({
     theme: { type: String, enum: ['light', 'dark'], default: 'dark' },
     language: { type: String, enum: ['pt', 'en'], default: 'pt' },
     notifications: { type: Boolean, default: true },
+    // Escolha do usuário de ocultar anúncios — só tem efeito se o plano tiver
+    // a feature 'semAnuncios' (validado em changeHideAds e no gating do front).
+    hideAds: { type: Boolean, default: false },
     onboardCompleted: { type: Boolean, default: false },
   },
 

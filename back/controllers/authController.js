@@ -16,7 +16,7 @@ import Profissional from '../models/Profissional.js';
 import mongoose from 'mongoose';
 import { registerTokenUsage } from '../middlewares/tokenLimitMiddleware.js';
 import { stripAiCostForClient } from '../helpers/sanitizeUser.js';
-import { isCourtesyUser } from '../helpers/planAccess.js';
+import { isCourtesyUser, hasFeature } from '../helpers/planAccess.js';
 import { sendNotificationEmail } from '../utils/sendEmail.js';
 import { validateSecurityTicket, createSecurityTicketData, formatDeviceInfoForEmail } from '../utils/ticketManager.js';
 
@@ -802,6 +802,57 @@ export const changeTheme = async (req, res) => {
     console.error('changeTheme error:', err);
     return res.status(500).json({
       msg: 'Erro interno do servidor ao alterar tema',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// =======================
+// changeHideAds
+// =======================
+// Preferência de ocultar anúncios: por padrão eles aparecem para todos;
+// desativar é uma ESCOLHA disponível apenas para planos com 'semAnuncios'.
+export const changeHideAds = async (req, res) => {
+  try {
+    const { novoHideAds } = req.body;
+    const email = req.userEmail; // identidade do token
+
+    if (typeof novoHideAds !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        msg: 'novoHideAds deve ser um valor booleano (true ou false).'
+      });
+    }
+
+    const usr = await User.findOne({ email });
+
+    if (!usr) {
+      return res.status(404).json({ success: false, msg: 'Usuário não encontrado.' });
+    }
+
+    if (novoHideAds === true && !hasFeature(usr, 'semAnuncios')) {
+      return res.status(403).json({
+        success: false,
+        msg: 'Desativar anúncios está disponível apenas em planos com o recurso "Sem anúncios". Faça upgrade para usar essa opção.'
+      });
+    }
+
+    usr.preferences = usr.preferences || {};
+    usr.preferences.hideAds = novoHideAds;
+
+    await usr.save();
+
+    return res.json({
+      success: true,
+      msg: novoHideAds ? 'Anúncios desativados.' : 'Anúncios reativados.',
+      hideAds: usr.preferences.hideAds,
+      user: stripAiCostForClient(usr)
+    });
+  } catch (err) {
+    console.error('changeHideAds error:', err);
+    return res.status(500).json({
+      success: false,
+      msg: 'Erro interno do servidor ao alterar preferência de anúncios',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }

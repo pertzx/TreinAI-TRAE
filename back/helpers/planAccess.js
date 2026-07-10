@@ -34,9 +34,14 @@ export const hasFeature = (user, flag) => {
 
 /** true se o plano do usuário é cortesia (free) — saldo único, não renovável. */
 export const isCourtesyUser = (user) => {
-  const tipo = user?.planInfos?.tipo;
-  if (tipo) return tipo === 'cortesia';
-  return (user?.planInfos?.planType || 'free') === 'free';
+  const planType = user?.planInfos?.planType || 'free';
+  if (planType === 'free') return true;
+  // Planos legados pagos (pro/max/coach) nunca são cortesia. O planType manda:
+  // muitos docs receberam tipo 'cortesia' indevidamente pelo antigo default do
+  // schema, marcando pagantes como free.
+  if (LEGACY_ACCESS[planType]) return false;
+  // Planos dinâmicos (criados no admin): confia no snapshot.
+  return (user?.planInfos?.tipo || 'recorrente') === 'cortesia';
 };
 
 /**

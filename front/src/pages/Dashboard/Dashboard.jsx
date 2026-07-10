@@ -63,9 +63,13 @@ const Dashboard = ({ needToPay, plano }) => {
   
   // Ref para controlar execução única do useEffect principal
   const hasInitialized = useRef(false);
+  const freeToastShown = useRef(false);
 
   useEffect(() => {
-    if (isFreeUser(user)) {
+    // Só avisa uma vez, e apenas com o usuário carregado (setUser roda várias
+    // vezes — onboarding, perfil — e re-disparava o toast a cada mudança).
+    if (!freeToastShown.current && isFreeUser(user)) {
+      freeToastShown.current = true;
       showWarning('Você está usando o plano gratuito. Para acessar todas as funcionalidades, por favor, atualize seu plano.');
     }
   }, [user])
@@ -948,7 +952,7 @@ const Dashboard = ({ needToPay, plano }) => {
             Ativar Plano
           </button>
 
-          <Configuracoes user={user} setTema={setTema} tema={tema} />
+          <Configuracoes user={user} setUser={setUser} setTema={setTema} tema={tema} />
         </div>
       ) :
         !showOnboarding && (
@@ -961,7 +965,7 @@ const Dashboard = ({ needToPay, plano }) => {
               <Route path="meus-treinos" element={<MeusTreinos tema={tema} user={user} setUser={setUser} />} />
               <Route path="historico" element={<Historico historico={user?.historico} tema={tema} />} />
               <Route path="perfil" element={<Perfil user={user} tema={tema} />} />
-              <Route path="configuracoes" element={<Configuracoes setTema={setTema} tema={tema} user={user} />} />
+              <Route path="configuracoes" element={<Configuracoes setTema={setTema} tema={tema} user={user} setUser={setUser} />} />
               <Route path="anamnese" element={<MinhaAnamnese tema={tema} />} />
               <Route path="encontrar" element={<Encontrar user={user} tema={tema} />} />
               <Route path="coach/*" element={<Coach tema={tema} user={user} />} />

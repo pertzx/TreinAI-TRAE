@@ -1,6 +1,6 @@
 // routes/authRoutes.js
 import { Router } from 'express';
-import { login, dashboard, signup, changeTheme, changeLoginSeguro, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser, loginNaoAutorizado, heartbeat } from '../controllers/authController.js';
+import { login, dashboard, signup, changeTheme, changeLoginSeguro, changeHideAds, completeOnboarding, atualizarPerfil, carregarTreinos, atualizarMeusTreinos, pegarUser, loginNaoAutorizado, heartbeat } from '../controllers/authController.js';
 import { verificarToken } from '../middlewares/authMiddleware.js';
 import { validateLogin, validateSignup, validateDashboard, validateUpdateProfile, validateCreateLocal, validateEditLocal } from '../middlewares/validationMiddleware.js';
 import { validateEmailReal, validateEmailBasic } from '../middlewares/emailValidation.js';
@@ -65,6 +65,7 @@ router.post('/create-checkout-session', verificarToken, CreateCheckoutSession);
 router.get('/session-status', SessionStatus); // verificar status
 router.post('/change-theme', verificarToken, changeTheme)
 router.post('/change-loginSeguro', verificarToken, changeLoginSeguro)
+router.post('/change-hideAds', verificarToken, changeHideAds)
 router.post('/complete-onboarding', verificarToken, checkAiBudget, completeOnboarding)
 router.post('/atualizar-perfil', verificarToken, uploadRateLimit, uploadSecurityHeaders, validateCSRF, validateUpdateProfile, uploadProfile.single('avatar'), atualizarPerfil)
 router.post('/criar-meusTreinos', verificarToken, checkAiBudget, carregarTreinos);

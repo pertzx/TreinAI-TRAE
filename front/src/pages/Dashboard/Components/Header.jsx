@@ -4,7 +4,7 @@ import Logo from '../../../components/Logo';
 import { LuMenu, LuX } from 'react-icons/lu';
 import { FaHome, FaSearch, FaDumbbell, FaChartLine, FaGamepad, FaUser, FaCog, FaUserShield, FaQuestionCircle, FaUserTie, FaComments, FaTrophy, FaClipboardList } from 'react-icons/fa';
 import { buildImageUrl } from '../../../utils/imageUtils';
-import { hasAccess } from '../../../utils/planAccess.js';
+import { adsEnabled } from '../../../utils/planAccess.js';
 import { useUnreadChats } from '../../../hooks/useUnreadChats';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdBanner from './AdBanner';
@@ -150,8 +150,8 @@ const Header = ({ user, tema }) => {
     }
   };
   useEffect(() => {
-    const isFreePlan = !!(user && !hasAccess(user, 'semAnuncios'));
-    if (isFreePlan) {
+    const showAds = !!(user && adsEnabled(user));
+    if (showAds) {
       if (atTop) {
         setBannerHidden(false);
         console.log('[Header] show banner');
@@ -266,7 +266,7 @@ const Header = ({ user, tema }) => {
             </nav>
           </motion.div>
 
-          {user && !hasAccess(user, 'semAnuncios') && bannerHidden && (
+          {user && adsEnabled(user) && bannerHidden && (
             <motion.div
               className="rounded-xl overflow-hidden"
               initial={{ opacity: 0 }}
@@ -281,7 +281,7 @@ const Header = ({ user, tema }) => {
         </AnimatePresence>
       )}
 
-      {user && !hasAccess(user, 'semAnuncios') && (
+      {user && adsEnabled(user) && (
         bannerHidden ? (
           <div className="hidden" />
         ) : (

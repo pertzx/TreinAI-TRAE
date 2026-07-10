@@ -14,7 +14,7 @@ import AdTreinAI from "./AdTreinAI.jsx";
 import { useToast } from "../../../components/Toast.jsx";
 import TokenUsageBar from "../../../components/TokenUsageBar.jsx";
 import AchievementCard from "../../../components/AchievementCard.jsx";
-import { hasAccess } from "../../../utils/planAccess.js";
+import { adsEnabled } from "../../../utils/planAccess.js";
 
 /* Fallback simples */
 const exerciciosMock = [
@@ -979,7 +979,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
         </div>
       )}
 
-      {user && !hasAccess(user, 'semAnuncios') && <AdBanner tema={tema} user={user} showPlaceholder={true} className="rounded-2xl mt-5 h-1/5" />}
+      {user && adsEnabled(user) && <AdBanner tema={tema} user={user} showPlaceholder={true} className="rounded-2xl mt-5 h-1/5" />}
 
       <SummaryOverlay
         open={summaryOpen}

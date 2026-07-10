@@ -19,9 +19,22 @@ export function hasAccess(user, flag) {
 
 // Usuário em plano cortesia (grátis, saldo único).
 export function isFreeUser(user) {
-  const tipo = user?.planInfos?.tipo;
-  if (tipo) return tipo === 'cortesia';
-  return (user?.planInfos?.planType || 'free') === 'free';
+  // Usuário ainda não carregado: não afirmar que é free (evita toast/gating
+  // de "plano gratuito" durante o loading, inclusive para pagantes).
+  if (!user?.planInfos) return false;
+  const planType = user.planInfos.planType || 'free';
+  if (planType === 'free') return true;
+  // Planos legados pagos (pro/max/coach) nunca são cortesia — o planType manda.
+  // Docs antigos receberam tipo 'cortesia' indevidamente por default do schema.
+  if (LEGACY[planType]) return false;
+  // Planos dinâmicos (criados no admin): confia no snapshot.
+  return (user.planInfos.tipo || 'recorrente') === 'cortesia';
 }
 
-export default { hasAccess, isFreeUser };
+// Anúncios aparecem para todos por padrão. Quem tem a feature 'semAnuncios'
+// no plano pode ESCOLHER desativá-los em Configurações (preferences.hideAds).
+export function adsEnabled(user) {
+  return !(hasAccess(user, 'semAnuncios') && user?.preferences?.hideAds === true);
+}
+
+export default { hasAccess, isFreeUser, adsEnabled };

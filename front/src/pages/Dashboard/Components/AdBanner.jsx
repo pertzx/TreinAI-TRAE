@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../../../Api';
 import { buildImageUrl } from '../../../utils/imageUtils';
+import { adsEnabled } from '../../../utils/planAccess.js';
 import Logo from '../../../components/Logo';
 
-const AdBanner = ({ tema = 'light', displayTime = 10000, user }) => {
+const AdBannerInner = ({ tema = 'light', displayTime = 10000, user }) => {
   const [anuncios, setAnuncios] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -439,5 +440,9 @@ const AdBanner = ({ tema = 'light', displayTime = 10000, user }) => {
     </div>
   );
 };
+
+// Guarda central: some apenas quando o usuário tem 'semAnuncios' no plano E
+// optou por desativar em Configurações — todos os pontos de exibição respeitam.
+const AdBanner = (props) => (adsEnabled(props.user) ? <AdBannerInner {...props} /> : null);
 
 export default AdBanner;

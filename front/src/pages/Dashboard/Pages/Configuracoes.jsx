@@ -5,6 +5,7 @@ import { getBrazilDate } from '../../../../helpers/getBrazilDate.js';
 import TokensChart from '../Components/TokensChart.jsx';
 import { useToast } from '../../../components/Toast.jsx';
 import TokenUsageBar from '../../../components/TokenUsageBar.jsx';
+import { hasAccess } from '../../../utils/planAccess.js';
 
 /**
  * Configuracoes - usa `tema` com valores 'dark' | 'light'
@@ -30,11 +31,13 @@ const Switch = ({ checked, onChange, label, tema }) => (
   </button>
 );
 
-const Configuracoes = ({ setTema, tema, user }) => {
+const Configuracoes = ({ setTema, tema, user, setUser }) => {
   const navigate = useNavigate();
   const [loginSeguro, setLoginSeguro] = useState(user?.stats?.loginSeguro || false);
+  const [hideAds, setHideAds] = useState(user?.preferences?.hideAds === true);
+  const canHideAds = hasAccess(user, 'semAnuncios');
 
-  const [saving, setSaving] = useState({ theme: false, loginSeguro: false });
+  const [saving, setSaving] = useState({ theme: false, loginSeguro: false, hideAds: false });
   const [planLoading, setPlanLoading] = useState(false);
   const [globalLoading, setGlobalLoading] = useState(false);
 
@@ -115,6 +118,8 @@ const Configuracoes = ({ setTema, tema, user }) => {
     } else {
       setLoginSeguro(false);
     }
+
+    setHideAds(user?.preferences?.hideAds === true);
 
     // Sincroniza tema -> se user tiver preferência usa ela
     if (user?.preferences?.theme === 'dark' || user?.preferences?.theme === 'light') {
@@ -267,6 +272,38 @@ const Configuracoes = ({ setTema, tema, user }) => {
     }
   };
 
+  const toggleHideAds = async () => {
+    if (!canHideAds) {
+      showError('Desativar anúncios está disponível apenas em planos com o recurso "Sem anúncios".');
+      return;
+    }
+
+    const novoHideAds = !hideAds;
+    setHideAds(novoHideAds); // feedback visual imediato
+    setSaving((prev) => ({ ...prev, hideAds: true }));
+
+    try {
+      const res = await api.post('/change-hideAds', { novoHideAds });
+
+      if (res.data?.success) {
+        // Propaga para o estado do Dashboard: Header/AdBanner reagem na hora.
+        setUser?.((prev) => ({
+          ...prev,
+          preferences: { ...(prev?.preferences || {}), hideAds: novoHideAds }
+        }));
+        showSuccess(res.data.msg || (novoHideAds ? 'Anúncios desativados.' : 'Anúncios reativados.'));
+      } else {
+        setHideAds(!novoHideAds);
+        showError(res.data?.msg || 'Erro ao alterar preferência de anúncios.');
+      }
+    } catch (err) {
+      setHideAds(!novoHideAds);
+      showError(err.response?.data?.msg || 'Erro ao alterar preferência de anúncios. Tente novamente.');
+    } finally {
+      setSaving((prev) => ({ ...prev, hideAds: false }));
+    }
+  };
+
   // NOVA LÓGICA: bloquear solicitações para mesmo tipo OU mesmo valor
   const askChangePlan = (novoPlano) => {
     const novoPreco = priceMapForDisplay[novoPlano]?.price ?? null;
@@ -408,6 +445,22 @@ const Configuracoes = ({ setTema, tema, user }) => {
         <div className="flex items-center gap-3">
           <span className="text-xs">{tema === 'dark' ? 'Dark' : 'Light'}</span>
           <Switch checked={tema === 'dark'} onChange={toggleTema} label="Alternar tema" tema={tema} />
+        </div>
+      </div>
+
+      {/* Anúncios */}
+      <div className={`flex items-center justify-between w-full max-w-2xl p-4 rounded-2xl border ${cardClass}`}>
+        <div>
+          <div className="text-sm font-medium">Anúncios</div>
+          <div className="text-xs ">
+            {canHideAds
+              ? 'Seu plano permite desativar a exibição de anúncios na plataforma.'
+              : 'Anúncios ajudam a manter o TreinAI. Planos com o recurso "Sem anúncios" permitem desativá-los aqui.'}
+          </div>
+        </div>
+        <div className={`flex items-center gap-3 ${canHideAds ? '' : 'opacity-50'}`}>
+          <span className="text-xs">{hideAds ? 'Desativados' : 'Ativados'}</span>
+          <Switch checked={!hideAds} onChange={toggleHideAds} label="Alternar exibição de anúncios" tema={tema} />
         </div>
       </div>
 

@@ -28,8 +28,10 @@ const run = async () => {
     const { access, tipo } = await getAccessForPlanKey(key);
     user.planInfos = user.planInfos || {};
     user.planInfos.access = access;
-    // Não sobrescreve trial (que se comporta como pago): só define tipo se ausente.
-    if (!user.planInfos.tipo) user.planInfos.tipo = user.planInfos.isTrial ? 'recorrente' : tipo;
+    // Sobrescreve o tipo resolvendo pelo planType (fonte de verdade): o antigo
+    // default 'cortesia' do schema gravou tipo errado em usuários pagos, então
+    // preencher "só se ausente" não repara esses docs. Trial se comporta como pago.
+    user.planInfos.tipo = user.planInfos.isTrial ? 'recorrente' : tipo;
     await user.save();
     atualizados++;
   }
