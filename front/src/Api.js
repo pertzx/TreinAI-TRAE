@@ -15,9 +15,9 @@ const api = axios.create({
 // Função para limpar auth e redirecionar para login
 const handleAuthFailure = () => {
   authCookies.clearAuth();
-  // Redireciona para login se não estiver já lá não estiver
+  // Usar replace para não adicionar ao histórico
   if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/signup')) {
-    window.location.href = '/login';
+    window.location.replace('/login');
   }
 };
 
@@ -51,6 +51,26 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
+    // Se erro 401 (não autorizado/token expirado) - logout imediato
+    if (error.response?.status === 401) {
+      handleAuthFailure();
+      return Promise.reject(error);
+    }
+    
+    // Se erro 403 genérico relacionado à autenticação
+    if (error.response?.status === 403) {
+      const errorMsg = error.response?.data?.msg || error.response?.data?.error || '';
+      const isAuthRelated = errorMsg.toLowerCase().includes('token') || 
+                           errorMsg.toLowerCase().includes('auth') ||
+                           errorMsg.toLowerCase().includes('expirado') ||
+                           errorMsg.toLowerCase().includes('inválido');
+      
+      if (isAuthRelated) {
+        handleAuthFailure();
+        return Promise.reject(error);
+      }
+    }
+    
     // Se erro 403 com código CSRF_TOKEN_INVALID
     if (error.response?.status === 403 && 
         error.response?.data?.code === 'CSRF_TOKEN_INVALID' &&
@@ -75,6 +95,7 @@ api.interceptors.response.use(
         console.error('Falha ao renovar CSRF token:', tokenError);
         // Remove tokens inválidos e força logout
         handleAuthFailure();
+        return Promise.reject(tokenError);
       }
     }
     
@@ -129,11 +150,31 @@ const criticalApi = createRetryAxios(axios.create({
     (error) => Promise.reject(error)
   );
 
-  // Response interceptor para CSRF
+  // Response interceptor para CSRF e auth
   instance.interceptors.response.use(
     (response) => response,
     async (error) => {
       const originalRequest = error.config;
+      
+      // Se erro 401 (não autorizado/token expirado) - logout imediato
+      if (error.response?.status === 401) {
+        handleAuthFailure();
+        return Promise.reject(error);
+      }
+      
+      // Se erro 403 genérico relacionado à autenticação
+      if (error.response?.status === 403) {
+        const errorMsg = error.response?.data?.msg || error.response?.data?.error || '';
+        const isAuthRelated = errorMsg.toLowerCase().includes('token') || 
+                             errorMsg.toLowerCase().includes('auth') ||
+                             errorMsg.toLowerCase().includes('expirado') ||
+                             errorMsg.toLowerCase().includes('inválido');
+        
+        if (isAuthRelated) {
+          handleAuthFailure();
+          return Promise.reject(error);
+        }
+      }
       
       if (error.response?.status === 403 && 
           error.response?.data?.code === 'CSRF_TOKEN_INVALID' &&
@@ -154,6 +195,7 @@ const criticalApi = createRetryAxios(axios.create({
         } catch (tokenError) {
           console.error('Falha ao renovar CSRF token:', tokenError);
           handleAuthFailure();
+          return Promise.reject(tokenError);
         }
       }
       
