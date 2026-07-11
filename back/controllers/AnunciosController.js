@@ -358,10 +358,19 @@ export const getAnuncios = async (req, res) => {
             }] : []),
 
             // Estágio 3: Lookup para dados do usuário (saldo)
+            // Anuncio.userId é String e users._id é ObjectId — sem converter,
+            // o join volta vazio e o filtro de saldo elimina todos os anúncios.
+            {
+                $addFields: {
+                    userIdObj: {
+                        $convert: { input: '$userId', to: 'objectId', onError: null, onNull: null }
+                    }
+                }
+            },
             {
                 $lookup: {
                     from: 'users',
-                    localField: 'userId',
+                    localField: 'userIdObj',
                     foreignField: '_id',
                     as: 'userData'
                 }
@@ -450,6 +459,7 @@ export const getAnuncios = async (req, res) => {
             {
                 $project: {
                     userData: 0,
+                    userIdObj: 0,
                     impressoesTotais: 0,
                     locationPriority: 0
                 }
@@ -738,7 +748,9 @@ export const getAnuncios = async (req, res) => {
         });
 
     } catch (error) {
-        // console.error('[getAnuncios] Erro ao buscar anúncios:', error);
+        // Nunca silenciar: este catch engolia o erro (ValidationError do Ticket)
+        // e a rota só devolvia 500 genérico, sem pista nos logs.
+        console.error('[getAnuncios] Erro ao buscar anúncios:', error);
         return res.status(500).json({
             msg: "Erro interno do servidor ao buscar anúncios",
             error: "INTERNAL_SERVER_ERROR"

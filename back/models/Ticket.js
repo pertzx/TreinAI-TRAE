@@ -5,7 +5,10 @@ import { getBrazilDate } from '../helpers/getBrazilDate.js';
 const { Schema } = mongoose;
 
 const TicketSchema = new Schema({
-  valor: { type: String, required: true, unique: true }, // Hash único da interação
+  // Hash único da interação. O default é essencial: getAnuncios cria tickets
+  // com `new Ticket()` sem setar valor — sem default, o required derrubava a
+  // rota inteira com 500 assim que existia qualquer anúncio ativo.
+  valor: { type: String, required: true, unique: true, default: () => uuidv4() },
   type: { type: String, enum: ['impression', 'click', 'interaction_token'], default: 'impression' },
   targetId: { type: String, required: false },
   userId: { type: String, required: false },
