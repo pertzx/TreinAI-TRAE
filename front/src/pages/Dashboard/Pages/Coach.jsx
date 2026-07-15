@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { hasAccess } from '../../../utils/planAccess.js';
 import { AnimatePresence, motion } from 'framer-motion';
-import { FiChevronDown, FiChevronUp, FiUsers, FiSettings, FiRefreshCw, FiUserPlus, FiStar, FiTrendingUp, FiEye, FiMousePointer, FiWifi, FiWifiOff, FiHeart, FiActivity } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiUsers, FiSettings, FiRefreshCw, FiUserPlus, FiStar, FiTrendingUp, FiEye, FiMousePointer, FiWifi, FiWifiOff, FiHeart, FiActivity, FiMapPin } from 'react-icons/fi';
 import { HiSparkles, HiAcademicCap } from 'react-icons/hi';
 import { MdDashboard, MdPersonAdd } from 'react-icons/md';
 import {
