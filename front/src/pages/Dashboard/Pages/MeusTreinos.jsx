@@ -130,15 +130,15 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
 
   const handleGerarPlanoCompleto = async () => {
     // Permite gerar plano inicial mesmo se for free (backend controla limites)
-    // if (!canEditSync()) { setRebuke(true); return; } 
-    
+    // if (!canEditSync()) { setRebuke(true); return; }
+
     setLoading(true);
     try {
-      const resp = await axios.post(`${import.meta.env.VITE_API_URL}/criar-meusTreinos`, { 
-        email: user.email, 
-        profissionalId 
+      const resp = await axios.post(`${import.meta.env.VITE_API_URL}/criar-meusTreinos`, {
+        email: user.email,
+        profissionalId
       });
-      
+
       if (resp?.data?.total_tokens) showTokenUsage(resp.data.total_tokens);
 
       if (resp?.data?.user && typeof setUser === 'function') {
@@ -148,7 +148,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
       } else if (Array.isArray(resp?.data?.meusTreinos)) {
         const newTreinos = resp.data.meusTreinos;
         syncMeusTreinosFromUser({ meusTreinos: newTreinos });
-        
+
         // Atualizar contexto global manualmente para evitar desync
         if (typeof setUser === 'function' && user) {
           setUser({ ...user, meusTreinos: newTreinos });
@@ -160,7 +160,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
       }
     } catch (err) {
       console.error('Erro ao gerar plano completo:', err);
-      showToast(err?.response?.data?.msg || 'Erro ao gerar plano de treino.', 'error');
+      showToast(friendlyAiError(err), 'error');
     } finally {
       setLoading(false);
     }
@@ -206,9 +206,30 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   };
 
   /* ------------------ Ações CRUD sem reload ------------------ */
+  // Traduz erros do backend em mensagens amigáveis ao usuário
+  // (especialmente quando o erro vem da OpenAI em vez do JWT)
+  const friendlyAiError = (err) => {
+    const data = err?.response?.data;
+    const status = err?.response?.status;
+    if (data?.code === 'AI_PROVIDER_AUTH') {
+      return 'O serviço de IA está com a chave de API inválida no servidor. Contate o suporte.';
+    }
+    if (data?.code === 'AI_PROVIDER_QUOTA') {
+      return 'Limite de uso da IA do servidor atingido. Tente novamente em alguns minutos.';
+    }
+    if (status === 401) return 'Sessão expirada. Faça login novamente.';
+    if (status === 403) return 'Sem permissão para esta ação.';
+    if (status === 429) return 'Limite de uso do seu plano atingido. Tente novamente mais tarde.';
+    return data?.msg || data?.error || 'Erro ao processar a requisição. Tente novamente.';
+  };
+
   const generateTreinoIA = async (nome) => {
     if (!canEditSync()) { setRebuke(true); return; }
     if (!nome || !nome.trim()) return;
+    if (!user?.email) {
+      showToast('Email do aluno ausente nesta sessão. Atualize o painel.', 'error');
+      return;
+    }
 
     const key = 'novoTreino';
     // Trava in-flight: bloqueia chamadas duplicadas (Enter duplo, double-click)
@@ -244,7 +265,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
       // Atualiza sempre a partir da resposta canônica do backend.
     } catch (err) {
       console.error('Erro ao gerar treino:', err);
-      showToast(err?.response?.data?.msg || 'Erro ao criar treino', 'error');
+      showToast(friendlyAiError(err), 'error');
     } finally {
       setLoadingIA(prev => ({ ...prev, [key]: false }));
       inFlightRef.current.delete(key);
@@ -461,10 +482,13 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-          <TokenUsageBar user={user} className="w-full sm:w-48" />
-          
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full sm:w-auto">
+          {/* TokenUsageBar: apenas em telas >= sm (mobile esconde para o botão "Novo Treino" caber) */}
+          <div className="hidden sm:block w-full sm:w-48">
+            <TokenUsageBar user={user} className="w-full sm:w-48" />
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {newTreinoVisible ? (
             <motion.div 
               initial={{ opacity: 0, x: 20 }}

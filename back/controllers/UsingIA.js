@@ -183,7 +183,40 @@ Use tipos coerentes (strings para texto, numbers para números). Não inclua com
 
   } catch (error) {
     console.error('criarTreinoIA error:', error);
-    return res.status(500).json({ msg: 'Erro interno', error: error?.message || String(error), success: false });
+
+    // Detecta falha de autenticação da OpenAI (chave inválida/expirada)
+    const errMsg = String(error?.message || '');
+    const isOpenAiAuth =
+      error?.status === 401 ||
+      errMsg.includes('Incorrect API key') ||
+      errMsg.toLowerCase().includes('api key') ||
+      errMsg.includes('401');
+
+    const isOpenAiQuota =
+      error?.status === 429 ||
+      errMsg.toLowerCase().includes('quota') ||
+      errMsg.toLowerCase().includes('rate limit');
+
+    if (isOpenAiAuth) {
+      return res.status(503).json({
+        msg: 'Serviço de IA indisponível no momento (chave de API inválida no servidor). Contate o suporte.',
+        code: 'AI_PROVIDER_AUTH',
+        success: false
+      });
+    }
+    if (isOpenAiQuota) {
+      return res.status(503).json({
+        msg: 'Limite de uso da IA do servidor atingido. Tente novamente em alguns minutos.',
+        code: 'AI_PROVIDER_QUOTA',
+        success: false
+      });
+    }
+
+    return res.status(500).json({
+      msg: 'Erro ao gerar treino com IA. Tente novamente.',
+      code: 'AI_GENERATION_FAILED',
+      success: false
+    });
   }
 };
 

@@ -1375,6 +1375,34 @@ export const carregarTreinos = async (req, res) => {
     });
   } catch (error) {
     console.error('carregarTreinos error:', error);
+
+    // Detecta falha de autenticação da OpenAI para devolver mensagem amigável,
+    // em vez de "Erro interno" genérico que confunde o usuário.
+    const errMsg = String(error?.message || '');
+    const isOpenAiAuth =
+      error?.status === 401 ||
+      errMsg.includes('Incorrect API key') ||
+      errMsg.toLowerCase().includes('api key') ||
+      errMsg.includes('401');
+
+    const isOpenAiQuota =
+      error?.status === 429 ||
+      errMsg.toLowerCase().includes('quota') ||
+      errMsg.toLowerCase().includes('rate limit');
+
+    if (isOpenAiAuth) {
+      return res.status(503).json({
+        msg: 'Serviço de IA indisponível no momento (chave de API inválida no servidor). Contate o suporte.',
+        code: 'AI_PROVIDER_AUTH'
+      });
+    }
+    if (isOpenAiQuota) {
+      return res.status(503).json({
+        msg: 'Limite de uso da IA do servidor atingido. Tente novamente em alguns minutos.',
+        code: 'AI_PROVIDER_QUOTA'
+      });
+    }
+
     return res.status(500).json({
       msg: 'Erro interno do servidor ao carregar treinos',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

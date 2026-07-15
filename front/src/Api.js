@@ -88,19 +88,15 @@ const createResponseErrorHandler = (instance) => async (error) => {
     return Promise.reject(error);
   }
 
-  // Se erro 401 (não autorizado/token expirado) - logout imediato
+  // Se erro 401/403 com AUTH_INVALID: não desloga forçado.
+  // Apenas rejeita a promise. O AuthContext (via /pegar-user) é quem
+  // decide se a sessão está realmente morta. Assim, um 403 de permissão
+  // ou 401 transitório não derruba o usuário para /login do nada.
   if (status === 401) {
-    handleAuthFailure();
     return Promise.reject(error);
   }
 
-  // Se erro 403: só desloga se for falha de autenticação explícita
-  // (não confundir com 403 de permissão, CSRF já tratado acima, etc.).
-  if (status === 403) {
-    if (data?.code === 'AUTH_INVALID') {
-      handleAuthFailure();
-      return Promise.reject(error);
-    }
+  if (status === 403 && data?.code === 'AUTH_INVALID') {
     return Promise.reject(error);
   }
 
