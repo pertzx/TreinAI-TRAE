@@ -3,14 +3,13 @@ import { createPortal } from 'react-dom';
 import { FiX, FiChevronRight, FiChevronLeft, FiRotateCcw } from 'react-icons/fi';
 
 /**
- * TreinAITour v5.1 — Product Tour com scroll livre, destaque sincronizado e painel de controle "sticky"
+ * TreinAITour v6.0 — Product Tour com painel integrado à área destacada
  * 
- * NOVO: Scroll livre do body permitido. O destaque e o tooltip seguem o elemento alvo.
- * NOVO: Sincronização contínua da posição do destaque e tooltip via requestAnimationFrame.
- * NOVO: Interface mobile otimizada (bottom-sheet) para melhor usabilidade em dispositivos pequenos.
- * NOVO: Melhorias de responsividade para o tooltip em geral.
- * NOVO: UI mobile mais compacta e elegante.
- * NOVO: Correção de visibilidade do tooltip para elementos no final da página (desktop) com clamping e flipping.
+ * NOVO: Painel de controle ancorado visualmente dentro da div destacada.
+ * NOVO: Acabamento glassmorphism transparente para preservar a leitura do conteúdo ao fundo.
+ * NOVO: Dimensões, posição e organização dos controles adaptativas ao alvo e à viewport.
+ * NOVO: Fallback seguro para alvos muito pequenos, sem cortar ações ou textos.
+ * NOVO: Scroll livre e acompanhamento contínuo do alvo via requestAnimationFrame.
  * 
  * Props do step:
  *   target: string (querySelector) — elemento a destacar
@@ -34,7 +33,6 @@ const TreinAITour = ({
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
-  const [tooltipPos, setTooltipPos] = useState('bottom');
   const [isAnimating, setIsAnimating] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [toggleStatus, setToggleStatus] = useState(''); // feedback visual
@@ -47,23 +45,26 @@ const TreinAITour = ({
 
   const storageKey = `${STORAGE_PREFIX}${tourId}`;
 
-  // Verifica se o usuário já viu o tour e lida com responsividade inicial
+  // Abre o tour na primeira visita.
   useEffect(() => {
     const hasSeen = localStorage.getItem(storageKey);
-    if (!hasSeen && steps.length > 0) {
-      const timer = setTimeout(() => {
-        setIsOpen(true);
-        setCurrentStep(0);
-      }, 800);
-      return () => clearTimeout(timer);
-    }
+    if (hasSeen || steps.length === 0) return undefined;
 
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const timer = setTimeout(() => {
+      setIsOpen(true);
+      setCurrentStep(0);
+    }, 800);
+
+    return () => clearTimeout(timer);
   }, [storageKey, steps.length]);
+
+  // Mantém a interface responsiva mesmo quando o tour já foi visualizado anteriormente.
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    handleResize();
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // REMOVIDO: Bloqueio de scroll do body. O scroll agora é livre.
   useEffect(() => {
@@ -183,7 +184,6 @@ const TreinAITour = ({
 
     const target = getTargetElement();
     if (!target) {
-      // Se o target sumiu, tenta ir para o próximo passo
       if (currentStep < steps.length - 1) {
         setCurrentStep(prev => prev + 1);
       } else {
@@ -200,116 +200,8 @@ const TreinAITour = ({
       height: rect.height + highlightPadding * 2,
     });
 
-    // Scroll para o elemento alvo, garantindo que ele e o tooltip fiquem visíveis
-    const tooltipElement = tooltipRef.current;
-    if (tooltipElement) {
-      const tooltipRect = tooltipElement.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-
-      let scrollYTarget = window.scrollY; // Começa com a posição atual do scroll
-      const targetCenterY = rect.top + rect.height / 2;
-
-      // Se o target estiver fora da viewport (total ou parcialmente)
-      if (rect.top < 0 || rect.bottom > viewportHeight) {
-        // Tenta centralizar o target na viewport
-        scrollYTarget = window.scrollY + rect.top - viewportHeight / 2 + rect.height / 2;
-      }
-
-      // Ajusta o scroll para garantir que o tooltip também esteja visível
-      if (!isMobile) { // Apenas para desktop, já que mobile tem bottom-sheet
-        if (tooltipPos === 'bottom') {
-          // Se o tooltip está abaixo do target e a parte inferior do tooltip está fora da tela
-          if (rect.bottom + tooltipRect.height + 20 > viewportHeight) {
-            // Se o tooltip não cabe abaixo, tenta posicionar acima
-            if (rect.top - tooltipRect.height - 20 >= 0) {
-              setTooltipPos('top'); // Força a mudança de posição para 'top'
-            } else {
-              // Se não cabe nem acima nem abaixo, ajusta o scroll para mostrar o tooltip
-              scrollYTarget = window.scrollY + (rect.bottom + tooltipRect.height + 20) - viewportHeight + 20; // +20 para margem
-            }
-          }
-        } else if (tooltipPos === 'top') {
-          // Se o tooltip está acima do target e a parte superior do tooltip está fora da tela
-          if (rect.top - tooltipRect.height - 20 < 0) {
-            // Se o tooltip não cabe acima, tenta posicionar abaixo
-            if (rect.bottom + tooltipRect.height + 20 <= viewportHeight) {
-              setTooltipPos('bottom'); // Força a mudança de posição para 'bottom'
-            } else {
-              // Se não cabe nem acima nem abaixo, ajusta o scroll para mostrar o tooltip
-              scrollYTarget = window.scrollY + (rect.top - tooltipRect.height - 20) - 20; // -20 para margem
-            }
-          }
-        }
-      } else { // Lógica específica para mobile (bottom-sheet)
-        const targetBottom = rect.bottom + window.scrollY;
-        const viewportBottom = window.innerHeight + window.scrollY;
-        const tooltipTop = viewportBottom - tooltipRect.height; 
-
-        if (targetBottom > tooltipTop) {
-          // Se o target estiver sendo coberto pelo tooltip, scrolla para que o target fique acima do tooltip
-          scrollYTarget = window.scrollY + rect.top - (viewportHeight - tooltipRect.height) / 2; // Centraliza acima do tooltip
-        }
-      }
-
-      // Aplica o scroll apenas se a posição calculada for diferente da atual
-      if (Math.abs(scrollYTarget - window.scrollY) > 1) { // Usar uma pequena tolerância
-        window.scrollTo({
-          top: scrollYTarget,
-          behavior: 'smooth'
-        });
-      }
-
-      // Recalcula a posição do tooltip após o scroll (se houver)
-      const newPos = calculatePosition(target, tooltipElement);
-      if (newPos !== tooltipPos) {
-        setTooltipPos(newPos);
-      }
-    }
-
     animationFrameRef.current = requestAnimationFrame(updatePosition);
-  }, [isOpen, currentStep, steps.length, highlightPadding, getTargetElement, isMobile, tooltipPos]);
-
-  const calculatePosition = useCallback((target, tooltip) => {
-    if (!target || !tooltip) return 'bottom';
-    const targetRect = target.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const step = steps[currentStep];
-
-    // Força bottom-sheet em mobile
-    if (isMobile) return 'bottom-sheet';
-
-    const positions = ['bottom', 'top', 'right', 'left'];
-    const fits = {
-      bottom: (targetRect.bottom + tooltipRect.height + 20 <= viewportHeight) && 
-              (targetRect.left + tooltipRect.width / 2 <= viewportWidth) &&
-              (targetRect.left - tooltipRect.width / 2 >= 0),
-      top: (targetRect.top - tooltipRect.height - 20 >= 0) &&
-           (targetRect.left + tooltipRect.width / 2 <= viewportWidth) &&
-           (targetRect.left - tooltipRect.width / 2 >= 0),
-      right: (targetRect.right + tooltipRect.width + 20 <= viewportWidth) &&
-             (targetRect.top + tooltipRect.height / 2 <= viewportHeight) &&
-             (targetRect.top - tooltipRect.height / 2 >= 0),
-      left: (targetRect.left - tooltipRect.width - 20 >= 0) &&
-            (targetRect.top + tooltipRect.height / 2 <= viewportHeight) &&
-            (targetRect.top - tooltipRect.height / 2 >= 0),
-    };
-
-    // Tenta encontrar uma posição que caiba, priorizando a preferida do step
-    if (step?.preferredPosition && fits[step.preferredPosition]) {
-      return step.preferredPosition;
-    }
-    
-    // Se a posição preferida não couber, tenta outras na ordem
-    for (const pos of positions) {
-      if (fits[pos]) return pos;
-    }
-
-    // Se nenhuma posição couber completamente, tenta a que tem mais espaço
-    // Ou fallback para bottom, mas com scroll ajustado
-    return 'bottom';
-  }, [currentStep, steps, isMobile]);
+  }, [isOpen, currentStep, steps.length, highlightPadding, getTargetElement]);
 
   // Efeito principal para gerenciar o tour
   useEffect(() => {
@@ -343,60 +235,18 @@ const TreinAITour = ({
         return;
       }
 
-      // Scroll inicial para o elemento alvo e tooltip
-      const tooltipElement = tooltipRef.current;
-      if (tooltipElement) {
-        const tooltipRect = tooltipElement.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
+      // Revela a div-alvo e reserva espaço visual para o painel que ficará dentro dela.
+      target.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest',
+      });
 
-        let scrollYTarget = window.scrollY; 
-        const rect = target.getBoundingClientRect();
-
-        // Se o target estiver fora da viewport (total ou parcialmente)
-        if (rect.top < 0 || rect.bottom > viewportHeight) {
-          // Tenta centralizar o target na viewport
-          scrollYTarget = window.scrollY + rect.top - viewportHeight / 2 + rect.height / 2;
-        }
-
-        if (!isMobile) { 
-          if (tooltipPos === 'bottom') {
-            if (rect.bottom + tooltipRect.height + 20 > viewportHeight) {
-              if (rect.top - tooltipRect.height - 20 >= 0) {
-                setTooltipPos('top'); 
-              } else {
-                scrollYTarget = window.scrollY + (rect.bottom + tooltipRect.height + 20) - viewportHeight + 20; 
-              }
-            }
-          } else if (tooltipPos === 'top') {
-            if (rect.top - tooltipRect.height - 20 < 0) {
-              if (rect.bottom + tooltipRect.height + 20 <= viewportHeight) {
-                setTooltipPos('bottom'); 
-              } else {
-                scrollYTarget = window.scrollY + (rect.top - tooltipRect.height - 20) - 20; 
-              }
-            }
-          }
-        } else { 
-          const targetBottom = rect.bottom + window.scrollY;
-          const viewportBottom = window.innerHeight + window.scrollY;
-          const tooltipTop = viewportBottom - tooltipRect.height; 
-
-          if (targetBottom > tooltipTop) {
-            scrollYTarget = window.scrollY + rect.top - (viewportHeight - tooltipRect.height) / 2;
-          }
-        }
-
-        window.scrollTo({
-          top: scrollYTarget,
-          behavior: 'smooth'
-        });
-      }
-
-      // Pequeno delay para garantir que o scroll terminou antes de calcular a posição
+      // Aguarda o scroll estabilizar antes de iniciar o acompanhamento contínuo.
       setTimeout(() => {
         setIsAnimating(false);
-        updatePosition(); // Inicia o loop de atualização contínua
-      }, 300); // Ajuste este valor se o scroll for muito lento
+        updatePosition();
+      }, 260);
     };
 
     initStep();
@@ -405,7 +255,7 @@ const TreinAITour = ({
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (toggleTimeoutRef.current) clearTimeout(toggleTimeoutRef.current);
     };
-  }, [isOpen, currentStep, steps.length, smartToggle, getTargetElement, updatePosition, isMobile, tooltipPos]);
+  }, [isOpen, currentStep, steps.length, smartToggle, getTargetElement, updatePosition]);
 
   const handleNext = () => {
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
@@ -463,108 +313,74 @@ const TreinAITour = ({
   if (!isOpen || !targetRect) return null;
   const step = steps[currentStep];
   if (!step) return null;
+  const isCompactPanel = isMobile || targetRect.width < 460;
 
   const getTooltipStyles = () => {
-    const base = {
-      position: 'fixed',
-      zIndex: zIndex + 10,
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      opacity: isAnimating || isToggling ? 0 : 1,
-      transform: isAnimating || isToggling ? 'scale(0.95)' : 'scale(1)',
-      pointerEvents: isToggling ? 'none' : 'auto',
-      boxSizing: 'border-box',
-    };
-    const spacing = 16;
-    const centerX = targetRect.left + targetRect.width / 2;
-    const centerY = targetRect.top + targetRect.height / 2;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    const viewportInset = isMobile ? 8 : 12;
+    const targetInset = Math.max(6, Math.min(isMobile ? 10 : 12, targetRect.width * 0.03));
+    const availableTargetWidth = Math.max(0, targetRect.width - targetInset * 2);
+    const viewportWidth = Math.max(0, vw - viewportInset * 2);
+    const preferredMaxWidth = isMobile ? 440 : 420;
 
-    let top, left, right, bottom, width, maxWidth;
+    // O mínimo de 220 px mantém os controles utilizáveis quando o alvo é muito estreito.
+    const width = Math.min(
+      preferredMaxWidth,
+      viewportWidth,
+      Math.max(220, availableTargetWidth),
+    );
 
-    if (isMobile) {
-      // Bottom-sheet style for mobile
-      top = 'auto';
-      bottom = '0';
-      left = '0';
-      right = '0';
-      width = '100%';
-      maxWidth = '100%';
-      // Ajustes para UI mais compacta no mobile
-      return { ...base, top, bottom, left, right, width, maxWidth, borderRadius: '16px 16px 0 0', padding: '12px 16px', maxHeight: '40vh', overflowY: 'auto' };
-    } else {
-      // Desktop positioning
-      maxWidth = 360;
-      width = 'max-content';
+    const measuredHeight = tooltipRef.current?.offsetHeight || (isMobile ? 220 : 230);
+    const availableTargetHeight = Math.max(120, targetRect.height - targetInset * 2);
+    const maxHeight = Math.min(vh - viewportInset * 2, availableTargetHeight);
+    const visibleHeight = Math.min(measuredHeight, maxHeight);
+    const centeredLeft = targetRect.left + (targetRect.width - width) / 2;
+    const desiredTop = targetRect.top + targetRect.height - targetInset - visibleHeight;
+    const left = Math.min(Math.max(centeredLeft, viewportInset), vw - width - viewportInset);
+    const top = Math.min(Math.max(desiredTop, viewportInset), vh - visibleHeight - viewportInset);
 
-      const tooltipWidth = tooltipRef.current?.offsetWidth || maxWidth;
-      const tooltipHeight = tooltipRef.current?.offsetHeight || 100; // Estimativa
-
-      // Clamp left/right to stay within viewport
-      let calculatedLeft = Math.min(Math.max(centerX - tooltipWidth / 2, spacing), vw - tooltipWidth - spacing);
-      let calculatedRight = 'auto';
-
-      // Clamp top/bottom to stay within viewport
-      let calculatedTop = 'auto';
-      let calculatedBottom = 'auto';
-
-      switch (tooltipPos) {
-        case 'top':
-          calculatedBottom = `${vh - targetRect.top + spacing}px`;
-          calculatedTop = 'auto'; // Reset top
-          break;
-        case 'bottom':
-          calculatedTop = `${targetRect.top + targetRect.height + spacing}px`;
-          calculatedBottom = 'auto'; // Reset bottom
-          break;
-        case 'left':
-          calculatedTop = `${Math.min(Math.max(centerY - tooltipHeight / 2, spacing), vh - tooltipHeight - spacing)}px`;
-          calculatedRight = `${vw - targetRect.left + spacing}px`;
-          calculatedLeft = 'auto'; // Reset left
-          break;
-        case 'right':
-          calculatedTop = `${Math.min(Math.max(centerY - tooltipHeight / 2, spacing), vh - tooltipHeight - spacing)}px`;
-          calculatedLeft = `${targetRect.left + targetRect.width + spacing}px`;
-          calculatedRight = 'auto'; // Reset right
-          break;
-        default:
-          // Fallback to bottom
-          calculatedTop = `${targetRect.top + targetRect.height + spacing}px`;
-          calculatedBottom = 'auto';
-          break;
-      }
-
-      // Garante que o tooltip não saia da viewport verticalmente no desktop
-      if (calculatedTop !== 'auto' && parseFloat(calculatedTop) + tooltipHeight + spacing > vh) {
-        calculatedTop = `${vh - tooltipHeight - spacing}px`;
-      }
-      if (calculatedBottom !== 'auto' && parseFloat(calculatedBottom) + tooltipHeight + spacing > vh) {
-        calculatedBottom = `${vh - tooltipHeight - spacing}px`;
-      }
-
-      return { ...base, top: calculatedTop, left: calculatedLeft, right: calculatedRight, bottom: calculatedBottom, width, maxWidth };
-    }
+    return {
+      position: 'fixed',
+      top,
+      left,
+      width,
+      maxWidth: 'calc(100vw - 16px)',
+      maxHeight,
+      overflowY: 'auto',
+      overscrollBehavior: 'contain',
+      zIndex: zIndex + 10,
+      opacity: isAnimating || isToggling ? 0 : 1,
+      transform: isAnimating || isToggling ? 'translateY(6px) scale(0.97)' : 'translateY(0) scale(1)',
+      transformOrigin: 'center bottom',
+      transition: 'opacity 180ms cubic-bezier(0.23, 1, 0.32, 1), transform 180ms cubic-bezier(0.23, 1, 0.32, 1)',
+      pointerEvents: isToggling ? 'none' : 'auto',
+      boxSizing: 'border-box',
+      borderRadius: isMobile ? 14 : 16,
+      scrollbarWidth: 'thin',
+      scrollbarColor: 'rgba(110, 231, 183, 0.55) transparent',
+    };
   };
 
   const overlayPath = `M 0 0 L ${window.innerWidth} 0 L ${window.innerWidth} ${window.innerHeight} L 0 ${window.innerHeight} Z M ${targetRect.left} ${targetRect.top} L ${targetRect.left + targetRect.width} ${targetRect.top} L ${targetRect.left + targetRect.width} ${targetRect.top + targetRect.height} L ${targetRect.left} ${targetRect.top + targetRect.height} Z`;
   const tooltipStyles = getTooltipStyles();
 
   return createPortal(
-    <div ref={containerRef} style={{ position: 'fixed', inset: 0, zIndex }}>
+    <div ref={containerRef} style={{ position: 'fixed', inset: 0, zIndex, pointerEvents: 'none' }}>
       <svg style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: zIndex + 1, pointerEvents: 'none' }}> {/* pointerEvents: 'none' para permitir interação com o fundo */}
         <path d={overlayPath} fill={overlayColor} fillRule="evenodd" style={{ transition: 'd 0.3s ease' }} />
         <rect x={targetRect.left} y={targetRect.top} width={targetRect.width} height={targetRect.height} rx={8} fill="none" stroke="#10b981" strokeWidth={3} style={{ filter: 'drop-shadow(0 0 8px rgba(16, 185, 129, 0.5))', animation: 'treinai-pulse 2s ease-in-out infinite' }} />
       </svg>
 
-      <div ref={tooltipRef} style={tooltipStyles} className="treinai-tour-tooltip">
-        <div style={{ background: '#1f2937', borderRadius: isMobile ? '16px 16px 0 0' : 16, padding: isMobile ? '12px 16px' : '20px 24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <div ref={tooltipRef} style={tooltipStyles} className="treinai-tour-tooltip" role="dialog" aria-modal="false" aria-label={`Etapa ${currentStep + 1} de ${steps.length}: ${step.title || 'Tour guiado'}`}>
+        <div style={{ background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.80), rgba(17, 24, 39, 0.66))', WebkitBackdropFilter: 'blur(18px) saturate(145%)', backdropFilter: 'blur(18px) saturate(145%)', border: '1px solid rgba(255, 255, 255, 0.18)', borderRadius: isMobile ? 14 : 16, padding: isCompactPanel ? '12px 14px' : '18px 20px', boxShadow: '0 18px 44px rgba(2, 6, 23, 0.35), inset 0 1px 0 rgba(255,255,255,0.10)', color: '#fff', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', isolation: 'isolate' }}>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: isMobile ? 8 : 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: isCompactPanel ? 8 : 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', minWidth: 0, gap: 8 }}>
               <span style={{ background: '#10b981', color: '#fff', fontSize: isMobile ? 10 : 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, letterSpacing: '0.05em' }}>
                 {currentStep + 1} / {steps.length}
               </span>
-              {step.title && <span style={{ fontSize: isMobile ? 12 : 13, fontWeight: 600, color: '#e5e7eb' }}>{step.title}</span>}
+              {step.title && <span style={{ minWidth: 0, fontSize: isCompactPanel ? 12 : 13, fontWeight: 650, color: '#f3f4f6', overflowWrap: 'anywhere' }}>{step.title}</span>}
             </div>
             <button onClick={handleSkip} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'} aria-label="Fechar tour">
               <FiX size={isMobile ? 16 : 18} />
@@ -578,24 +394,24 @@ const TreinAITour = ({
             </div>
           ) : (
             <>
-              <div style={{ marginBottom: isMobile ? 12 : 20 }}>
-                <p style={{ margin: 0, fontSize: isMobile ? 13 : 14, lineHeight: 1.6, color: '#d1d5db' }}>{step.content}</p>
-                {step.hint && <p style={{ margin: '8px 0 0', fontSize: isMobile ? 10 : 12, color: '#6ee7b7', fontStyle: 'italic', lineHeight: 1.5 }}>💡 {step.hint}</p>}
+              <div style={{ marginBottom: isCompactPanel ? 12 : 18 }}>
+                <p style={{ margin: 0, fontSize: isCompactPanel ? 12 : 14, lineHeight: 1.55, color: '#e5e7eb', overflowWrap: 'anywhere' }}>{step.content}</p>
+                {step.hint && <p style={{ margin: '8px 0 0', fontSize: isCompactPanel ? 10 : 12, color: '#a7f3d0', fontStyle: 'italic', lineHeight: 1.45, overflowWrap: 'anywhere' }}><strong>Dica:</strong> {step.hint}</p>}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: isMobile ? 'column-reverse' : 'row', gap: isMobile ? 8 : 0 }}>
-                <div style={{ display: 'flex', gap: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: isCompactPanel ? 'column-reverse' : 'row', gap: isCompactPanel ? 10 : 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 5, maxWidth: '100%' }}>
                   {steps.map((_, idx) => (
                     <div key={idx} style={{ width: 8, height: 8, borderRadius: '50%', background: idx === currentStep ? '#10b981' : idx < currentStep ? '#059669' : '#374151', transition: 'all 0.3s', cursor: idx < currentStep ? 'pointer' : 'default' }} onClick={() => idx < currentStep && setCurrentStep(idx)} />
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: isCompactPanel ? '100%' : 'auto', justifyContent: isCompactPanel ? 'stretch' : 'flex-end' }}>
                   {currentStep > 0 && (
-                    <button onClick={handlePrev} style={{ background: 'transparent', border: '1px solid #4b5563', color: '#d1d5db', padding: isMobile ? '8px 12px' : '6px 12px', borderRadius: 8, fontSize: isMobile ? 12 : 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, flexGrow: isMobile ? 1 : 0, justifyContent: 'center' }}>
+                    <button onClick={handlePrev} style={{ minHeight: 34, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.20)', color: '#f3f4f6', padding: isCompactPanel ? '8px 12px' : '7px 12px', borderRadius: 9, fontSize: isCompactPanel ? 12 : 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, flex: isCompactPanel ? '1 1 0' : '0 0 auto', justifyContent: 'center', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background 160ms ease-out' }}>
                       <FiChevronLeft size={isMobile ? 14 : 14} /> Voltar
                     </button>
                   )}
-                  <button onClick={handleNext} style={{ background: '#10b981', border: 'none', color: '#fff', padding: isMobile ? '8px 12px' : '6px 16px', borderRadius: 8, fontSize: isMobile ? 12 : 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)', flexGrow: isMobile ? 1 : 0, justifyContent: 'center' }}>
+                  <button onClick={handleNext} style={{ minHeight: 34, background: 'linear-gradient(135deg, #10b981, #059669)', border: '1px solid rgba(255,255,255,0.18)', color: '#fff', padding: isCompactPanel ? '8px 12px' : '7px 16px', borderRadius: 9, fontSize: isCompactPanel ? 12 : 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, boxShadow: '0 6px 16px rgba(5, 150, 105, 0.30)', flex: isCompactPanel ? '1 1 0' : '0 0 auto', justifyContent: 'center', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1), filter 160ms ease-out' }}>
                     {currentStep === steps.length - 1 ? 'Concluir' : 'Próximo'}
                     <FiChevronRight size={isMobile ? 14 : 14} />
                   </button>
@@ -604,8 +420,8 @@ const TreinAITour = ({
             </>
           )}
 
-          <div style={{ marginTop: isMobile ? 8 : 12, textAlign: 'center' }}>
-            <button onClick={handleSkip} style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>Pular tour</button>
+          <div style={{ marginTop: isCompactPanel ? 8 : 12, textAlign: 'center' }}>
+            <button onClick={handleSkip} style={{ background: 'none', border: 'none', color: '#cbd5e1', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>Pular tour</button>
           </div>
         </div>
       </div>
@@ -613,6 +429,12 @@ const TreinAITour = ({
       <style>{`
         @keyframes treinai-pulse { 0%, 100% { stroke-opacity: 1; } 50% { stroke-opacity: 0.6; } }
         @keyframes treinai-spin { to { transform: rotate(360deg); } }
+        .treinai-tour-tooltip button:active { transform: scale(0.97); }
+        .treinai-tour-tooltip button:focus-visible { outline: 2px solid #6ee7b7; outline-offset: 2px; }
+        @media (prefers-reduced-motion: reduce) {
+          .treinai-tour-tooltip { transition: none !important; }
+          .treinai-tour-tooltip * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+        }
       `}</style>
     </div>,
     document.body
