@@ -3,11 +3,14 @@ import { createPortal } from 'react-dom';
 import { FiX, FiChevronRight, FiChevronLeft, FiRotateCcw } from 'react-icons/fi';
 
 /**
- * TreinAITour v3.0 — Product Tour com divToggle INTELIGENTE
+ * TreinAITour v3.1 — Product Tour com divToggle INTELIGENTE e melhorias de responsividade
  * 
  * NOVO: SmartToggle — detecta se a div já está aberta antes de clicar.
  * Se clicar e a div FECHAR (diminuir de tamanho), detecta e clica de novo.
  * Se já estiver aberta, não clica — evita fechar por engano.
+ * 
+ * NOVO: Bloqueio de scroll do body enquanto o tour está ativo.
+ * NOVO: Melhorias de responsividade para o tooltip.
  * 
  * Props do step:
  *   target: string (querySelector) — elemento a destacar
@@ -51,6 +54,18 @@ const TreinAITour = ({
       return () => clearTimeout(timer);
     }
   }, [storageKey, steps.length]);
+
+  // Bloqueia o scroll do body quando o tour está aberto
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = ''; // Garante que o scroll seja reativado ao desmontar
+    };
+  }, [isOpen]);
 
   const getTargetElement = useCallback(() => {
     const step = steps[currentStep];
@@ -219,6 +234,7 @@ const TreinAITour = ({
         height: rect.height + highlightPadding * 2,
       });
 
+      // Scroll para o elemento alvo, garantindo que esteja visível
       target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
 
       const checkTooltip = () => {
@@ -283,7 +299,7 @@ const TreinAITour = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentStep, isToggling]);
+  }, [isOpen, currentStep, isToggling, handleNext, handlePrev, handleSkip]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -297,11 +313,16 @@ const TreinAITour = ({
           width: rect.width + highlightPadding * 2,
           height: rect.height + highlightPadding * 2,
         });
+        // Recalcular a posição do tooltip ao redimensionar
+        if (tooltipRef.current) {
+          const pos = calculatePosition(target, tooltipRef.current);
+          setTooltipPos(pos);
+        }
       }
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [isOpen, currentStep, getTargetElement, highlightPadding]);
+  }, [isOpen, currentStep, getTargetElement, highlightPadding, calculatePosition]);
 
   useEffect(() => {
     return () => {
@@ -317,7 +338,7 @@ const TreinAITour = ({
     const base = {
       position: 'fixed',
       zIndex: zIndex + 10,
-      maxWidth: 360,
+      maxWidth: 'min(90vw, 360px)', // Responsivo: 90% da largura da viewport, máximo 360px
       width: 'max-content',
       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       opacity: isAnimating || isToggling ? 0 : 1,
@@ -330,18 +351,32 @@ const TreinAITour = ({
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
+    let top, left, right, bottom;
+
     switch (tooltipPos) {
       case 'top':
-        return { ...base, bottom: `${vh - targetRect.top + spacing}px`, left: `${Math.min(Math.max(centerX - 180, 16), vw - 392)}px` };
+        bottom = `${vh - targetRect.top + spacing}px`;
+        left = `${Math.min(Math.max(centerX - (tooltipRef.current?.offsetWidth || 360) / 2, 16), vw - (tooltipRef.current?.offsetWidth || 360) - 16)}px`;
+        break;
       case 'bottom':
-        return { ...base, top: `${targetRect.top + targetRect.height + spacing}px`, left: `${Math.min(Math.max(centerX - 180, 16), vw - 392)}px` };
+        top = `${targetRect.top + targetRect.height + spacing}px`;
+        left = `${Math.min(Math.max(centerX - (tooltipRef.current?.offsetWidth || 360) / 2, 16), vw - (tooltipRef.current?.offsetWidth || 360) - 16)}px`;
+        break;
       case 'left':
-        return { ...base, top: `${Math.min(Math.max(centerY - 100, 16), vh - 300)}px`, right: `${vw - targetRect.left + spacing}px` };
+        top = `${Math.min(Math.max(centerY - (tooltipRef.current?.offsetHeight || 100) / 2, 16), vh - (tooltipRef.current?.offsetHeight || 100) - 16)}px`;
+        right = `${vw - targetRect.left + spacing}px`;
+        break;
       case 'right':
-        return { ...base, top: `${Math.min(Math.max(centerY - 100, 16), vh - 300)}px`, left: `${targetRect.left + targetRect.width + spacing}px` };
+        top = `${Math.min(Math.max(centerY - (tooltipRef.current?.offsetHeight || 100) / 2, 16), vh - (tooltipRef.current?.offsetHeight || 100) - 16)}px`;
+        left = `${targetRect.left + targetRect.width + spacing}px`;
+        break;
       default:
-        return base;
+        top = `${targetRect.top + targetRect.height + spacing}px`;
+        left = `${Math.min(Math.max(centerX - (tooltipRef.current?.offsetWidth || 360) / 2, 16), vw - (tooltipRef.current?.offsetWidth || 360) - 16)}px`;
+        break;
     }
+
+    return { ...base, top, left, right, bottom };
   };
 
   const overlayPath = `M 0 0 L ${window.innerWidth} 0 L ${window.innerWidth} ${window.innerHeight} L 0 ${window.innerHeight} Z M ${targetRect.left} ${targetRect.top} L ${targetRect.left + targetRect.width} ${targetRect.top} L ${targetRect.left + targetRect.width} ${targetRect.top + targetRect.height} L ${targetRect.left} ${targetRect.top + targetRect.height} Z`;
@@ -373,7 +408,6 @@ const TreinAITour = ({
             <div style={{ padding: '20px 0', textAlign: 'center' }}>
               <div style={{ width: 32, height: 32, border: '3px solid #374151', borderTopColor: '#10b981', borderRadius: '50%', animation: 'treinai-spin 0.8s linear infinite', margin: '0 auto 12px' }} />
               <p style={{ margin: 0, fontSize: 13, color: '#9ca3af' }}>{toggleStatus}</p>
-              <p style={{ margin: '8px 0 0', fontSize: 11, color: '#6b7280' }}>Detectando estado da seção...</p>
             </div>
           ) : (
             <>
