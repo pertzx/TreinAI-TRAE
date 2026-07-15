@@ -3,14 +3,12 @@ import { createPortal } from 'react-dom';
 import { FiX, FiChevronRight, FiChevronLeft, FiRotateCcw } from 'react-icons/fi';
 
 /**
- * TreinAITour v3.1 — Product Tour com divToggle INTELIGENTE e melhorias de responsividade
- * 
- * NOVO: SmartToggle — detecta se a div já está aberta antes de clicar.
- * Se clicar e a div FECHAR (diminuir de tamanho), detecta e clica de novo.
- * Se já estiver aberta, não clica — evita fechar por engano.
+ * TreinAITour v4.0 — Product Tour com divToggle INTELIGENTE, responsividade aprimorada e sincronização de posição robusta
  * 
  * NOVO: Bloqueio de scroll do body enquanto o tour está ativo.
- * NOVO: Melhorias de responsividade para o tooltip.
+ * NOVO: Sincronização contínua da posição do destaque e tooltip via requestAnimationFrame.
+ * NOVO: Interface mobile otimizada (bottom-sheet) para melhor usabilidade em dispositivos pequenos.
+ * NOVO: Melhorias de responsividade para o tooltip em geral.
  * 
  * Props do step:
  *   target: string (querySelector) — elemento a destacar
@@ -20,6 +18,7 @@ import { FiX, FiChevronRight, FiChevronLeft, FiRotateCcw } from 'react-icons/fi'
  */
 
 const STORAGE_PREFIX = 'treinai-tour-';
+const MOBILE_BREAKPOINT = 768; // px
 
 const TreinAITour = ({
   tourId = 'default',
@@ -37,13 +36,16 @@ const TreinAITour = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [toggleStatus, setToggleStatus] = useState(''); // feedback visual
+  const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT);
+
   const tooltipRef = useRef(null);
   const containerRef = useRef(null);
   const toggleTimeoutRef = useRef(null);
+  const animationFrameRef = useRef(null);
 
   const storageKey = `${STORAGE_PREFIX}${tourId}`;
 
-  // Verifica se o usuário já viu o tour
+  // Verifica se o usuário já viu o tour e lida com responsividade inicial
   useEffect(() => {
     const hasSeen = localStorage.getItem(storageKey);
     if (!hasSeen && steps.length > 0) {
@@ -53,6 +55,12 @@ const TreinAITour = ({
       }, 800);
       return () => clearTimeout(timer);
     }
+
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, [storageKey, steps.length]);
 
   // Bloqueia o scroll do body quando o tour está aberto
@@ -172,6 +180,43 @@ const TreinAITour = ({
     return { success: true, reason: 'already-open' };
   }, [currentStep, steps, getTargetElement]);
 
+  const updatePosition = useCallback(async () => {
+    if (!isOpen) return;
+
+    const target = getTargetElement();
+    if (!target) {
+      // Se o target sumiu, tenta ir para o próximo passo
+      if (currentStep < steps.length - 1) {
+        setCurrentStep(prev => prev + 1);
+      } else {
+        handleComplete();
+      }
+      return;
+    }
+
+    const rect = target.getBoundingClientRect();
+    setTargetRect({
+      top: rect.top - highlightPadding,
+      left: rect.left - highlightPadding,
+      width: rect.width + highlightPadding * 2,
+      height: rect.height + highlightPadding * 2,
+    });
+
+    // Scroll para o elemento alvo, garantindo que esteja visível
+    // Apenas scrolla se o elemento não estiver completamente visível
+    const isPartiallyVisible = rect.top < 0 || rect.bottom > window.innerHeight || rect.left < 0 || rect.right > window.innerWidth;
+    if (isPartiallyVisible) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }
+
+    if (tooltipRef.current) {
+      const pos = calculatePosition(target, tooltipRef.current);
+      setTooltipPos(pos);
+    }
+
+    animationFrameRef.current = requestAnimationFrame(updatePosition);
+  }, [isOpen, currentStep, steps.length, highlightPadding, getTargetElement]);
+
   const calculatePosition = useCallback((target, tooltip) => {
     if (!target || !tooltip) return 'bottom';
     const targetRect = target.getBoundingClientRect();
@@ -179,6 +224,9 @@ const TreinAITour = ({
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const step = steps[currentStep];
+
+    // Força bottom-sheet em mobile
+    if (isMobile) return 'bottom-sheet';
 
     const positions = ['bottom', 'top', 'right', 'left'];
     const fits = {
@@ -200,21 +248,26 @@ const TreinAITour = ({
       return step.preferredPosition;
     }
     return positions.find(p => fits[p]) || 'bottom';
-  }, [currentStep, steps]);
+  }, [currentStep, steps, isMobile]);
 
-  // Atualiza posição do spotlight e tooltip
+  // Efeito principal para gerenciar o tour
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      return;
+    }
 
-    const run = async () => {
-      // Primeiro: smart toggle (abre se necessário)
+    const initStep = async () => {
+      setIsAnimating(true);
       const toggleResult = await smartToggle();
 
       if (!toggleResult.success) {
-        // Se não conseguiu abrir, pula para o próximo passo
         if (currentStep < steps.length - 1) {
           setCurrentStep(prev => prev + 1);
+        } else {
+          handleComplete();
         }
+        setIsAnimating(false);
         return;
       }
 
@@ -222,35 +275,33 @@ const TreinAITour = ({
       if (!target) {
         if (currentStep < steps.length - 1) {
           setCurrentStep(prev => prev + 1);
+        } else {
+          handleComplete();
         }
+        setIsAnimating(false);
         return;
       }
 
-      const rect = target.getBoundingClientRect();
-      setTargetRect({
-        top: rect.top - highlightPadding,
-        left: rect.left - highlightPadding,
-        width: rect.width + highlightPadding * 2,
-        height: rect.height + highlightPadding * 2,
-      });
-
-      // Scroll para o elemento alvo, garantindo que esteja visível
+      // Scroll inicial para o elemento alvo
       target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
 
-      const checkTooltip = () => {
-        if (tooltipRef.current) {
-          const pos = calculatePosition(target, tooltipRef.current);
-          setTooltipPos(pos);
-        }
-      };
-      const timer = setTimeout(checkTooltip, 100);
-      return () => clearTimeout(timer);
+      // Pequeno delay para garantir que o scroll terminou antes de calcular a posição
+      setTimeout(() => {
+        setIsAnimating(false);
+        updatePosition(); // Inicia o loop de atualização contínua
+      }, 300); // Ajuste este valor se o scroll for muito lento
     };
 
-    run();
-  }, [isOpen, currentStep, getTargetElement, calculatePosition, highlightPadding, steps.length, smartToggle]);
+    initStep();
+
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (toggleTimeoutRef.current) clearTimeout(toggleTimeoutRef.current);
+    };
+  }, [isOpen, currentStep, steps.length, smartToggle, getTargetElement, updatePosition]);
 
   const handleNext = () => {
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     setIsAnimating(true);
     setTimeout(() => {
       if (currentStep < steps.length - 1) {
@@ -263,6 +314,7 @@ const TreinAITour = ({
   };
 
   const handlePrev = () => {
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     if (currentStep > 0) {
       setIsAnimating(true);
       setTimeout(() => {
@@ -299,36 +351,7 @@ const TreinAITour = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentStep, isToggling, handleNext, handlePrev, handleSkip]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleResize = () => {
-      const target = getTargetElement();
-      if (target) {
-        const rect = target.getBoundingClientRect();
-        setTargetRect({
-          top: rect.top - highlightPadding,
-          left: rect.left - highlightPadding,
-          width: rect.width + highlightPadding * 2,
-          height: rect.height + highlightPadding * 2,
-        });
-        // Recalcular a posição do tooltip ao redimensionar
-        if (tooltipRef.current) {
-          const pos = calculatePosition(target, tooltipRef.current);
-          setTooltipPos(pos);
-        }
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [isOpen, currentStep, getTargetElement, highlightPadding, calculatePosition]);
-
-  useEffect(() => {
-    return () => {
-      if (toggleTimeoutRef.current) clearTimeout(toggleTimeoutRef.current);
-    };
-  }, []);
+  }, [isOpen, isToggling, handleNext, handlePrev, handleSkip]);
 
   if (!isOpen || !targetRect) return null;
   const step = steps[currentStep];
@@ -338,12 +361,11 @@ const TreinAITour = ({
     const base = {
       position: 'fixed',
       zIndex: zIndex + 10,
-      maxWidth: 'min(90vw, 360px)', // Responsivo: 90% da largura da viewport, máximo 360px
-      width: 'max-content',
       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       opacity: isAnimating || isToggling ? 0 : 1,
       transform: isAnimating || isToggling ? 'scale(0.95)' : 'scale(1)',
       pointerEvents: isToggling ? 'none' : 'auto',
+      boxSizing: 'border-box',
     };
     const spacing = 16;
     const centerX = targetRect.left + targetRect.width / 2;
@@ -351,32 +373,50 @@ const TreinAITour = ({
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    let top, left, right, bottom;
+    let top, left, right, bottom, width, maxWidth;
 
-    switch (tooltipPos) {
-      case 'top':
-        bottom = `${vh - targetRect.top + spacing}px`;
-        left = `${Math.min(Math.max(centerX - (tooltipRef.current?.offsetWidth || 360) / 2, 16), vw - (tooltipRef.current?.offsetWidth || 360) - 16)}px`;
-        break;
-      case 'bottom':
-        top = `${targetRect.top + targetRect.height + spacing}px`;
-        left = `${Math.min(Math.max(centerX - (tooltipRef.current?.offsetWidth || 360) / 2, 16), vw - (tooltipRef.current?.offsetWidth || 360) - 16)}px`;
-        break;
-      case 'left':
-        top = `${Math.min(Math.max(centerY - (tooltipRef.current?.offsetHeight || 100) / 2, 16), vh - (tooltipRef.current?.offsetHeight || 100) - 16)}px`;
-        right = `${vw - targetRect.left + spacing}px`;
-        break;
-      case 'right':
-        top = `${Math.min(Math.max(centerY - (tooltipRef.current?.offsetHeight || 100) / 2, 16), vh - (tooltipRef.current?.offsetHeight || 100) - 16)}px`;
-        left = `${targetRect.left + targetRect.width + spacing}px`;
-        break;
-      default:
-        top = `${targetRect.top + targetRect.height + spacing}px`;
-        left = `${Math.min(Math.max(centerX - (tooltipRef.current?.offsetWidth || 360) / 2, 16), vw - (tooltipRef.current?.offsetWidth || 360) - 16)}px`;
-        break;
+    if (isMobile) {
+      // Bottom-sheet style for mobile
+      top = 'auto';
+      bottom = '0';
+      left = '0';
+      right = '0';
+      width = '100%';
+      maxWidth = '100%';
+      return { ...base, top, bottom, left, right, width, maxWidth, borderRadius: '16px 16px 0 0', padding: '20px 16px' };
+    } else {
+      // Desktop positioning
+      maxWidth = 360;
+      width = 'max-content';
+
+      const tooltipWidth = tooltipRef.current?.offsetWidth || maxWidth;
+      const tooltipHeight = tooltipRef.current?.offsetHeight || 100; // Estimativa
+
+      switch (tooltipPos) {
+        case 'top':
+          bottom = `${vh - targetRect.top + spacing}px`;
+          left = `${Math.min(Math.max(centerX - tooltipWidth / 2, spacing), vw - tooltipWidth - spacing)}px`;
+          break;
+        case 'bottom':
+          top = `${targetRect.top + targetRect.height + spacing}px`;
+          left = `${Math.min(Math.max(centerX - tooltipWidth / 2, spacing), vw - tooltipWidth - spacing)}px`;
+          break;
+        case 'left':
+          top = `${Math.min(Math.max(centerY - tooltipHeight / 2, spacing), vh - tooltipHeight - spacing)}px`;
+          right = `${vw - targetRect.left + spacing}px`;
+          break;
+        case 'right':
+          top = `${Math.min(Math.max(centerY - tooltipHeight / 2, spacing), vh - tooltipHeight - spacing)}px`;
+          left = `${targetRect.left + targetRect.width + spacing}px`;
+          break;
+        default:
+          // Fallback to bottom
+          top = `${targetRect.top + targetRect.height + spacing}px`;
+          left = `${Math.min(Math.max(centerX - tooltipWidth / 2, spacing), vw - tooltipWidth - spacing)}px`;
+          break;
+      }
+      return { ...base, top, left, right, bottom, width, maxWidth };
     }
-
-    return { ...base, top, left, right, bottom };
   };
 
   const overlayPath = `M 0 0 L ${window.innerWidth} 0 L ${window.innerWidth} ${window.innerHeight} L 0 ${window.innerHeight} Z M ${targetRect.left} ${targetRect.top} L ${targetRect.left + targetRect.width} ${targetRect.top} L ${targetRect.left + targetRect.width} ${targetRect.top + targetRect.height} L ${targetRect.left} ${targetRect.top + targetRect.height} Z`;
@@ -390,7 +430,7 @@ const TreinAITour = ({
       </svg>
 
       <div ref={tooltipRef} style={tooltipStyles} className="treinai-tour-tooltip">
-        <div style={{ background: '#1f2937', borderRadius: 16, padding: '20px 24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+        <div style={{ background: '#1f2937', borderRadius: isMobile ? '16px 16px 0 0' : 16, padding: isMobile ? '20px 16px' : '20px 24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -412,25 +452,25 @@ const TreinAITour = ({
           ) : (
             <>
               <div style={{ marginBottom: 20 }}>
-                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: '#d1d5db' }}>{step.content}</p>
-                {step.hint && <p style={{ margin: '12px 0 0', fontSize: 12, color: '#6ee7b7', fontStyle: 'italic', lineHeight: 1.5 }}>💡 {step.hint}</p>}
+                <p style={{ margin: 0, fontSize: isMobile ? 13 : 14, lineHeight: 1.6, color: '#d1d5db' }}>{step.content}</p>
+                {step.hint && <p style={{ margin: '12px 0 0', fontSize: isMobile ? 11 : 12, color: '#6ee7b7', fontStyle: 'italic', lineHeight: 1.5 }}>💡 {step.hint}</p>}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: isMobile ? 'column-reverse' : 'row', gap: isMobile ? 12 : 0 }}>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {steps.map((_, idx) => (
                     <div key={idx} style={{ width: 8, height: 8, borderRadius: '50%', background: idx === currentStep ? '#10b981' : idx < currentStep ? '#059669' : '#374151', transition: 'all 0.3s', cursor: idx < currentStep ? 'pointer' : 'default' }} onClick={() => idx < currentStep && setCurrentStep(idx)} />
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
                   {currentStep > 0 && (
-                    <button onClick={handlePrev} style={{ background: 'transparent', border: '1px solid #4b5563', color: '#d1d5db', padding: '6px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <FiChevronLeft size={14} /> Voltar
+                    <button onClick={handlePrev} style={{ background: 'transparent', border: '1px solid #4b5563', color: '#d1d5db', padding: isMobile ? '10px 16px' : '6px 12px', borderRadius: 8, fontSize: isMobile ? 14 : 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, flexGrow: isMobile ? 1 : 0, justifyContent: 'center' }}>
+                      <FiChevronLeft size={isMobile ? 16 : 14} /> Voltar
                     </button>
                   )}
-                  <button onClick={handleNext} style={{ background: '#10b981', border: 'none', color: '#fff', padding: '6px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)' }}>
+                  <button onClick={handleNext} style={{ background: '#10b981', border: 'none', color: '#fff', padding: isMobile ? '10px 16px' : '6px 16px', borderRadius: 8, fontSize: isMobile ? 14 : 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)', flexGrow: isMobile ? 1 : 0, justifyContent: 'center' }}>
                     {currentStep === steps.length - 1 ? 'Concluir' : 'Próximo'}
-                    <FiChevronRight size={14} />
+                    <FiChevronRight size={isMobile ? 16 : 14} />
                   </button>
                 </div>
               </div>
