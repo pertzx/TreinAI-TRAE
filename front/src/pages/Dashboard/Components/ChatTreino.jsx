@@ -16,13 +16,6 @@ import TokenUsageBar from "../../../components/TokenUsageBar.jsx";
 import AchievementCard from "../../../components/AchievementCard.jsx";
 import { adsEnabled } from "../../../utils/planAccess.js";
 
-/* Fallback simples */
-const exerciciosMock = [
-  { nome: "Supino Reto", instrucoes: "Deite no banco...", series: "3x12 - Desc 60s", imagem: "Supino Reto", pse: 7 },
-  { nome: "Agachamento Livre", instrucoes: "Mantenha as costas...", series: "4x10 - Desc 90s", imagem: "Agachamento Livre", pse: 8 },
-  { nome: "Remada Curvada", instrucoes: "Puxe em direção ao abdômen.", series: "3x12 - Desc 60s", imagem: "Remada Curvada", pse: 5 },
-];
-
 /* Persistência do progresso do treino (sobrevive a reload). Expira em 12h. */
 const PROGRESS_KEY = (email) => `treino_progress_v1_${email || 'anon'}`;
 const loadProgress = (email) => {
@@ -96,17 +89,12 @@ const ChatTreino = ({ tema = "dark", user }) => {
     return <span key={`parsed-${getBrazilDate()}`}>{parts}</span>;
   };
 
-  // treinos (fallback)
+  // treinos (sem fallback mockado):
+  // se user.meusTreinos está vazio, tratamos como [] e a UI mostra estado vazio.
   const treinosDisponiveis =
     user?.meusTreinos && user.meusTreinos.length
       ? user.meusTreinos
-      : [
-        {
-          treinoName: "Treino Demo",
-          descricao: 'Esse é um treino de demonstração, para criar seus treinos clique em "Gerenciar treinos"',
-          exercicios: exerciciosMock,
-        },
-      ];
+      : [];
 
   // pure helper: compute next treino index given treinos and histórico
   const computeNextIndex = (treinos, userHistorico) => {
@@ -326,9 +314,6 @@ const ChatTreino = ({ tema = "dark", user }) => {
   // registrar histórico
   const registrarTreinoHistorico = async (registroLocal) => {
     if (!registroLocal) return;
-    if (registroLocal.treinoName === "Treino Demo" || registroLocal.descricao === 'Esse é um treino de demonstração, para criar seus treinos clique em "Gerenciar treinos"') {
-      return;
-    }
     try {
       // Registrar no histórico
       await api.post("/publicar-no-historico", {
@@ -493,7 +478,7 @@ const ChatTreino = ({ tema = "dark", user }) => {
   // exibe exercício
   const exibirExercicio = (exerciseIndex, treinoIdx = treinoIndex) => {
     const treino = treinosDisponiveis[treinoIdx] || treinosDisponiveis[0];
-    const exercicios = treino.exercicios && treino.exercicios.length ? treino.exercicios : exerciciosMock;
+    const exercicios = (treino && Array.isArray(treino.exercicios)) ? treino.exercicios : [];
     const ex = exercicios[exerciseIndex];
     if (!ex) { adicionarMensagem("Nenhum exercício encontrado.", "bot"); return; }
 
@@ -810,9 +795,11 @@ const ChatTreino = ({ tema = "dark", user }) => {
   }
 
   // progresso
-  const totalExercicios = treinoAtual?.exercicios?.length || exerciciosMock.length;
-  const progresso = ((indiceAtual + (exerciseComplete ? 1 : 0)) / totalExercicios) * 100;
-  const currentEx = treinoAtual?.exercicios?.[indiceAtual] || exerciciosMock[0];
+  const totalExercicios = treinoAtual?.exercicios?.length || 0;
+  const progresso = totalExercicios > 0
+    ? ((indiceAtual + (exerciseComplete ? 1 : 0)) / totalExercicios) * 100
+    : 0;
+  const currentEx = treinoAtual?.exercicios?.[indiceAtual] || null;
 
   // RENDER
   const content = (

@@ -38,7 +38,7 @@ import { checkAiBudget } from '../middlewares/tokenLimitMiddleware.js';
 import { queueMiddleware } from '../middlewares/queueMiddleware.js';
 import { getSupports, pedirSuporte } from '../controllers/SupportController.js';
 import { logAudit } from '../helpers/auditLog.js';
-import { salvarNotaAluno, getNotaAluno, listarTemplates, salvarTemplate, deletarTemplate } from '../controllers/professionalTools.js';
+import { salvarNotaAluno, getNotaAluno } from '../controllers/professionalTools.js';
 import { salvarAnamnese, getAnamnese, getAnamneseAluno } from '../controllers/anamnese.js';
 import { getAiHistory, appendAiHistory, clearAiHistory } from '../controllers/aiHistory.js';
 
@@ -212,12 +212,9 @@ router.get('/heartbeat/coach-students', verificarToken, getCoachStudentsHeartbea
 // Importar middlewares de autorização
 import { isSelf, canAccessAluno, isChatParticipant, isAdmin } from '../middlewares/authorizationMiddleware.js';
 
-// Ferramentas do profissional: notas privadas por aluno e templates de treino/dieta
+// Ferramentas do profissional: notas privadas por aluno (templates de treino/dieta foram removidos)
 router.post('/aluno/salvar-nota', verificarToken, canAccessAluno, salvarNotaAluno);
 router.post('/aluno/get-nota', verificarToken, canAccessAluno, getNotaAluno);
-router.get('/templates', verificarToken, listarTemplates);
-router.post('/templates/salvar', verificarToken, salvarTemplate);
-router.post('/templates/deletar', verificarToken, deletarTemplate);
 
 // Anamnese: aluno preenche/lê a própria; profissional lê a de um aluno vinculado
 router.post('/anamnese/salvar', verificarToken, salvarAnamnese);

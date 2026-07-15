@@ -25,7 +25,7 @@ import HistoricoChart from '../Components/HistoricoChart';
 import ChatNutriAI from '../Components/ChatNutriAi';
 import AlunoNotas from '../Components/AlunoNotas';
 import AlunoAnamnese from '../Components/AlunoAnamnese';
-import TemplatesManager from '../Components/TemplatesManager';
+// Templates de treino/dieta do profissional foram removidos (não funcionam).
 import InteractionStatsChart from '../Components/InteractionStatsChart';
 import { useToast } from '../../../components/Toast';
 import { buildImageUrl } from '../../../utils/imageUtils';
@@ -1365,16 +1365,6 @@ const Coach = ({ user, tema = 'dark' }) => {
                       />
                     </div>
                   )}
-
-                  {/* Templates reutilizáveis de treino/dieta */}
-                  <details className="mb-6">
-                    <summary className={`cursor-pointer text-sm font-medium ${theme.muted} mb-2`}>
-                      Meus templates de treino/dieta
-                    </summary>
-                    <div className="mt-2">
-                      <TemplatesManager tema={tema} />
-                    </div>
-                  </details>
 
                   {/* Heartbeat Chart - Online Status dos Alunos */}
                   <motion.div

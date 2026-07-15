@@ -19,14 +19,18 @@ export const verificarToken = (req, res, next) => {
     }
 
     if (!token) {
-        return res.status(401).json({ msg: "Token não fornecido!" });
+      return res.status(401).json({
+        msg: "Token não fornecido!",
+        code: 'AUTH_INVALID'
+      });
     }
 
     jwt.verify(token, SECRET_JWT, (err, decoded) => {
         if (err) {
             console.error('Token verification error:', err);
-            return res.status(403).json({ 
+            return res.status(403).json({
                 msg: "Token inválido ou expirado!",
+                code: 'AUTH_INVALID',
                 error: process.env.NODE_ENV === 'development' ? err.message : undefined
             });
         }

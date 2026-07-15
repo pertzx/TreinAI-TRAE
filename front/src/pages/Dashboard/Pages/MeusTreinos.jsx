@@ -50,6 +50,8 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   const saveTimeoutRef = useRef(null);
   const lastSavedRef = useRef(getBrazilDate());
   const mountedRef = useRef(true);
+  // Trava de requests em voo (evita duplicatas por duplo-clique/Enter duplo)
+  const inFlightRef = useRef(new Set());
 
   // Toast
   const { showWarning, showTokenUsage } = useToast();
@@ -207,8 +209,12 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
   const generateTreinoIA = async (nome) => {
     if (!canEditSync()) { setRebuke(true); return; }
     if (!nome || !nome.trim()) return;
-    
+
     const key = 'novoTreino';
+    // Trava in-flight: bloqueia chamadas duplicadas (Enter duplo, double-click)
+    if (inFlightRef.current.has(key)) return;
+    inFlightRef.current.add(key);
+
     setLoadingIA(prev => ({ ...prev, [key]: true }));
     const payload = { email: user.email, nome, profissionalId };
 
@@ -216,7 +222,7 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
       const res = await api.post('/gerar-treino-ia', payload);
       if (res?.data?.tokensUsed) showTokenUsage(res.data.tokensUsed);
       if (res?.data?.msg) showToast(res.data.msg, res.data.success ? 'success' : 'info');
-      
+
       if (res?.data?.user && typeof setUser === 'function') {
         setUser(res.data.user);
         syncMeusTreinosFromUser(res.data.user);
@@ -232,22 +238,16 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
         if (typeof setUser === 'function' && user) {
           setUser({ ...user, meusTreinos: updated });
         }
-      } else {
-        // Fallback local se a API não retornar a lista atualizada
-        const newTreino = {
-          treinoId: `local-${Date.now()}`,
-          treinoName: nome,
-          descricao: 'Treino gerado (atualize para sincronizar)',
-          ordem: meusTreinos.length + 1,
-          exercicios: []
-        };
-        saveChangesLocal([...meusTreinos, newTreino]);
       }
+      // Sem fallback local: treinos com prefixo "local-..." eram orfãos no DB
+      // (o backend usa treinoId UUID ao deletar, então não conseguia remover)
+      // Atualiza sempre a partir da resposta canônica do backend.
     } catch (err) {
       console.error('Erro ao gerar treino:', err);
       showToast(err?.response?.data?.msg || 'Erro ao criar treino', 'error');
     } finally {
       setLoadingIA(prev => ({ ...prev, [key]: false }));
+      inFlightRef.current.delete(key);
     }
   };
 

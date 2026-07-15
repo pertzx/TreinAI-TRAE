@@ -98,6 +98,7 @@ Use tipos coerentes (strings para texto, numbers para números). Não inclua com
 
     // Registrar uso de IA pelo custo (R$)
     const _usage = resp?.usage || {};
+    const tokensUsed = Number(_usage.total_tokens || 0);
     await registerAiUsage(email, {
       model: OPENAI_MODEL,
       promptTokens: Number(_usage.prompt_tokens || 0),
@@ -133,6 +134,18 @@ Use tipos coerentes (strings para texto, numbers para números). Não inclua com
     };
 
     user.meusTreinos = user.meusTreinos || [];
+
+    // Dedup por treinoName (case-insensitive, trim) para evitar duplicatas
+    const treinoNameLower = String(parsed.treinoGerado.treinoName || '').trim().toLowerCase();
+    const dup = user.meusTreinos.find(t => String(t.treinoName || '').trim().toLowerCase() === treinoNameLower);
+    if (dup) {
+      return res.status(200).json({
+        msg: 'Você já tem um treino com esse nome.',
+        success: false,
+        treino: dup
+      });
+    }
+
     user.meusTreinos.push(novoTreino);
 
     // Se houver profissionalId, atualiza o profissional.alunos.ultimoUpdate (não obrigatório)
@@ -235,6 +248,7 @@ Retorne apenas JSON puro. Use tipos corretos.
 
     // Registrar uso de IA pelo custo (R$)
     const _usage = resp?.usage || {};
+    const tokensUsed = Number(_usage.total_tokens || 0);
     await registerAiUsage(email, {
       model: OPENAI_MODEL,
       promptTokens: Number(_usage.prompt_tokens || 0),

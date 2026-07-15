@@ -20,9 +20,6 @@ const HEARTBEAT_ROUTES = [
   '/aluno/anamnese',
   '/aluno/salvar-nota',
   '/aluno/get-nota',
-  '/templates',
-  '/templates/salvar',
-  '/templates/deletar',
 ];
 
 const isHeartbeatRoute = (path) => {

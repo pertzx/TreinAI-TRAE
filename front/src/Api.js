@@ -94,18 +94,14 @@ const createResponseErrorHandler = (instance) => async (error) => {
     return Promise.reject(error);
   }
 
-  // Se erro 403 genérico relacionado à autenticação (JWT inválido/expirado)
+  // Se erro 403: só desloga se for falha de autenticação explícita
+  // (não confundir com 403 de permissão, CSRF já tratado acima, etc.).
   if (status === 403) {
-    const errorMsg = data?.msg || data?.error || '';
-    const isAuthRelated = errorMsg.toLowerCase().includes('token') ||
-                          errorMsg.toLowerCase().includes('auth') ||
-                          errorMsg.toLowerCase().includes('expirado') ||
-                          errorMsg.toLowerCase().includes('inválido');
-
-    if (isAuthRelated) {
+    if (data?.code === 'AUTH_INVALID') {
       handleAuthFailure();
       return Promise.reject(error);
     }
+    return Promise.reject(error);
   }
 
   return Promise.reject(error);

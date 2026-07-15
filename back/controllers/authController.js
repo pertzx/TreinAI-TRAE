@@ -1293,21 +1293,15 @@ export const carregarTreinos = async (req, res) => {
       return res.status(400).json({ msg: 'O seu plano está inativo!' });
     }
 
-    // Caso já tenha treinos
-    if (user.tentouCriarMeusTreinos) {
-      return res.json({ msg: 'Você já tentou criar treinos. As vezes demora pra carregar. Recarregue a página para ver os treinos criados!', user: stripAiCostForClient(user), total_tokens: 0 });
-    }
-
-    if (Array.isArray(user.meusTreinos) && user.meusTreinos.length > 0) {
-      return res.json({ msg: 'Você já tem treinos criados', user: stripAiCostForClient(user), total_tokens: 0 });
+    // Caso já tenha treinos (não bloqueia retry após deletar todos)
+    // Só bloqueia se existe a flag E o array está vazio E save falhou antes (falso).
+    // Mais simples: só bloqueia se a flag existe E há treinos.
+    if (user.tentouCriarMeusTreinos && Array.isArray(user.meusTreinos) && user.meusTreinos.length > 0) {
+      return res.json({ msg: 'Você já tem treinos criados. Vá em Meus Treinos para visualizá-los.', user: stripAiCostForClient(user), total_tokens: 0 });
     }
 
     // Sem treinos: gerar via IA
     const meusTreinosResp = await criarTreinos(user.perfil?.objetivo, email);
-    user.tentouCriarMeusTreinos = true;
-    await user.save();
-
-    console.log('meusTreinosResp', meusTreinosResp);
     const treinosGPT = meusTreinosResp?.treinos || meusTreinosResp || [];
     const totalTokens = Number(meusTreinosResp?.total_tokens) || 0;
 
@@ -1359,12 +1353,16 @@ export const carregarTreinos = async (req, res) => {
 
     console.log(meusTreinos)
 
-    // Atualiza o user com findByIdAndUpdate (evita VersionError)
+    // Atualiza o user com findByIdAndUpdate (evita VersionError).
+    // Marcamos tentouCriarMeusTreinos=true junto com os treinos, numa única escrita,
+    // para evitar o bug antigo em que a flag era salva ANTES da IA terminar e o
+    // usuário ficava preso, sem treinos e sem possibilidade de retry.
     await User.findByIdAndUpdate(
       user._id,
       {
         $set: {
-          meusTreinos
+          meusTreinos,
+          tentouCriarMeusTreinos: true
         }
       },
       { new: true }
