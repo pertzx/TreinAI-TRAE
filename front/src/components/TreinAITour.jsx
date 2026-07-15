@@ -3,14 +3,14 @@ import { createPortal } from 'react-dom';
 import { FiX, FiChevronRight, FiChevronLeft, FiRotateCcw } from 'react-icons/fi';
 
 /**
- * TreinAITour v4.3 — Product Tour com divToggle INTELIGENTE, responsividade aprimorada e sincronização de posição robusta
+ * TreinAITour v5.1 — Product Tour com scroll livre, destaque sincronizado e painel de controle "sticky"
  * 
- * NOVO: Bloqueio de scroll do body enquanto o tour está ativo.
+ * NOVO: Scroll livre do body permitido. O destaque e o tooltip seguem o elemento alvo.
  * NOVO: Sincronização contínua da posição do destaque e tooltip via requestAnimationFrame.
  * NOVO: Interface mobile otimizada (bottom-sheet) para melhor usabilidade em dispositivos pequenos.
  * NOVO: Melhorias de responsividade para o tooltip em geral.
  * NOVO: UI mobile mais compacta e elegante.
- * NOVO: Correção de visibilidade do tooltip para elementos no final da página (desktop).
+ * NOVO: Correção de visibilidade do tooltip para elementos no final da página (desktop) com clamping e flipping.
  * 
  * Props do step:
  *   target: string (querySelector) — elemento a destacar
@@ -65,17 +65,13 @@ const TreinAITour = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [storageKey, steps.length]);
 
-  // Bloqueia o scroll do body quando o tour está aberto
+  // REMOVIDO: Bloqueio de scroll do body. O scroll agora é livre.
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    // Apenas garante que o overflow esteja normal ao desmontar
     return () => {
-      document.body.style.overflow = ''; // Garante que o scroll seja reativado ao desmontar
+      document.body.style.overflow = '';
     };
-  }, [isOpen]);
+  }, []);
 
   const getTargetElement = useCallback(() => {
     const step = steps[currentStep];
@@ -182,7 +178,7 @@ const TreinAITour = ({
     return { success: true, reason: 'already-open' };
   }, [currentStep, steps, getTargetElement]);
 
-  const updatePosition = useCallback(async () => {
+  const updatePosition = useCallback(() => {
     if (!isOpen) return;
 
     const target = getTargetElement();
@@ -204,45 +200,70 @@ const TreinAITour = ({
       height: rect.height + highlightPadding * 2,
     });
 
-    // Scroll para o elemento alvo, garantindo que esteja visível
-    // Apenas scrolla se o elemento não estiver completamente visível
-    const isPartiallyVisible = rect.top < 0 || rect.bottom > window.innerHeight || rect.left < 0 || rect.right > window.innerWidth;
-    if (isPartiallyVisible) {
-      const tooltipHeight = tooltipRef.current?.offsetHeight || (isMobile ? 150 : 100); // Estimar altura do tooltip
-      let scrollOffset = 0;
+    // Scroll para o elemento alvo, garantindo que ele e o tooltip fiquem visíveis
+    const tooltipElement = tooltipRef.current;
+    if (tooltipElement) {
+      const tooltipRect = tooltipElement.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
 
-      if (isMobile) {
-        // No mobile, o tooltip é bottom-sheet, então precisamos garantir que o target esteja acima dele.
-        // A parte inferior do target deve estar acima da parte superior do tooltip.
+      let scrollYTarget = window.scrollY; // Começa com a posição atual do scroll
+      const targetCenterY = rect.top + rect.height / 2;
+
+      // Se o target estiver fora da viewport (total ou parcialmente)
+      if (rect.top < 0 || rect.bottom > viewportHeight) {
+        // Tenta centralizar o target na viewport
+        scrollYTarget = window.scrollY + rect.top - viewportHeight / 2 + rect.height / 2;
+      }
+
+      // Ajusta o scroll para garantir que o tooltip também esteja visível
+      if (!isMobile) { // Apenas para desktop, já que mobile tem bottom-sheet
+        if (tooltipPos === 'bottom') {
+          // Se o tooltip está abaixo do target e a parte inferior do tooltip está fora da tela
+          if (rect.bottom + tooltipRect.height + 20 > viewportHeight) {
+            // Se o tooltip não cabe abaixo, tenta posicionar acima
+            if (rect.top - tooltipRect.height - 20 >= 0) {
+              setTooltipPos('top'); // Força a mudança de posição para 'top'
+            } else {
+              // Se não cabe nem acima nem abaixo, ajusta o scroll para mostrar o tooltip
+              scrollYTarget = window.scrollY + (rect.bottom + tooltipRect.height + 20) - viewportHeight + 20; // +20 para margem
+            }
+          }
+        } else if (tooltipPos === 'top') {
+          // Se o tooltip está acima do target e a parte superior do tooltip está fora da tela
+          if (rect.top - tooltipRect.height - 20 < 0) {
+            // Se o tooltip não cabe acima, tenta posicionar abaixo
+            if (rect.bottom + tooltipRect.height + 20 <= viewportHeight) {
+              setTooltipPos('bottom'); // Força a mudança de posição para 'bottom'
+            } else {
+              // Se não cabe nem acima nem abaixo, ajusta o scroll para mostrar o tooltip
+              scrollYTarget = window.scrollY + (rect.top - tooltipRect.height - 20) - 20; // -20 para margem
+            }
+          }
+        }
+      } else { // Lógica específica para mobile (bottom-sheet)
         const targetBottom = rect.bottom + window.scrollY;
         const viewportBottom = window.innerHeight + window.scrollY;
-        const tooltipTop = viewportBottom - tooltipHeight; // Posição superior do tooltip bottom-sheet
+        const tooltipTop = viewportBottom - tooltipRect.height; 
 
         if (targetBottom > tooltipTop) {
-          scrollOffset = targetBottom - tooltipTop + 20; // 20px de margem
-        }
-      } else {
-        // No desktop, se o tooltip for posicionado abaixo e for cortado, scrolla para cima.
-        // Ou se for posicionado acima e for cortado, scrolla para baixo.
-        const tooltipRect = tooltipRef.current?.getBoundingClientRect();
-        if (tooltipRect) {
-          if (tooltipPos === 'bottom' && (rect.bottom + tooltipRect.height + 20 > window.innerHeight)) {
-            scrollOffset = (rect.bottom + tooltipRect.height + 20) - window.innerHeight;
-          } else if (tooltipPos === 'top' && (rect.top - tooltipRect.height - 20 < 0)) {
-            scrollOffset = (rect.top - tooltipRect.height - 20);
-          }
+          // Se o target estiver sendo coberto pelo tooltip, scrolla para que o target fique acima do tooltip
+          scrollYTarget = window.scrollY + rect.top - (viewportHeight - tooltipRect.height) / 2; // Centraliza acima do tooltip
         }
       }
 
-      window.scrollTo({
-        top: window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2 + scrollOffset,
-        behavior: 'smooth'
-      });
-    }
+      // Aplica o scroll apenas se a posição calculada for diferente da atual
+      if (Math.abs(scrollYTarget - window.scrollY) > 1) { // Usar uma pequena tolerância
+        window.scrollTo({
+          top: scrollYTarget,
+          behavior: 'smooth'
+        });
+      }
 
-    if (tooltipRef.current) {
-      const pos = calculatePosition(target, tooltipRef.current);
-      setTooltipPos(pos);
+      // Recalcula a posição do tooltip após o scroll (se houver)
+      const newPos = calculatePosition(target, tooltipElement);
+      if (newPos !== tooltipPos) {
+        setTooltipPos(newPos);
+      }
     }
 
     animationFrameRef.current = requestAnimationFrame(updatePosition);
@@ -322,33 +343,54 @@ const TreinAITour = ({
         return;
       }
 
-      // Scroll inicial para o elemento alvo
-      const tooltipHeight = tooltipRef.current?.offsetHeight || (isMobile ? 150 : 100); // Estimar altura do tooltip
-      let scrollOffset = 0;
+      // Scroll inicial para o elemento alvo e tooltip
+      const tooltipElement = tooltipRef.current;
+      if (tooltipElement) {
+        const tooltipRect = tooltipElement.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
 
-      if (isMobile) {
-        const targetBottom = target.getBoundingClientRect().bottom + window.scrollY;
-        const viewportBottom = window.innerHeight + window.scrollY;
-        const tooltipTop = viewportBottom - tooltipHeight; 
+        let scrollYTarget = window.scrollY; 
+        const rect = target.getBoundingClientRect();
 
-        if (targetBottom > tooltipTop) {
-          scrollOffset = targetBottom - tooltipTop + 20; 
+        // Se o target estiver fora da viewport (total ou parcialmente)
+        if (rect.top < 0 || rect.bottom > viewportHeight) {
+          // Tenta centralizar o target na viewport
+          scrollYTarget = window.scrollY + rect.top - viewportHeight / 2 + rect.height / 2;
         }
-      } else {
-        const tooltipRect = tooltipRef.current?.getBoundingClientRect();
-        if (tooltipRect) {
-          if (tooltipPos === 'bottom' && (target.getBoundingClientRect().bottom + tooltipRect.height + 20 > window.innerHeight)) {
-            scrollOffset = (target.getBoundingClientRect().bottom + tooltipRect.height + 20) - window.innerHeight;
-          } else if (tooltipPos === 'top' && (target.getBoundingClientRect().top - tooltipRect.height - 20 < 0)) {
-            scrollOffset = (target.getBoundingClientRect().top - tooltipRect.height - 20);
+
+        if (!isMobile) { 
+          if (tooltipPos === 'bottom') {
+            if (rect.bottom + tooltipRect.height + 20 > viewportHeight) {
+              if (rect.top - tooltipRect.height - 20 >= 0) {
+                setTooltipPos('top'); 
+              } else {
+                scrollYTarget = window.scrollY + (rect.bottom + tooltipRect.height + 20) - viewportHeight + 20; 
+              }
+            }
+          } else if (tooltipPos === 'top') {
+            if (rect.top - tooltipRect.height - 20 < 0) {
+              if (rect.bottom + tooltipRect.height + 20 <= viewportHeight) {
+                setTooltipPos('bottom'); 
+              } else {
+                scrollYTarget = window.scrollY + (rect.top - tooltipRect.height - 20) - 20; 
+              }
+            }
+          }
+        } else { 
+          const targetBottom = rect.bottom + window.scrollY;
+          const viewportBottom = window.innerHeight + window.scrollY;
+          const tooltipTop = viewportBottom - tooltipRect.height; 
+
+          if (targetBottom > tooltipTop) {
+            scrollYTarget = window.scrollY + rect.top - (viewportHeight - tooltipRect.height) / 2;
           }
         }
-      }
 
-      window.scrollTo({
-        top: window.scrollY + target.getBoundingClientRect().top - window.innerHeight / 2 + target.getBoundingClientRect().height / 2 + scrollOffset,
-        behavior: 'smooth'
-      });
+        window.scrollTo({
+          top: scrollYTarget,
+          behavior: 'smooth'
+        });
+      }
 
       // Pequeno delay para garantir que o scroll terminou antes de calcular a posição
       setTimeout(() => {
@@ -458,30 +500,49 @@ const TreinAITour = ({
       const tooltipWidth = tooltipRef.current?.offsetWidth || maxWidth;
       const tooltipHeight = tooltipRef.current?.offsetHeight || 100; // Estimativa
 
+      // Clamp left/right to stay within viewport
+      let calculatedLeft = Math.min(Math.max(centerX - tooltipWidth / 2, spacing), vw - tooltipWidth - spacing);
+      let calculatedRight = 'auto';
+
+      // Clamp top/bottom to stay within viewport
+      let calculatedTop = 'auto';
+      let calculatedBottom = 'auto';
+
       switch (tooltipPos) {
         case 'top':
-          bottom = `${vh - targetRect.top + spacing}px`;
-          left = `${Math.min(Math.max(centerX - tooltipWidth / 2, spacing), vw - tooltipWidth - spacing)}px`;
+          calculatedBottom = `${vh - targetRect.top + spacing}px`;
+          calculatedTop = 'auto'; // Reset top
           break;
         case 'bottom':
-          top = `${targetRect.top + targetRect.height + spacing}px`;
-          left = `${Math.min(Math.max(centerX - tooltipWidth / 2, spacing), vw - tooltipWidth - spacing)}px`;
+          calculatedTop = `${targetRect.top + targetRect.height + spacing}px`;
+          calculatedBottom = 'auto'; // Reset bottom
           break;
         case 'left':
-          top = `${Math.min(Math.max(centerY - tooltipHeight / 2, spacing), vh - tooltipHeight - spacing)}px`;
-          right = `${vw - targetRect.left + spacing}px`;
+          calculatedTop = `${Math.min(Math.max(centerY - tooltipHeight / 2, spacing), vh - tooltipHeight - spacing)}px`;
+          calculatedRight = `${vw - targetRect.left + spacing}px`;
+          calculatedLeft = 'auto'; // Reset left
           break;
         case 'right':
-          top = `${Math.min(Math.max(centerY - tooltipHeight / 2, spacing), vh - tooltipHeight - spacing)}px`;
-          left = `${targetRect.left + targetRect.width + spacing}px`;
+          calculatedTop = `${Math.min(Math.max(centerY - tooltipHeight / 2, spacing), vh - tooltipHeight - spacing)}px`;
+          calculatedLeft = `${targetRect.left + targetRect.width + spacing}px`;
+          calculatedRight = 'auto'; // Reset right
           break;
         default:
           // Fallback to bottom
-          top = `${targetRect.top + targetRect.height + spacing}px`;
-          left = `${Math.min(Math.max(centerX - tooltipWidth / 2, spacing), vw - tooltipWidth - spacing)}px`;
+          calculatedTop = `${targetRect.top + targetRect.height + spacing}px`;
+          calculatedBottom = 'auto';
           break;
       }
-      return { ...base, top, left, right, bottom, width, maxWidth };
+
+      // Garante que o tooltip não saia da viewport verticalmente no desktop
+      if (calculatedTop !== 'auto' && parseFloat(calculatedTop) + tooltipHeight + spacing > vh) {
+        calculatedTop = `${vh - tooltipHeight - spacing}px`;
+      }
+      if (calculatedBottom !== 'auto' && parseFloat(calculatedBottom) + tooltipHeight + spacing > vh) {
+        calculatedBottom = `${vh - tooltipHeight - spacing}px`;
+      }
+
+      return { ...base, top: calculatedTop, left: calculatedLeft, right: calculatedRight, bottom: calculatedBottom, width, maxWidth };
     }
   };
 
@@ -490,7 +551,7 @@ const TreinAITour = ({
 
   return createPortal(
     <div ref={containerRef} style={{ position: 'fixed', inset: 0, zIndex }}>
-      <svg style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: zIndex + 1, pointerEvents: 'auto' }}>
+      <svg style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: zIndex + 1, pointerEvents: 'none' }}> {/* pointerEvents: 'none' para permitir interação com o fundo */}
         <path d={overlayPath} fill={overlayColor} fillRule="evenodd" style={{ transition: 'd 0.3s ease' }} />
         <rect x={targetRect.left} y={targetRect.top} width={targetRect.width} height={targetRect.height} rx={8} fill="none" stroke="#10b981" strokeWidth={3} style={{ filter: 'drop-shadow(0 0 8px rgba(16, 185, 129, 0.5))', animation: 'treinai-pulse 2s ease-in-out infinite' }} />
       </svg>
