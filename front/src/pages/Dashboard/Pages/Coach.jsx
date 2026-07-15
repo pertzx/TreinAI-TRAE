@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { hasAccess } from '../../../utils/planAccess.js';
 import { AnimatePresence, motion } from 'framer-motion';
-import { FiChevronDown, FiChevronUp, FiUsers, FiSettings, FiRefreshCw, FiUserPlus, FiStar, FiTrendingUp, FiEye, FiMousePointer, FiWifi, FiWifiOff, FiHeart, FiActivity, FiMapPin } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiUsers, FiSettings, FiRefreshCw, FiUserPlus, FiStar, FiTrendingUp, FiEye, FiMousePointer, FiWifi, FiWifiOff, FiHeart, FiActivity } from 'react-icons/fi';
 import { HiSparkles, HiAcademicCap } from 'react-icons/hi';
 import { MdDashboard, MdPersonAdd } from 'react-icons/md';
 import {
@@ -31,8 +31,6 @@ import { useToast } from '../../../components/Toast';
 import { buildImageUrl } from '../../../utils/imageUtils';
 import { getBrazilDate } from '../../../../helpers/getBrazilDate';
 import CoachAccessDenied from '../../../components/CoachAccessDenied';
-// ====== IMPORT DO TOUR ======
-import TreinAITour, { TourRestartButton } from '../../../components/TreinAITour';
 
 ChartJS.register(
   ArcElement,
@@ -65,62 +63,11 @@ const getSpecialtyTheme = (especialidade = 'personal-trainner', isDark = true) =
   return map[especialidade] || map['personal-trainner'];
 };
 
-// ====== PASSOS DO TOUR ======
-const COACH_TOUR_STEPS = [
-  {
-    target: '#coach-header-stats',
-    title: 'Cabeçalho do Painel',
-    content: 'Aqui você vê sua identidade profissional, especialidade e status de conexão em tempo real. O ícone verde indica que o WebSocket está ativo.',
-    hint: 'Mantenha sempre sua especialidade atualizada para aparecer nos filtros corretos.'
-  },
-  {
-    target: '#coach-quick-stats',
-    title: 'Estatísticas em Tempo Real',
-    content: 'Acompanhe seus números principais: total de alunos ativos, taxa de engajamento, visitas ao seu perfil e cliques no link de convite.',
-    hint: 'Alunos com engajamento acima de 80% têm 3x mais chances de renovar.'
-  },
-  {
-    target: '#coach-perfil-card',
-    title: 'Perfil Profissional',
-    content: 'Seu cartão de visitas digital. Aqui estão sua foto, biografia, especialidade e localização. Tudo que os clientes veem na seção "Encontrar".',
-    hint: 'Use uma foto profissional e biografia completa para aumentar suas conversões.'
-  },
-  {
-    target: '#coach-link-convite',
-    title: 'Link de Convite',
-    content: 'Compartilhe este link com seus clientes para que eles possam se conectar diretamente ao seu perfil profissional.',
-    hint: 'Copie o link ou use o botão de compartilhar nativo do celular.'
-  },
-  {
-    target: '#coach-solicitacoes',
-    title: 'Solicitações Pendentes',
-    content: 'Novos clientes que enviaram solicitação de vínculo. Analise a mensagem deles e aceite ou recuse.',
-    hint: 'Responda rápido — clientes esperam no máximo 24h por uma resposta.'
-  },
-  {
-    target: '#coach-alunos-ativos',
-    title: 'Meus Alunos',
-    content: 'Seu centro de comando. Expanda cada aluno para ver anamnese, editar treinos, iniciar chat ou remover o vínculo.',
-    hint: 'Use o chat para enviar mensagens motivacionais — isso aumenta a retenção em 40%.'
-  },
-  {
-    target: '#coach-templates-section',
-    divToggle: '#btn-templates-toggle',
-    waitForVisible: 400,
-    title: 'Templates de Treino',
-    content: 'Crie templates de treino reutilizáveis e aplique em segundos para qualquer aluno. Organize por objetivo e nível de dificuldade.',
-    hint: 'Templates bem estruturados economizam até 70% do tempo de criação de treinos.'
-  },
-  {
-    target: '#coach-status-online',
-    title: 'Status Online dos Alunos',
-    content: 'Monitore quais alunos estão online agora, veja estatísticas por plano e acompanhe o engajamento em tempo real.',
-    hint: 'Alunos online são mais propensos a responder mensagens e completar treinos.'
-  }
-];
-
 const Coach = ({ user, tema = 'dark' }) => {
+  // Verificação de permissão: apenas usuários com plano coach ativo podem acessar
   const hasCoachAccess = hasAccess(user, 'coachPanel') && user?.planInfos?.status === 'ativo';
+
+  // Se não tem acesso, exibe componente de acesso negado
   if (!hasCoachAccess) {
     return <CoachAccessDenied tema={tema} />;
   }
@@ -261,6 +208,7 @@ const Coach = ({ user, tema = 'dark' }) => {
     if (!createForm.country) return 'Escolha o país.';
     if (!createForm.state) return 'Escolha o estado.';
     if (!createForm.city) return 'Escolha a cidade.';
+    // Imagem é opcional - removida validação obrigatória
     return null;
   };
 
@@ -376,84 +324,132 @@ const Coach = ({ user, tema = 'dark' }) => {
   };
 
   const pegarLocais = useCallback(async (signal) => {
-    if (!profissional) return;
+    if (!profissional) { setMeusLocais([]); return; }
     try {
-      const res = await api.get('/locais', { params: { profissionalId: profissional.profissionalId || profissional._id || profissional.userId }, signal });
-      if (mountedRef.current) setMeusLocais(res.data.locais || []);
+      const payload = { profissionalId: profissional.profissionalId || profissional._id || profissional.userId };
+      const res = await api.get('/locais', { params: payload, signal });
+      if (!mountedRef.current) return;
+      const items = res?.data?.data?.items || res?.data?.items || [];
+      setMeusLocais(Array.isArray(items) ? items : []);
     } catch (err) {
       if (err.name === 'CanceledError' || err.message === 'canceled') return;
-      console.error('Erro ao carregar locais:', err);
-      if (mountedRef.current) setMeusLocais([]);
+      console.error('Erro pegar locais:', err);
+      setMeusLocais([]);
     }
   }, [profissional]);
 
+  useEffect(() => {
+    const ctrl = new AbortController();
+    pegarLocais(ctrl.signal);
+    return () => ctrl.abort();
+  }, [profissional, pegarLocais]);
+
   const fetchAlunosDetails = useCallback(async (signal) => {
-    if (!profissional) return;
+    if (!profissional || !Array.isArray(profissional.alunos)) { setAlunosData([]); return; }
+    const alunos = profissional.alunos || [];
+    const initial = alunos.map(a => ({ userId: a.userId, ultimoUpdate: a.ultimoUpdate || a.updatedAt || a.criadoEm || null, mensagem: a.mensagem || null, loading: true, user: null, error: null, aceito: !!a.aceito, aceitoEm: a.aceitoEm || null }));
+    setAlunosData(initial);
+    const profissionalIdForQuery = profissional.profissionalId || profissional._id || profissional.userId;
+    const promises = alunos.map(a => api.get('/pegar-user', { params: { userId: a.userId, profissionalId: profissionalIdForQuery }, signal }).then(r => ({ ok: true, res: r })).catch(err => ({ ok: false, err })));
+    const results = await Promise.all(promises);
+    if (!mountedRef.current) return;
+    const updated = results.map((r, idx) => {
+      const a = alunos[idx];
+      if (r.ok) {
+        const payload = r.res?.data || {};
+        const foundUser = payload.user || payload;
+        return { userId: a.userId, ultimoUpdate: a.ultimoUpdate || null, mensagem: a.mensagem || null, loading: false, user: foundUser, error: null, aceito: !!a.aceito, aceitoEm: a.aceitoEm || null };
+      } else {
+        return { userId: a.userId, ultimoUpdate: a.ultimoUpdate || null, mensagem: a.mensagem || null, loading: false, user: null, error: r.err?.response?.data?.msg || r.err?.message || 'Erro ao carregar usuário', aceito: !!a.aceito, aceitoEm: a.aceitoEm || null };
+      }
+    });
+    setAlunosData(updated);
+  }, [profissional]);
+
+  useEffect(() => {
+    if (!profissional) { setAlunosData([]); return; }
+    const controller = new AbortController();
+    fetchAlunosDetails(controller.signal).catch(err => { if (!(err.name === 'CanceledError' || err.message === 'canceled')) console.warn(err); });
+    return () => controller.abort();
+  }, [profissional, fetchAlunosDetails]);
+
+  // Fetch heartbeat data for students
+  const fetchHeartbeat = useCallback(async () => {
+    if (!profissional) { setHeartbeatData(null); return; }
     setHeartbeatLoading(true);
     try {
-      const res = await api.get('/alunos-details', { params: { profissionalId: profissional.profissionalId || profissional._id || profissional.userId }, signal });
-      if (mountedRef.current) {
-        setAlunosData(res.data.alunos || []);
-        setHeartbeatData(res.data.heartbeat || null);
+      const res = await api.get('/heartbeat/coach-students');
+      if (res.data?.success) {
+        setHeartbeatData(res.data.data);
       }
     } catch (err) {
-      if (err.name === 'CanceledError' || err.message === 'canceled') return;
-      console.error('Erro ao carregar detalhes dos alunos:', err);
-      if (mountedRef.current) {
-        setAlunosData([]);
-        setHeartbeatData(null);
-      }
+      console.error('Erro ao buscar heartbeat:', err);
     } finally {
       if (mountedRef.current) setHeartbeatLoading(false);
     }
   }, [profissional]);
 
   useEffect(() => {
-    if (!profissional) return;
-    const ctrl = new AbortController();
-    pegarLocais(ctrl.signal);
-    fetchAlunosDetails(ctrl.signal);
-    return () => ctrl.abort();
-  }, [profissional, pegarLocais, fetchAlunosDetails]);
+    if (!profissional) { setHeartbeatData(null); return; }
+    fetchHeartbeat();
+    // Atualizar a cada 30 segundos
+    const interval = setInterval(fetchHeartbeat, 30000);
+    return () => clearInterval(interval);
+  }, [profissional, fetchHeartbeat]);
 
-  const loadChatForUser = useCallback(async (alunoUserId) => {
-    setChatStates(prev => ({ ...prev, [alunoUserId]: { ...prev[alunoUserId], loading: true, error: null } }));
+  // helper: load chat for a user
+  const loadChatForUser = async (alunoUserId) => {
+    if (!profissional) return;
+    setChatStates(prev => ({ ...prev, [alunoUserId]: { ...(prev[alunoUserId] || {}), loading: true, error: null } }));
     try {
-      const res = await api.get('/chat-history', { params: { profissionalId: profissional.profissionalId || profissional._id || profissional.userId, alunoUserId } });
-      setChatStates(prev => ({ ...prev, [alunoUserId]: { ...prev[alunoUserId], messages: res.data.messages || [], loading: false } }));
+      const coachId = profissional.userId || profissional._id || profissional.profissionalId;
+      const body = { userId: String(coachId), otherUserId: String(alunoUserId), creatorUsername: profissional.profissionalName || '' };
+      const res = await api.post('/pegarChat', body);
+      const chat = res?.data?.chat || res?.data || {};
+      const messages = chat.mensagens || chat.messages || [];
+      const normalized = Array.isArray(messages) ? messages.map(m => ({ mensagemId: m.mensagemId || m._id || String(Math.random()).slice(2), userId: String(m.userId || m.from || ''), conteudo: m.conteudo || m.text || m.mensagem || '', publicadoEm: m.publicadoEm || m.createdAt || null })) : [];
+      setChatStates(prev => ({ ...prev, [alunoUserId]: { ...(prev[alunoUserId] || {}), chatId: chat.ChatId || chat._id || null, messages: normalized, loading: false, error: null, newMessage: '', sending: false } }));
     } catch (err) {
-      console.error('Erro ao carregar chat:', err);
-      setChatStates(prev => ({ ...prev, [alunoUserId]: { ...prev[alunoUserId], error: 'Erro ao carregar chat.', loading: false } }));
+      console.error('loadChatForUser error', err);
+      setChatStates(prev => ({ ...prev, [alunoUserId]: { ...(prev[alunoUserId] || {}), loading: false, error: err?.response?.data?.error || err?.message || 'Erro carregar chat' } }));
     }
-  }, [profissional]);
+  };
 
   const sendMessageToUser = async (alunoUserId) => {
-    const chatState = chatStates[alunoUserId];
-    if (!chatState || !chatState.newMessage) return;
+    const state = chatStates[alunoUserId] || {};
+    if (!state || !state.chatId) return;
+    const texto = (state.newMessage || '').trim();
+    if (!texto) return;
+    const optimisticMsg = { mensagemId: `local-${getBrazilDate()}`, userId: String(getUserIdFromUser()), conteudo: texto, publicadoEm: new Date() };
+    setChatStates(prev => {
+      const curr = prev[alunoUserId] || {};
+      const msgs = Array.isArray(curr.messages) ? [...curr.messages, optimisticMsg] : [optimisticMsg];
+      return { ...prev, [alunoUserId]: { ...curr, messages: msgs, newMessage: '', sending: true } };
+    });
 
-    setChatStates(prev => ({ ...prev, [alunoUserId]: { ...prev[alunoUserId], sending: true, error: null } }));
     try {
-      const res = await api.post('/send-chat-message', {
-        profissionalId: profissional.profissionalId || profissional._id || profissional.userId,
-        alunoUserId,
-        conteudo: chatState.newMessage
+      const res = await api.post('/enviar-mensagem', { ChatId: state.chatId, userId: String(getUserIdFromUser()), conteudo: texto });
+      const returnedMessages = res?.data?.mensagens || [];
+      const last = res?.data?.mensagem || (Array.isArray(returnedMessages) ? returnedMessages[returnedMessages.length - 1] : null);
+      const normalized = Array.isArray(returnedMessages) ? returnedMessages.map(m => ({ mensagemId: m.mensagemId || m._id || String(Math.random()).slice(2), userId: String(m.userId || ''), conteudo: m.conteudo || m.text || m.mensagem || '', publicadoEm: m.publicadoEm || m.createdAt || null })) : (last ? [{ mensagemId: last.mensagemId || last._id || String(Math.random()).slice(2), userId: String(last.userId || ''), conteudo: last.conteudo || last.text || last.mensagem || '', publicadoEm: last.publicadoEm || last.createdAt || new Date() }] : []);
+
+      setChatStates(prev => {
+        const curr = prev[alunoUserId] || {};
+        let newMsgs = curr.messages || [];
+        if (normalized.length > 0) newMsgs = normalized;
+        else if (last) {
+          const exists = (newMsgs || []).some(m => String(m.mensagemId) === String(last.mensagemId));
+          if (!exists) newMsgs = [...newMsgs, { mensagemId: last.mensagemId || last._id || String(Math.random()).slice(2), userId: String(last.userId || ''), conteudo: last.conteudo || last.text || last.mensagem || '', publicadoEm: last.publicadoEm || last.createdAt || new Date() }];
+        }
+        return { ...prev, [alunoUserId]: { ...curr, messages: newMsgs, sending: false, newMessage: '' } };
       });
-      if (res.data.success) {
-        setChatStates(prev => ({
-          ...prev,
-          [alunoUserId]: {
-            ...prev[alunoUserId],
-            messages: [...(prev[alunoUserId]?.messages || []), res.data.message],
-            newMessage: '',
-            sending: false
-          }
-        }));
-      } else {
-        throw new Error(res.data.msg || 'Falha ao enviar mensagem.');
-      }
     } catch (err) {
-      console.error('Erro ao enviar mensagem:', err);
-      setChatStates(prev => ({ ...prev, [alunoUserId]: { ...prev[alunoUserId], error: err.message || 'Falha ao enviar mensagem.', sending: false } }));
+      console.error('sendMessageToUser error', err);
+      setChatStates(prev => {
+        const curr = prev[alunoUserId] || {};
+        const msgs = (curr.messages || []).filter(m => !(m.mensagemId && String(m.mensagemId).startsWith('local-')));
+        return { ...prev, [alunoUserId]: { ...curr, messages: msgs, sending: false, error: err?.response?.data?.error || err?.message || 'Falha ao enviar' } };
+      });
       showError('Falha ao enviar mensagem.');
     }
   };
@@ -494,8 +490,6 @@ const Coach = ({ user, tema = 'dark' }) => {
 
   const handleAceitarAluno = async (alunoUserId) => {
     if (!profissional || !alunoUserId) return;
-    const ok = window.confirm('Aceitar este aluno?');
-    if (!ok) return;
     const prevProf = JSON.parse(JSON.stringify(profissional));
     const newProf = { ...profissional };
     newProf.alunos = (newProf.alunos || []).map(a => String(a.userId) === String(alunoUserId) ? { ...a, aceito: true, aceitoEm: new Date() } : a);
@@ -549,6 +543,7 @@ const Coach = ({ user, tema = 'dark' }) => {
     }
   };
 
+  // Sistema de cores moderno e consistente
   const modernColorSystem = {
     primary: {
       light: {
@@ -583,18 +578,30 @@ const Coach = ({ user, tema = 'dark' }) => {
   const currentEspecialidade = (profissional?.especialidade || editForm.especialidade || createForm.especialidade || 'personal-trainner');
   const specialty = getSpecialtyTheme(currentEspecialidade, isDark);
 
+  // Sistema de temas aprimorado
   const enhancedTheme = {
     ...theme,
+    // Cores primárias baseadas no sistema moderno
     primary: isDark ? modernColorSystem.primary.dark : modernColorSystem.primary.light,
     success: isDark ? modernColorSystem.success.dark : modernColorSystem.success.light,
     warning: isDark ? modernColorSystem.warning.dark : modernColorSystem.warning.light,
     danger: isDark ? modernColorSystem.danger.dark : modernColorSystem.danger.light,
+
+    // Botões com gradientes modernos
     primaryBtn: `px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r ${isDark ? modernColorSystem.primary.dark.gradient : modernColorSystem.primary.light.gradient} hover:shadow-lg hover:scale-105 transition-all duration-200 shadow-md`,
     secondaryBtn: `px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${isDark ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'}`,
+
+    // Cards com melhor contraste e sombras
     card: `${base.card} ${isDark ? 'bg-gradient-to-br from-gray-900/90 to-gray-800/90 border-gray-700/50 shadow-xl' : 'bg-gradient-to-br from-white to-gray-50/50 border-gray-200/50 shadow-lg hover:shadow-xl'} transition-all duration-300`,
+
+    // Painéis com bordas sutis
     panel: `${isDark ? 'bg-gray-800/50 border-gray-700/30' : 'bg-gray-50/50 border-gray-200/30'} backdrop-blur-sm`,
     subtlePanel: `${base.panel} ${isDark ? 'bg-gray-800/30 border-gray-700/20' : 'bg-white/70 border-gray-200/20'} backdrop-blur-sm`,
+
+    // Inputs com melhor foco
     input: `${theme.input} transition-all duration-200 focus:ring-2 ${isDark ? 'focus:ring-indigo-500/50 focus:border-indigo-500' : 'focus:ring-indigo-400/50 focus:border-indigo-400'} focus:border-transparent`,
+
+    // Estados de hover e interação
     hover: isDark ? 'hover:bg-gray-700/50' : 'hover:bg-gray-100/50',
     active: isDark ? 'active:bg-gray-600/50' : 'active:bg-gray-200/50'
   };
@@ -609,14 +616,14 @@ const Coach = ({ user, tema = 'dark' }) => {
 
   return (
     <section className={`${theme.bg} min-h-screen transition-colors duration-300`}>
-      {/* ====== HEADER COM data-tour ====== */}
+      {/* Header Modernizado */}
       <motion.header
-        id="coach-header-stats"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         className="relative overflow-hidden mb-8"
       >
+        {/* Background Pattern */}
         <div className="absolute inset-0 opacity-5">
           <div className={`absolute inset-0 ${isDark ? 'bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-600' : 'bg-gradient-to-br from-indigo-400 via-purple-400 to-blue-400'}`}></div>
           <div className="absolute inset-0" style={{
@@ -627,6 +634,7 @@ const Coach = ({ user, tema = 'dark' }) => {
 
         <div className="relative z-10 p-6 lg:p-8">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            {/* Título e Descrição */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-2">
                 <div className={`p-3 rounded-xl ${isDark ? 'bg-gradient-to-br from-indigo-600 to-purple-600' : 'bg-gradient-to-br from-indigo-500 to-purple-500'} shadow-lg`}>
@@ -649,8 +657,8 @@ const Coach = ({ user, tema = 'dark' }) => {
                 Gerencie seus clientes, acompanhe o progresso e ofereça o melhor suporte profissional com ferramentas avançadas.
               </p>
 
-              {/* ====== QUICK STATS COM data-tour ====== */}
-              <div id="coach-quick-stats" className="flex flex-wrap gap-4 mt-4">
+              {/* Stats rápidas */}
+              <div className="flex flex-wrap gap-4 mt-4">
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isDark ? 'bg-gray-800/50' : 'bg-gray-100/50'} backdrop-blur-sm`}>
                   <FiUsers className={`w-4 h-4 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
                   <span className="text-sm font-medium">{alunosData.length} Alunos</span>
@@ -670,12 +678,8 @@ const Coach = ({ user, tema = 'dark' }) => {
               </div>
             </div>
 
-            {/* Botão de reiniciar tour no header */}
+            {/* Botões de Ação */}
             <div className="flex flex-wrap gap-3 items-center">
-              <TourRestartButton 
-                tourId="coach-panel" 
-                label="Tour" 
-              />
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -707,21 +711,26 @@ const Coach = ({ user, tema = 'dark' }) => {
         </div>
       </motion.header>
 
+      {/* <div className="px-6 lg:px-8"> */}
+
+      {/* {error && <div className="mb-4 text-sm text-red-500">{error}</div>} */}
+      {/* {successMsg && <div className="mb-4 text-sm text-green-400">{successMsg}</div>} */}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
-          {/* ====== PERFIL PROFISSIONAL COM data-tour ====== */}
           <motion.div
-            id="coach-perfil-card"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
             className={`relative overflow-hidden rounded-2xl ${isDark ? 'bg-gradient-to-br from-gray-800 to-gray-900' : 'bg-gradient-to-br from-white to-gray-50'} border ${isDark ? 'border-gray-700' : 'border-gray-200'} shadow-xl`}
           >
+            {/* Background Pattern */}
             <div className="absolute top-0 right-0 w-32 h-32 opacity-10">
               <div className={`w-full h-full rounded-full ${isDark ? 'bg-gradient-to-br from-indigo-500 to-purple-500' : 'bg-gradient-to-br from-indigo-400 to-purple-400'}`}></div>
             </div>
 
             <div className="relative z-10 p-6">
+              {/* Header do Card */}
               <div className="flex items-center gap-3 mb-6">
                 <div className={`p-2 rounded-lg ${specialty.pill.replace('px-2 py-0.5', 'p-2')}`}>
                   <FiStar className="w-5 h-5" />
@@ -732,6 +741,7 @@ const Coach = ({ user, tema = 'dark' }) => {
                 </div>
               </div>
 
+              {/* Foto e Informações Principais */}
               <div className="flex flex-col items-center text-center mb-6">
                 <div className="relative mb-4">
                   <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-gray-200">
@@ -760,41 +770,77 @@ const Coach = ({ user, tema = 'dark' }) => {
                 )}
               </div>
 
+              {/* Informações Adicionais */}
               <div className="space-y-3 mb-6">
                 <div className={`flex items-center gap-3 p-3 rounded-lg ${isDark ? 'bg-gray-800/50' : 'bg-gray-100/50'}`}>
                   <div className={`p-2 rounded-lg ${isDark ? 'bg-blue-600/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
-                    <FiMapPin className="w-5 h-5" />
+                    <FiUsers className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium">Localização</p>
-                    <p className="text-sm">{profissional?.city || 'Não informado'}, {profissional?.state || 'Não informado'}, {profissional?.country || 'Não informado'}</p>
+                    <p className="text-sm font-medium">{alunosData.length} Alunos Ativos</p>
+                    <p className={`text-xs ${theme.muted}`}>Clientes sendo atendidos</p>
                   </div>
                 </div>
-                <div className={`flex items-center gap-3 p-3 rounded-lg ${isDark ? 'bg-gray-800/50' : 'bg-gray-100/50'}`}>
-                  <div className={`p-2 rounded-lg ${isDark ? 'bg-green-600/20 text-green-400' : 'bg-green-100 text-green-600'}`}>
-                    <FiActivity className="w-5 h-5" />
+
+                {profissional?.city && (
+                  <div className={`flex items-center gap-3 p-3 rounded-lg ${isDark ? 'bg-gray-800/50' : 'bg-gray-100/50'}`}>
+                    <div className={`p-2 rounded-lg ${isDark ? 'bg-green-600/20 text-green-400' : 'bg-green-100 text-green-600'}`}>
+                      <FiStar className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{profissional.city}</p>
+                      <p className={`text-xs ${theme.muted}`}>{profissional.state}, {profissional.country}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">Membro desde</p>
-                    <p className="text-sm">{profissional?.createdAt ? getBrazilDate(profissional.createdAt) : 'Não informado'}</p>
+                )}
+
+                {profissional?.criadoEm && (
+                  <div className={`flex items-center gap-3 p-3 rounded-lg ${isDark ? 'bg-gray-800/50' : 'bg-gray-100/50'}`}>
+                    <div className={`p-2 rounded-lg ${isDark ? 'bg-purple-600/20 text-purple-400' : 'bg-purple-100 text-purple-600'}`}>
+                      <FiTrendingUp className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Membro desde</p>
+                      <p className={`text-xs ${theme.muted}`}>{new Date(profissional.criadoEm).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              <div className="flex justify-center">
+              {/* Botões de Ação */}
+              <div className="flex flex-col gap-3">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={handleToggleEditMode}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${isDark ? 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'} shadow-sm`}
+                  onClick={handleRefresh}
+                  className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl font-medium transition-all duration-200 ${isDark
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    }`}
                 >
-                  <FiSettings className="w-5 h-5" />
-                  Editar Perfil
+                  <FiRefreshCw className="w-4 h-4" />
+                  Recarregar Dados
                 </motion.button>
+
+                {user && (String(user._id) === String(profissional?.userId) || String(user.userId) === String(profissional?.userId)) && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setEditMode(prev => !prev)}
+                    className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl font-medium transition-all duration-200 ${isDark
+                      ? 'bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white'
+                      : 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white'
+                      }`}
+                  >
+                    <FiSettings className="w-4 h-4" />
+                    {editMode ? 'Cancelar Edição' : profissional ? 'Editar Perfil' : 'Criar Perfil'}
+                  </motion.button>
+                )}
               </div>
             </div>
           </motion.div>
 
+          {/* Edit / Create form area */}
           <AnimatePresence>
             {editMode && (
               <motion.div
@@ -802,113 +848,157 @@ const Coach = ({ user, tema = 'dark' }) => {
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3 }}
-                className={`mt-6 p-6 rounded-2xl ${isDark ? 'bg-gray-800/50' : 'bg-white/80'} border ${isDark ? 'border-gray-700' : 'border-gray-200'} shadow-xl`}
+                className="border-t border-gray-200 dark:border-gray-700"
               >
-                <h3 className="text-xl font-bold mb-4">{profissional ? 'Editar Perfil Profissional' : 'Criar Perfil Profissional'}</h3>
-                <form onSubmit={profissional ? handleEditSubmit : handleCreateProfissional}>
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="profissionalName" className="block text-sm font-medium mb-1">Nome Completo</label>
+                <form onSubmit={profissional ? handleEditSubmit : handleCreateProfissional} className="p-6 space-y-6">
+                  <div className="mb-6">
+                    <h3 className="text-lg font-bold mb-2">
+                      {profissional ? 'Editar Perfil Profissional' : 'Criar Perfil Profissional'}
+                    </h3>
+                    <p className={`text-sm ${theme.muted}`}>
+                      {profissional ? 'Atualize suas informações profissionais' : 'Preencha os dados para criar seu perfil profissional'}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6">
+                    {/* Nome */}
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm font-semibold">
+                        <FiUsers className="w-4 h-4" />
+                        Nome Profissional
+                      </label>
                       <input
-                        type="text"
-                        id="profissionalName"
+                        className={`${theme.input} transition-all duration-200 focus:ring-2 ${isDark ? 'focus:ring-blue-500/50' : 'focus:ring-blue-400/50'} focus:border-transparent`}
+                        placeholder="Digite seu nome profissional"
                         value={profissional ? editForm.profissionalName : createForm.profissionalName}
-                        onChange={e => profissional ? setEditForm({ ...editForm, profissionalName: e.target.value }) : setCreateForm({ ...createForm, profissionalName: e.target.value })}
-                        className={themeWithSpec.input}
-                        placeholder="Seu nome completo"
+                        onChange={e => {
+                          if (profissional) setEditForm(f => ({ ...f, profissionalName: e.target.value }));
+                          else setCreateForm(f => ({ ...f, profissionalName: e.target.value }));
+                        }}
                       />
                     </div>
-                    <div>
-                      <label htmlFor="biografia" className="block text-sm font-medium mb-1">Biografia</label>
-                      <textarea
-                        id="biografia"
-                        value={profissional ? editForm.biografia : createForm.biografia}
-                        onChange={e => profissional ? setEditForm({ ...editForm, biografia: e.target.value }) : setCreateForm({ ...createForm, biografia: e.target.value })}
-                        className={`${themeWithSpec.input} h-24 resize-y`}
-                        placeholder="Fale um pouco sobre você e sua abordagem profissional"
-                      ></textarea>
-                    </div>
-                    <div>
-                      <label htmlFor="especialidade" className="block text-sm font-medium mb-1">Especialidade</label>
+
+                    {/* Especialidade */}
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm font-semibold">
+                        <FiStar className="w-4 h-4" />
+                        Especialidade
+                      </label>
                       <select
-                        id="especialidade"
+                        className={`${theme.input} transition-all duration-200 focus:ring-2 ${isDark ? 'focus:ring-blue-500/50' : 'focus:ring-blue-400/50'} focus:border-transparent`}
                         value={profissional ? editForm.especialidade : createForm.especialidade}
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (profissional) {
-                            setEditForm({ ...editForm, especialidade: val });
-                          } else {
-                            setCreateForm({ ...createForm, especialidade: val });
-                          }
-                        }}
-                        className={themeWithSpec.input}
+                        onChange={e => { if (profissional) setEditForm(f => ({ ...f, especialidade: e.target.value })); else setCreateForm(f => ({ ...f, especialidade: e.target.value })); }}
+                        disabled={Array.isArray(profissional?.alunos) && profissional.alunos.length > 0}
                       >
-                        {Object.entries(especialidadeLabels).map(([key, value]) => (
-                          <option key={key} value={key}>{value}</option>
-                        ))}
+                        <option className="text-black" value="personal-trainner">Personal Trainer</option>
+                        <option className="text-black" value="nutricionista">Nutricionista</option>
+                        <option className="text-black" value="fisioterapeuta">Fisioterapeuta</option>
                       </select>
+
+                      {(Array.isArray(profissional?.alunos) && profissional.alunos.length > 0) ? (
+                        <div className={`flex items-center gap-2 p-3 rounded-lg ${isDark ? 'bg-yellow-900/20 border border-yellow-800/30' : 'bg-yellow-50 border border-yellow-200'}`}>
+                          <HiSparkles className={`w-4 h-4 ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`} />
+                          <p className={`text-sm ${isDark ? 'text-yellow-300' : 'text-yellow-700'}`}>
+                            Você não pode alterar a especialidade enquanto possuir alunos ({profissional.alunos.length}).
+                          </p>
+                        </div>
+                      ) : (
+                        <p className={`text-xs ${theme.muted} flex items-center gap-2`}>
+                          <FiTrendingUp className="w-3 h-3" />
+                          Escolha a especialidade que melhor representa seu trabalho
+                        </p>
+                      )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label htmlFor="country" className="block text-sm font-medium mb-1">País</label>
-                        <select
-                          id="country"
-                          value={profissional ? editForm.country : createForm.country}
-                          onChange={e => {
-                            const val = e.target.value;
-                            if (profissional) {
-                              setEditForm({ ...editForm, country: val, state: '', city: '' });
-                              loadStatesForCountry(val);
-                            } else {
-                              setCreateForm({ ...createForm, country: val, state: '', city: '' });
-                              loadStatesForCountry(val);
-                            }
-                          }}
-                          className={themeWithSpec.input}
-                        >
-                          <option value="">Selecione o País</option>
-                          {countries.map(c => <option key={c.code} value={c.name}>{c.name}</option>)}
-                        </select>
+                    {/* Biografia */}
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm font-semibold">
+                        <MdDashboard className="w-4 h-4" />
+                        Biografia Profissional
+                      </label>
+                      <textarea
+                        rows={4}
+                        className={`${theme.input} transition-all duration-200 focus:ring-2 ${isDark ? 'focus:ring-blue-500/50' : 'focus:ring-blue-400/50'} focus:border-transparent resize-none`}
+                        placeholder="Conte um pouco sobre sua experiência, formação e abordagem profissional..."
+                        value={profissional ? editForm.biografia : createForm.biografia}
+                        onChange={e => { if (profissional) setEditForm(f => ({ ...f, biografia: e.target.value })); else setCreateForm(f => ({ ...f, biografia: e.target.value })); }}
+                      />
+                      <p className={`text-xs ${theme.muted}`}>
+                        Uma boa biografia ajuda seus clientes a conhecerem melhor seu trabalho
+                      </p>
+                    </div>
+
+                    {/* Localização */}
+                    <div className="space-y-4">
+                      <h4 className="flex items-center gap-2 text-sm font-semibold">
+                        <FiStar className="w-4 h-4" />
+                        Localização
+                      </h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">País</label>
+                          <select
+                            className={`${theme.input} transition-all duration-200 focus:ring-2 ${isDark ? 'focus:ring-blue-500/50' : 'focus:ring-blue-400/50'} focus:border-transparent`}
+                            value={profissional ? editForm.country : createForm.country}
+                            onChange={e => { if (profissional) { setEditForm(f => ({ ...f, country: e.target.value })); loadStatesForCountry(e.target.value); } else { setCreateForm(f => ({ ...f, country: e.target.value })); loadStatesForCountry(e.target.value); } }}
+                          >
+                            <option className="text-black" value="">— Selecione o país —</option>
+                            {countries.map(c => <option className="text-black" key={c.name} value={c.name}>{c.name}</option>)}
+                          </select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Estado</label>
+                          <select
+                            className={`${theme.input} transition-all duration-200 focus:ring-2 ${isDark ? 'focus:ring-blue-500/50' : 'focus:ring-blue-400/50'} focus:border-transparent`}
+                            value={profissional ? editForm.state : createForm.state}
+                            onChange={e => { if (profissional) { setEditForm(f => ({ ...f, state: e.target.value })); loadCitiesForState(editForm.country || profissional?.country, e.target.value); } else { setCreateForm(f => ({ ...f, state: e.target.value })); loadCitiesForState(createForm.country, e.target.value); } }}
+                          >
+                            <option className="text-black" value="">— Selecione o estado —</option>
+                            {states.map(s => <option className="text-black" key={s} value={s}>{s}</option>)}
+                          </select>
+                        </div>
                       </div>
-                      <div>
-                        <label htmlFor="state" className="block text-sm font-medium mb-1">Estado</label>
+
+                      {/* Cidade */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Cidade</label>
                         <select
-                          id="state"
-                          value={profissional ? editForm.state : createForm.state}
-                          onChange={e => {
-                            const val = e.target.value;
-                            if (profissional) {
-                              setEditForm({ ...editForm, state: val, city: '' });
-                              loadCitiesForState(editForm.country, val);
-                            } else {
-                              setCreateForm({ ...createForm, state: val, city: '' });
-                              loadCitiesForState(createForm.country, val);
-                            }
-                          }}
-                          className={themeWithSpec.input}
-                          disabled={states.length === 0}
-                        >
-                          <option value="">Selecione o Estado</option>
-                          {states.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label htmlFor="city" className="block text-sm font-medium mb-1">Cidade</label>
-                        <select
-                          id="city"
+                          className={`${theme.input} transition-all duration-200 focus:ring-2 ${isDark ? 'focus:ring-blue-500/50' : 'focus:ring-blue-400/50'} focus:border-transparent`}
                           value={profissional ? editForm.city : createForm.city}
-                          onChange={e => profissional ? setEditForm({ ...editForm, city: e.target.value }) : setCreateForm({ ...createForm, city: e.target.value })}
-                          className={themeWithSpec.input}
-                          disabled={cities.length === 0}
+                          onChange={e => { if (profissional) setEditForm(f => ({ ...f, city: e.target.value })); else setCreateForm(f => ({ ...f, city: e.target.value })); }}
                         >
-                          <option value="">Selecione a Cidade</option>
-                          {cities.map(c => <option key={c} value={c}>{c}</option>)}
+                          <option className="text-black" value="">— Selecione a cidade —</option>
+                          {cities.map(c => <option className="text-black" key={c} value={c}>{c}</option>)}
                         </select>
+                      </div>
+
+                      {/* Coordenadas */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Coordenadas (Opcional)</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            placeholder="Latitude"
+                            className={`${theme.input} transition-all duration-200 focus:ring-2 ${isDark ? 'focus:ring-blue-500/50' : 'focus:ring-blue-400/50'} focus:border-transparent`}
+                            value={profissional ? editForm.lat : ''}
+                            onChange={e => setEditForm(f => ({ ...f, lat: e.target.value }))}
+                          />
+                          <input
+                            placeholder="Longitude"
+                            className={`${theme.input} transition-all duration-200 focus:ring-2 ${isDark ? 'focus:ring-blue-500/50' : 'focus:ring-blue-400/50'} focus:border-transparent`}
+                            value={profissional ? editForm.lng : ''}
+                            onChange={e => setEditForm(f => ({ ...f, lng: e.target.value }))}
+                          />
+                        </div>
+                        <p className={`text-xs ${theme.muted}`}>
+                          Coordenadas ajudam clientes a encontrarem sua localização exata
+                        </p>
                       </div>
                     </div>
 
-                    <div>
+                    {/* Upload de Imagem */}
+                    <div className="space-y-4">
                       <label className="flex items-center gap-2 text-sm font-semibold">
                         <MdPersonAdd className="w-4 h-4" />
                         Foto de Perfil (Opcional)
@@ -1025,15 +1115,15 @@ const Coach = ({ user, tema = 'dark' }) => {
             )}
           </AnimatePresence>
 
-          {/* ====== LINK DE CONVITE COM data-tour ====== */}
+          {/* Link de Convite com Animações */}
           {user && profissional && (String(user._id) === String(profissional?.userId) || String(user.userId) === String(profissional?.userId)) && (
             <motion.div
-              id="coach-link-convite"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
               className={`mt-6 relative overflow-hidden rounded-2xl ${isDark ? 'bg-gradient-to-br from-indigo-900/20 to-purple-900/20' : 'bg-gradient-to-br from-indigo-50 to-purple-50'} border ${isDark ? 'border-indigo-800/30' : 'border-indigo-200'} shadow-lg`}
             >
+              {/* Background Pattern */}
               <div className="absolute top-0 right-0 w-20 h-20 opacity-10">
                 <div className={`w-full h-full rounded-full ${isDark ? 'bg-gradient-to-br from-indigo-500 to-purple-500' : 'bg-gradient-to-br from-indigo-400 to-purple-400'}`}></div>
               </div>
@@ -1144,7 +1234,6 @@ const Coach = ({ user, tema = 'dark' }) => {
 
               {/* PENDENTES */}
               <motion.div
-                id="coach-solicitacoes"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
@@ -1239,7 +1328,6 @@ const Coach = ({ user, tema = 'dark' }) => {
 
               {/* ACEITOS */}
               <motion.div
-                id="coach-alunos-ativos"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.4 }}
@@ -1279,8 +1367,8 @@ const Coach = ({ user, tema = 'dark' }) => {
                   )}
 
                   {/* Templates reutilizáveis de treino/dieta */}
-                  <details id="coach-templates-section" className="mb-6">
-                    <summary id="btn-templates-toggle" className={`cursor-pointer text-sm font-medium ${theme.muted} mb-2`}>
+                  <details className="mb-6">
+                    <summary className={`cursor-pointer text-sm font-medium ${theme.muted} mb-2`}>
                       Meus templates de treino/dieta
                     </summary>
                     <div className="mt-2">
@@ -1290,7 +1378,6 @@ const Coach = ({ user, tema = 'dark' }) => {
 
                   {/* Heartbeat Chart - Online Status dos Alunos */}
                   <motion.div
-                    id="coach-status-online"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.6 }}
@@ -1879,9 +1966,6 @@ const Coach = ({ user, tema = 'dark' }) => {
       </div>
 
       <footer className={`mt-6 text-sm ${theme.muted} text-center`}>Dados carregados do servidor quando aplicável.</footer>
-
-      {/* Componente do Tour */}
-      <TreinAITour tourId="coach-panel" steps={COACH_TOUR_STEPS} />
     </section>
   );
 };
