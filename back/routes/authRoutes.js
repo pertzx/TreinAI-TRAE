@@ -23,6 +23,7 @@ import {
   SessionPaymentSaldoDeImpressoes,
 } from '../controllers/stripe.js';
 import { conversar, criarExercicioIA, criarTreinoIA } from '../controllers/UsingIA.js';
+import { stripAiCostForClient } from '../helpers/sanitizeUser.js';
 import User from '../models/User.js';
 import { publicarNoHistorico } from '../controllers/database.js';
 import { adicionarExercicio, adicionarReport, procurarExercicio } from '../controllers/treino.js';
@@ -75,113 +76,202 @@ router.post('/gerar-exercicio-ia', verificarToken, aiRateLimit, queueMiddleware,
 router.post('/gerar-treino-ia', verificarToken, aiRateLimit, queueMiddleware, checkAiBudget, criarTreinoIA);
 
 router.delete('/excluir-treino', verificarToken, async (req, res) => {
-  const email = req.userEmail; // identidade do token (não confiar na query)
+  const tokenEmail = req.userEmail; // identidade do token (coach ou aluno)
   const { treinoId } = req.query;
+  const alunoEmail = req?.query?.email; // alvo da ação (pode ser diferente do token)
+  const profissionalId = req?.query?.profissionalId;
 
-  if (!email) return res.json({ msg: '!email' });
-  if (!treinoId) return res.json({ msg: '!treinoId' });
+  if (!tokenEmail) return res.status(401).json({ msg: '!email' });
+  if (!treinoId) return res.status(400).json({ msg: '!treinoId' });
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.json({ msg: 'Usuário não encontrado.' });
+    // Resolver o alvo (target user) da exclusão:
+    // - Aluno (token dele mesmo): usa tokenEmail
+    // - Coach deletando do aluno: usa alunoEmail, validando que o coach é dono
+    //   do profissionalId e que o aluno é vinculado àquele profissional
+    let targetUser = null;
+    let profissional = null;
 
-    const treinoIndex = user.meusTreinos.findIndex(t => t.treinoId === treinoId);
-    if (treinoIndex === -1) return res.json({ msg: 'Treino não encontrado.' });
-
-    user.meusTreinos.splice(treinoIndex, 1); // Remove o treino pelo índice
-
-    // Se não houver mais treinos, permitir criar novamente
-    if (user.meusTreinos.length === 0) {
-      user.tentouCriarMeusTreinos = false;
+    if (alunoEmail && alunoEmail !== tokenEmail) {
+      if (!profissionalId) {
+        return res.status(403).json({ success: false, msg: 'profissionalId é obrigatório para excluir treino de outro usuário.' });
+      }
+      profissional = await Profissional.findOne({
+        $or: [
+          { profissionalId: profissionalId },
+          { userId: profissionalId }
+        ]
+      }).lean();
+      if (!profissional) {
+        return res.status(404).json({ success: false, msg: 'Profissional não encontrado.' });
+      }
+      // Conferir que o usuário do token é dono do profissional
+      const owns = String(profissional.userId) === String(req.user?._id);
+      if (!owns) {
+        return res.status(403).json({ success: false, msg: 'Você não tem permissão para alterar treinos deste aluno.' });
+      }
+      // Conferir que o aluno é vinculado ao profissional
+      targetUser = await User.findOne({ email: alunoEmail });
+      if (!targetUser) {
+        return res.status(404).json({ success: false, msg: 'Aluno não encontrado.' });
+      }
+      const alunoVinculado = (profissional.alunos || []).some(
+        (a) => String(a.userId) === String(targetUser._id)
+      );
+      if (!alunoVinculado) {
+        return res.status(403).json({ success: false, msg: 'Aluno não está vinculado a este profissional.' });
+      }
+    } else {
+      // Caso padrão: o próprio usuário autenticado está deletando um treino dele.
+      targetUser = await User.findOne({ email: tokenEmail });
+      if (!targetUser) {
+        return res.status(404).json({ success: false, msg: 'Usuário não encontrado.' });
+      }
     }
 
-    // se existir o profissionalId entao atualizar
-    try {
-      if (req?.query?.profissionalId) {
-        const profissional = await Profissional.findOne({
+    const treinoIndex = (targetUser.meusTreinos || []).findIndex(
+      (t) => t.treinoId === treinoId
+    );
+    if (treinoIndex === -1) {
+      return res.status(404).json({ success: false, msg: 'Treino não encontrado.' });
+    }
+
+    targetUser.meusTreinos.splice(treinoIndex, 1);
+
+    // Se não houver mais treinos, permitir gerar novamente
+    if (targetUser.meusTreinos.length === 0) {
+      targetUser.tentouCriarMeusTreinos = false;
+    }
+
+    await targetUser.save();
+
+    // Atualiza o vínculo profissional.aluno.ultimoUpdate (sem derrubar)
+    if (profissional) {
+      try {
+        const freshProf = await Profissional.findOne({
           $or: [
-            { profissionalId: req?.query?.profissionalId },
-            { userId: req?.query?.profissionalId }
+            { profissionalId: profissionalId },
+            { userId: profissionalId }
           ]
         });
-
-        if (!profissional) console.log('Não encontrei o profissional com o profissionalId repassado.');
-        if (profissional) {
-          const aluno = profissional.alunos.find(a => String(a.userId) === String(user._id));
-
-          if (!aluno) console.log('nao existe esse aluno em profissional: ' + profissional.profissionalName)
+        if (freshProf) {
+          const aluno = (freshProf.alunos || []).find(
+            (a) => String(a.userId) === String(targetUser._id)
+          );
           if (aluno) {
             aluno.ultimoUpdate = getBrazilDate();
-
-            await profissional.save()
+            await freshProf.save();
           }
         }
+      } catch (error) {
+        console.warn('Não foi o profissional que fez update! ou aconteceu algum erro > ', error?.message);
       }
-    } catch (error) {
-      console.log('Não foi o profissional que fez update! ou aconteceu algum erro > ', error);
     }
 
-    await user.save();
-    return res.json({ msg: 'Treino excluído com sucesso.', user });
-
+    return res.json({
+      success: true,
+      msg: 'Treino excluído com sucesso.',
+      user: stripAiCostForClient(targetUser.toObject ? targetUser.toObject() : targetUser)
+    });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ msg: 'Erro interno no servidor.' });
+    console.error('excluir-treino error:', error);
+    return res.status(500).json({ success: false, msg: 'Erro interno no servidor.' });
   }
 });
 router.delete('/excluir-exercicio', verificarToken, async (req, res) => {
-  const email = req.userEmail; // identidade do token
+  const tokenEmail = req.userEmail;
   const { treinoId, exercicioId } = req.query;
+  const alunoEmail = req?.query?.email;
+  const profissionalId = req?.query?.profissionalId;
 
-  if (!email) return res.status(400).json({ msg: '!email' });
+  if (!tokenEmail) return res.status(401).json({ msg: '!email' });
   if (!treinoId) return res.status(400).json({ msg: '!treinoId' });
   if (!exercicioId) return res.status(400).json({ msg: '!exercicioId' });
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ msg: 'Usuário não encontrado.' });
+    // Resolve targetUser: se coach está agindo em aluno, valida permissão
+    let targetUser = null;
+    let profissional = null;
 
-    const treino = user.meusTreinos.find(t => t.treinoId === treinoId);
-    if (!treino) return res.status(404).json({ msg: 'Treino não encontrado.' });
-
-    const exercicioIndex = treino.exercicios.findIndex(ex => ex.exercicioId === exercicioId);
-    if (exercicioIndex === -1) return res.status(404).json({ msg: 'Exercício não encontrado.' });
-
-    // Remove o exercício
-    treino.exercicios.splice(exercicioIndex, 1);
-
-    // se existir o profissionalId entao atualizar
-    try {
-      if (req?.query?.profissionalId) {
-        const profissional = await Profissional.findOne({
-          $or: [
-            { profissionalId: req?.query?.profissionalId },
-            { userId: req?.query?.profissionalId }
-          ]
-        });
-
-        if (!profissional) console.log('Não encontrei o profissional com o profissionalId repassado.');
-        if (profissional) {
-          const aluno = profissional.alunos.find(a => String(a.userId) === String(user._id));
-
-          if (!aluno) console.log('nao existe esse aluno em profissional: ' + profissional.profissionalName)
-          if (aluno) {
-            aluno.ultimoUpdate = getBrazilDate();
-
-            await profissional.save()
-          }
-        }
+    if (alunoEmail && alunoEmail !== tokenEmail) {
+      if (!profissionalId) {
+        return res.status(403).json({ success: false, msg: 'profissionalId é obrigatório para alterar treino de outro usuário.' });
       }
-    } catch (error) {
-      console.log('Não foi o profissional que fez update! ou aconteceu algum erro > ', error);
+      profissional = await Profissional.findOne({
+        $or: [
+          { profissionalId: profissionalId },
+          { userId: profissionalId }
+        ]
+      }).lean();
+      if (!profissional) {
+        return res.status(404).json({ success: false, msg: 'Profissional não encontrado.' });
+      }
+      if (String(profissional.userId) !== String(req.user?._id)) {
+        return res.status(403).json({ success: false, msg: 'Você não tem permissão para alterar treinos deste aluno.' });
+      }
+      targetUser = await User.findOne({ email: alunoEmail });
+      if (!targetUser) {
+        return res.status(404).json({ success: false, msg: 'Aluno não encontrado.' });
+      }
+      const alunoVinculado = (profissional.alunos || []).some(
+        (a) => String(a.userId) === String(targetUser._id)
+      );
+      if (!alunoVinculado) {
+        return res.status(403).json({ success: false, msg: 'Aluno não está vinculado a este profissional.' });
+      }
+    } else {
+      targetUser = await User.findOne({ email: tokenEmail });
+      if (!targetUser) {
+        return res.status(404).json({ success: false, msg: 'Usuário não encontrado.' });
+      }
     }
 
-    await user.save();
+    const treino = (targetUser.meusTreinos || []).find((t) => t.treinoId === treinoId);
+    if (!treino) {
+      return res.status(404).json({ success: false, msg: 'Treino não encontrado.' });
+    }
 
-    return res.json({ msg: 'Exercício excluído com sucesso!', user });
+    const exercicioIndex = (treino.exercicios || []).findIndex(
+      (ex) => ex.exercicioId === exercicioId
+    );
+    if (exercicioIndex === -1) {
+      return res.status(404).json({ success: false, msg: 'Exercício não encontrado.' });
+    }
+
+    treino.exercicios.splice(exercicioIndex, 1);
+
+    if (profissional) {
+      try {
+        const freshProf = await Profissional.findOne({
+          $or: [
+            { profissionalId: profissionalId },
+            { userId: profissionalId }
+          ]
+        });
+        if (freshProf) {
+          const aluno = (freshProf.alunos || []).find(
+            (a) => String(a.userId) === String(targetUser._id)
+          );
+          if (aluno) {
+            aluno.ultimoUpdate = getBrazilDate();
+            await freshProf.save();
+          }
+        }
+      } catch (error) {
+        console.warn('Não foi o profissional que fez update! ou aconteceu algum erro > ', error?.message);
+      }
+    }
+
+    await targetUser.save();
+
+    return res.json({
+      success: true,
+      msg: 'Exercício excluído com sucesso!',
+      user: stripAiCostForClient(targetUser.toObject ? targetUser.toObject() : targetUser)
+    });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ msg: 'Erro interno no servidor.' });
+    console.error('excluir-exercicio error:', error);
+    return res.status(500).json({ success: false, msg: 'Erro interno no servidor.' });
   }
 });
 router.put('/atualizar-meusTreinos', verificarToken, atualizarMeusTreinos)

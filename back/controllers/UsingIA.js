@@ -35,10 +35,45 @@ function tolerantParseJsonFromText(text) {
 export const criarTreinoIA = async (req, res) => {
   try {
     const { nome, profissionalId } = req.body || {};
-    const email = profissionalId ? req.body.email : req.userEmail; // identidade do token
+    const tokenEmail = req.userEmail;
+    const pedidoEmail = req.body?.email; // aluno alvo (opcional)
+    const email = profissionalId ? pedidoEmail : tokenEmail; // identidade do token
 
-    if (!email) return res.status(400).json({ msg: '!email', success: false });
+    if (!tokenEmail) return res.status(400).json({ msg: '!email', success: false });
     if (!nome) return res.status(400).json({ msg: 'Nao passou o nome do treino: !nome', success: false });
+
+    // Se coach está agindo em aluno, exige alunoEmail e permissão válida
+    if (profissionalId && (!pedidoEmail || pedidoEmail === tokenEmail)) {
+      return res.status(400).json({
+        msg: 'Informe o email do aluno em req.body.email para gerar treino via coach.',
+        success: false
+      });
+    }
+
+    if (profissionalId) {
+      const prof = await Profissional.findOne({
+        $or: [
+          { profissionalId: profissionalId },
+          { userId: profissionalId }
+        ]
+      }).lean();
+      if (!prof) {
+        return res.status(404).json({ success: false, msg: 'Profissional não encontrado' });
+      }
+      const isOwner = String(prof.userId) === String(req.user?._id || req.user?.id);
+      if (!isOwner) {
+        return res.status(403).json({ success: false, msg: 'Você não tem permissão para gerar treinos deste aluno.' });
+      }
+      // Conferir que o aluno existe e está vinculado
+      const alunoUser = await User.findOne({ email: pedidoEmail }).select('_id').lean();
+      if (!alunoUser) {
+        return res.status(404).json({ success: false, msg: 'Aluno não encontrado.' });
+      }
+      const alunoVinculado = (prof.alunos || []).some((a) => String(a.userId) === String(alunoUser._id));
+      if (!alunoVinculado) {
+        return res.status(403).json({ success: false, msg: 'Aluno não está vinculado a este profissional.' });
+      }
+    }
 
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ msg: 'Email invalido. Nao conseguimos achar o seu usuario.', success: false });

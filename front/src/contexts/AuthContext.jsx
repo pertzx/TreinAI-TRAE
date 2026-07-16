@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoading(true);
       const token = authCookies.getToken();
-      
+
       if (!token) {
         setIsAuthenticated(false);
         setUser(null);
@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
 
       // Verificar se o token é válido fazendo uma requisição para o backend
       const response = await api.get('/pegar-user');
-      
+
       if (response.data && response.data.user) {
         setUser(response.data.user);
         setIsAuthenticated(true);
@@ -49,11 +49,22 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
       }
     } catch (error) {
+      const status = error?.response?.status;
+      const code = error?.response?.data?.code;
+      // Apenas 401/403 com AUTH_INVALID deslogam de verdade.
+      // Para outros erros (400 de parâmetros faltando, 5xx, rede, etc.)
+      // NÃO limpamos o token: isso continua quebrando user em casos onde o
+      // backend exige /pegar-user com userId/profissionalId e a chamada
+      // inicial falha antes do token estar realmente inválido.
       console.error('Erro ao verificar autenticação:', error);
-      authCookies.clearToken();
-      setIsAuthenticated(false);
-      setUser(null);
-      setError(error.message);
+      if (status === 401 || (status === 403 && code === 'AUTH_INVALID')) {
+        authCookies.clearToken();
+        setIsAuthenticated(false);
+        setUser(null);
+      } else {
+        // mantém estado atual
+        setError(error.message);
+      }
     } finally {
       setIsLoading(false);
     }

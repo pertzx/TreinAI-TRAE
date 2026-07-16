@@ -360,18 +360,29 @@ const MeusTreinos = ({ user, setUser, profissionalId, tema = 'dark' }) => {
     try {
       let url = `/excluir-treino?email=${encodeURIComponent(user.email)}&treinoId=${encodeURIComponent(treinoId)}`;
       if (profissionalId) url += `&profissionalId=${encodeURIComponent(profissionalId)}`;
-      
+
       const res = await api.delete(url);
-      if (res?.data?.msg) showToast(res.data.msg, 'success');
-      
+
+      // O backend retorna 200 mesmo quando success=false (ex.: 'Treino não encontrado.').
+      // Nesse caso precisamos reverter o optimistic update, senão o treino volta na UI
+      // mas não foi removido do banco (reload traz o treino de volta).
+      if (res?.data && res.data.success === false) {
+        showToast(res.data.msg || 'Não foi possível excluir o treino.', 'error');
+        setMeusTreinos(previousTreinos);
+        return;
+      }
+
+      if (res?.data?.msg) showToast(res.data.msg, res.data.success === false ? 'info' : 'success');
+
       if (res?.data?.user && typeof setUser === 'function') {
         setUser(res.data.user);
-      } else if (typeof setUser === 'function' && user) {
+      } else if (res?.data?.user && typeof setUser === 'function') {
+        // fallback (não chega aqui)
         setUser({ ...user, meusTreinos: updated });
       }
     } catch (err) {
       console.error('Erro ao excluir treino:', err);
-      showToast('Falha ao excluir treino. Revertendo...', 'error');
+      showToast(friendlyAiError(err) || 'Falha ao excluir treino. Revertendo...', 'error');
       setMeusTreinos(previousTreinos);
     }
   };
