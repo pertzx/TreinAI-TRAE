@@ -477,6 +477,8 @@ const Coach = ({ user, tema = 'dark' }) => {
           ...prevForUser,
           [section]: !prevForUser[section]
         }
+      };
+    });
   };
 
   // Tour steps definitions
@@ -519,9 +521,7 @@ const Coach = ({ user, tema = 'dark' }) => {
       title: 'Gerenciar alunos',
       content: 'Visualize status, abra chats e acompanhe métricas individuais.',
     },
-  ], []);
-    });
-  };
+], []);
 
   const toggleExpanded = (userId) => {
     setExpandedMap(prev => {
@@ -1412,12 +1412,13 @@ const Coach = ({ user, tema = 'dark' }) => {
                   )}
 
                   {/* Heartbeat Chart - Online Status dos Alunos */}
-<motion.div data-tour="coach-accepted"
+<motion.div
                 initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.6 }}
-                    className={`relative overflow-hidden rounded-2xl p-6 ${isDark ? 'bg-gradient-to-br from-purple-900/20 to-indigo-900/20' : 'bg-gradient-to-br from-purple-50 to-indigo-50'} border ${isDark ? 'border-purple-800/30' : 'border-purple-200'} shadow-lg`}
-                  >
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.6 }}
+                className={`relative overflow-hidden rounded-2xl p-6 ${isDark ? 'bg-gradient-to-br from-purple-900/20 to-indigo-900/20' : 'bg-gradient-to-br from-purple-50 to-indigo-50'} border ${isDark ? 'border-purple-800/30' : 'border-purple-200'} shadow-lg`}
+              >
+
                     <div className="absolute top-0 right-0 w-24 h-24 opacity-10">
                       <div className={`w-full h-full rounded-full ${isDark ? 'bg-gradient-to-br from-purple-500 to-indigo-500' : 'bg-gradient-to-br from-purple-400 to-indigo-400'}`}></div>
                     </div>
