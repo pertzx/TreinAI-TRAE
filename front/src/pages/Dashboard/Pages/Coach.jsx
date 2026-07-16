@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import TreinAITour from '../../../components/TreinAITour';
 import { useNavigate } from 'react-router-dom';
 import { hasAccess } from '../../../utils/planAccess.js';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -476,7 +477,49 @@ const Coach = ({ user, tema = 'dark' }) => {
           ...prevForUser,
           [section]: !prevForUser[section]
         }
-      };
+  };
+
+  // Tour steps definitions
+  const generalSteps = useMemo(() => [
+    {
+      target: '[data-tour="coach-header"]',
+      title: 'Cabeçalho',
+      content: 'Resumo de estatísticas e botões de ação rápida.',
+    },
+    {
+      target: '[data-tour="coach-profile-card"]',
+      title: 'Perfil profissional',
+      content: 'Informações públicas do seu perfil: foto, nome e especialidade.',
+    },
+    {
+      target: '[data-tour="coach-pending"]',
+      title: 'Solicitações pendentes',
+      content: 'Clientes que ainda não foram aceitos. Gerencie aqui.',
+    },
+    {
+      target: '[data-tour="coach-accepted"]',
+      title: 'Alunos ativos',
+      content: 'Lista de alunos aceitos, com acesso ao chat e métricas.',
+    },
+    {
+      target: '[data-tour="coach-page"]',
+      title: 'Fim do tour',
+      content: 'Explore o resto da página livremente.',
+    },
+  ], []);
+
+  const studentsSteps = useMemo(() => [
+    {
+      target: '[data-tour="coach-pending"]',
+      title: 'Gerenciar solicitações',
+      content: 'Aceite ou recuse novos alunos diretamente aqui.',
+    },
+    {
+      target: '[data-tour="coach-accepted"]',
+      title: 'Gerenciar alunos',
+      content: 'Visualize status, abra chats e acompanhe métricas individuais.',
+    },
+  ], []);
     });
   };
 
@@ -615,9 +658,11 @@ const Coach = ({ user, tema = 'dark' }) => {
   };
 
   return (
-    <section className={`${theme.bg} min-h-screen transition-colors duration-300`}>
+    <section className={`${theme.bg} min-h-screen transition-colors duration-300`} data-tour="coach-page">
+        <TreinAITour tourId="coach-general" steps={generalSteps} />
+        {alunosData.length > 0 && <TreinAITour tourId="coach-students" steps={studentsSteps} />}
       {/* Header Modernizado */}
-      <motion.header
+      <motion.header data-tour="coach-header"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
@@ -718,8 +763,8 @@ const Coach = ({ user, tema = 'dark' }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
+<motion.div data-tour="coach-profile-card"
+                      initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
             className={`relative overflow-hidden rounded-2xl ${isDark ? 'bg-gradient-to-br from-gray-800 to-gray-900' : 'bg-gradient-to-br from-white to-gray-50'} border ${isDark ? 'border-gray-700' : 'border-gray-200'} shadow-xl`}
@@ -1117,8 +1162,8 @@ const Coach = ({ user, tema = 'dark' }) => {
 
           {/* Link de Convite com Animações */}
           {user && profissional && (String(user._id) === String(profissional?.userId) || String(user.userId) === String(profissional?.userId)) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
+<motion.div data-tour="coach-pending"
+                  initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
               className={`mt-6 relative overflow-hidden rounded-2xl ${isDark ? 'bg-gradient-to-br from-indigo-900/20 to-purple-900/20' : 'bg-gradient-to-br from-indigo-50 to-purple-50'} border ${isDark ? 'border-indigo-800/30' : 'border-indigo-200'} shadow-lg`}
@@ -1367,8 +1412,8 @@ const Coach = ({ user, tema = 'dark' }) => {
                   )}
 
                   {/* Heartbeat Chart - Online Status dos Alunos */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+<motion.div data-tour="coach-accepted"
+                initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.6 }}
                     className={`relative overflow-hidden rounded-2xl p-6 ${isDark ? 'bg-gradient-to-br from-purple-900/20 to-indigo-900/20' : 'bg-gradient-to-br from-purple-50 to-indigo-50'} border ${isDark ? 'border-purple-800/30' : 'border-purple-200'} shadow-lg`}
