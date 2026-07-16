@@ -27,6 +27,8 @@ const TreinAITour = ({
   zIndex = 9999,
   overlayColor = 'rgba(0, 0, 0, 0.75)',
   highlightPadding = 8,
+  autoStart = true,
+  forceStart = false,
   onComplete = () => {},
   onSkip = () => {},
 }) => {
@@ -47,6 +49,7 @@ const TreinAITour = ({
 
   // Abre o tour na primeira visita.
   useEffect(() => {
+    if (!autoStart) return undefined;
     const hasSeen = localStorage.getItem(storageKey);
     if (hasSeen || steps.length === 0) return undefined;
 
@@ -56,7 +59,15 @@ const TreinAITour = ({
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [storageKey, steps.length]);
+  }, [storageKey, steps.length, autoStart]);
+
+  // Força abertura do tour (usado para encadear tours via estado externo)
+  useEffect(() => {
+    if (!forceStart) return;
+    // Sempre abre se forceStart=true, ignorando localStorage
+    setIsOpen(true);
+    setCurrentStep(0);
+  }, [forceStart, steps.length]);
 
   // Mantém a interface responsiva mesmo quando o tour já foi visualizado anteriormente.
   useEffect(() => {

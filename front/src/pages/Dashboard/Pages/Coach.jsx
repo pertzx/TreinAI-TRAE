@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import TreinAITour from '../../../components/TreinAITour';
+import TreinAITour, { TourRestartButton } from '../../../components/TreinAITour';
 import { useNavigate } from 'react-router-dom';
 import { hasAccess } from '../../../utils/planAccess.js';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -521,7 +521,37 @@ const Coach = ({ user, tema = 'dark' }) => {
       title: 'Gerenciar alunos',
       content: 'Visualize status, abra chats e acompanhe métricas individuais.',
     },
-], []);
+  ], []);
+
+  // Mutex: only one tour active at a time. 'general' runs first, then 'students'.
+  const [activeTour, setActiveTour] = useState(null); // null | 'general' | 'students'
+  const generalTourSeen = typeof window !== 'undefined' && localStorage.getItem('treinai-tour-coach-general');
+  const studentsTourSeen = typeof window !== 'undefined' && localStorage.getItem('treinai-tour-coach-students');
+  const hasStudentsForTour = alunosData.length > 0 && !!profissional;
+
+  const handleGeneralTourEnd = useCallback(() => {
+    setActiveTour('done-general');
+    if (hasStudentsForTour && !studentsTourSeen) {
+      setTimeout(() => setActiveTour('students'), 400);
+    }
+  }, [hasStudentsForTour, studentsTourSeen]);
+
+  const handleStudentsTourEnd = useCallback(() => {
+    setActiveTour('done-students');
+  }, []);
+
+  // Auto-start logic: general tour first (if not seen), then students.
+  useEffect(() => {
+    if (!profissional) return;
+    if (!generalTourSeen) {
+      const t = setTimeout(() => setActiveTour('general'), 1000);
+      return () => clearTimeout(t);
+    }
+    if (!studentsTourSeen && hasStudentsForTour) {
+      const t = setTimeout(() => setActiveTour('students'), 1000);
+      return () => clearTimeout(t);
+    }
+  }, [profissional, generalTourSeen, studentsTourSeen, hasStudentsForTour]);
 
   const toggleExpanded = (userId) => {
     setExpandedMap(prev => {
@@ -659,8 +689,24 @@ const Coach = ({ user, tema = 'dark' }) => {
 
   return (
     <section className={`${theme.bg} min-h-screen transition-colors duration-300`} data-tour="coach-page">
-        <TreinAITour tourId="coach-general" steps={generalSteps} />
-        {alunosData.length > 0 && <TreinAITour tourId="coach-students" steps={studentsSteps} />}
+        <TreinAITour
+          tourId="coach-general"
+          steps={generalSteps}
+          autoStart={false}
+          forceStart={activeTour === 'general'}
+          onComplete={handleGeneralTourEnd}
+          onSkip={handleGeneralTourEnd}
+        />
+        {hasStudentsForTour && (
+          <TreinAITour
+            tourId="coach-students"
+            steps={studentsSteps}
+            autoStart={false}
+            forceStart={activeTour === 'students'}
+            onComplete={handleStudentsTourEnd}
+            onSkip={handleStudentsTourEnd}
+          />
+        )}
       {/* Header Modernizado */}
       <motion.header data-tour="coach-header"
         initial={{ opacity: 0, y: -20 }}
@@ -751,6 +797,10 @@ const Coach = ({ user, tema = 'dark' }) => {
                 <MdPersonAdd className="w-4 h-4" />
                 Atualizar Alunos
               </motion.button>
+
+              {/* Tour Restart Buttons */}
+              <TourRestartButton tourId="coach-general" label="Reiniciar Tour" />
+              {hasStudentsForTour && <TourRestartButton tourId="coach-students" label="Reiniciar Tour Alunos" />}
             </div>
           </div>
         </div>
